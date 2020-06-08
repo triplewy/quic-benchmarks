@@ -24,6 +24,18 @@ cloudfare_urls = [
     'https://cloudflare-quic.com/5MB.png',
 ]
 
+ms_urls = [
+    'https://quic.westus.cloudapp.azure.com/1MBfile.txt',
+    'https://quic.westus.cloudapp.azure.com/5000000.txt',
+    'https://quic.westus.cloudapp.azure.com/10000000.txt',
+]
+
+f5_urls = [
+    'https://f5quic.com:4433/50000',
+    'https://f5quic.com:4433/5000000',
+    'https://f5quic.com:4433/10000000',
+]
+
 
 def query(urls: list, client: str):
     for h in ['h2', 'h3']:
@@ -35,6 +47,9 @@ def query(urls: list, client: str):
             url_obj = urlparse(url)
             url_host = url_obj.netloc
             url_path = url_obj.path[1:]
+
+            if url_host == 'f5quic.com:4433' and h == 'h2':
+                continue
 
             for i in range(ITERATIONS):
                 print('{} - {} - Iteration: {}'.format(h, url, i))
@@ -53,14 +68,20 @@ def query(urls: list, client: str):
                     if h == 'h2':
                         continue
                     else:
+                        if url_host.count(':') > 0:
+                            [host, port] = url_host.split(':')
+                        else:
+                            host = url_host
+                            port = 443
+
                         subprocess.run(
                             [
                                 './hq',
                                 '--log_response=false',
                                 '--mode=client',
                                 '--draft_version=27',
-                                '--host={}'.format(url_host),
-                                '--port=443',
+                                '--host={}'.format(host),
+                                '--port={}'.format(port),
                                 '--path=/{}'.format(url_path),
                                 '--v=0',
                                 '>',
@@ -85,7 +106,7 @@ def query(urls: list, client: str):
 
 
 def main():
-    for urls in [cloudfare_urls]:
+    for urls in [f5_urls]:
         for client in ['hq']:
             query(urls, client)
 

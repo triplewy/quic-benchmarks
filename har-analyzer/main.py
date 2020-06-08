@@ -13,6 +13,35 @@ ISO_8601_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 # http://www.softwareishard.com/blog/har-12-spec/#timings
 
+fb_urls = [
+    'speedtest-0B',
+    'speedtest-1KB',
+    'speedtest-10KB',
+    'speedtest-100KB',
+    'speedtest-500KB',
+    'speedtest-1MB',
+    'speedtest-2MB',
+    'speedtest-5MB',
+    'speedtest-10MB',
+]
+
+cf_urls = [
+    '1MB.png',
+    '5MB.png'
+]
+
+ms_urls = [
+    '1MBfile.txt',
+    '5000000.txt',
+    '10000000.txt',
+]
+
+f5_urls = [
+    '50000',
+    '5000000',
+    '10000000',
+]
+
 
 def plot(title: str, page: str, entries: object):
     entries.sort(key=lambda x: x['startedDateTime'])
@@ -108,25 +137,62 @@ def plot(title: str, page: str, entries: object):
     plt.close(fig=fig)
 
 
-def plot_fb():
-    fb_urls = [
-        'speedtest-0B',
-        'speedtest-1KB',
-        'speedtest-10KB',
-        'speedtest-100KB',
-        'speedtest-500KB',
-        'speedtest-1MB',
-        'speedtest-2MB',
-        'speedtest-5MB',
-        'speedtest-10MB',
-    ]
+def populate_graph(host: str, urls: list):
+    xticks_pos = []
+    xtick_labels = []
 
-    cf_urls = [
-        '1MB.png',
-        '5MB.png'
-    ]
+    for i, client in enumerate(['chrome', 'firefox', 'curl', 'hq']):
+        har_dir = Path.joinpath(
+            Path.home(), 'quic-benchmarks', 'browser', 'har', client)
 
-    # Plot KB together
+        for j, url in enumerate(urls):
+            xticks_pos.append(j)
+            xtick_labels.append(url)
+
+            for k, h in enumerate(['h2', 'h3']):
+                filename = Path.joinpath(
+                    har_dir, h, host, "{}.json".format(url))
+
+                try:
+                    with open(filename) as f:
+                        data = json.load(f)
+                        total_mean = np.mean(data['total'])
+
+                        x = j + 0.16 * i + 0.08 * k
+                        if client == 'chrome':
+                            if h == 'h2':
+                                color = 'r'
+                            else:
+                                color = 'c'
+                        elif client == 'firefox':
+                            if h == 'h2':
+                                color = '#ffa500'
+                            else:
+                                color = 'b'
+                        elif client == 'curl':
+                            if h == 'h2':
+                                color = 'm'
+                            else:
+                                color = 'y'
+                        elif client == 'hq':
+                            if h == 'h2':
+                                continue
+                            else:
+                                x -= 0.08
+                                color = 'g'
+
+                        plt.vlines(x, 0, total_mean, color, lw=10)
+                except:
+                    pass
+
+    return xticks_pos, xtick_labels
+
+
+def main():
+    graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
+    Path(graph_dir).mkdir(parents=True, exist_ok=True)
+
+    # Plot FB KB together
     fig = plt.figure(figsize=(12, 6))
     plt.title('Facebook')
     plt.legend(handles=[
@@ -145,8 +211,6 @@ def plot_fb():
         'scontent.xx.fbcdn.net', fb_urls[:5])
     plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
-    graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
-    Path(graph_dir).mkdir(parents=True, exist_ok=True)
     plt.show()
     fig.savefig(Path.joinpath(graph_dir, 'FB-{}'.format('KB')), dpi=fig.dpi)
     plt.close(fig=fig)
@@ -170,9 +234,6 @@ def plot_fb():
         'scontent.xx.fbcdn.net', fb_urls[5:])
     plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
-    graph_dir = Path.joinpath(
-        Path.home(), 'quic-benchmarks', 'graphs')
-    Path(graph_dir).mkdir(parents=True, exist_ok=True)
     plt.show()
     fig.savefig(Path.joinpath(
         graph_dir, 'FB-{}'.format('MB')), dpi=fig.dpi)
@@ -197,63 +258,55 @@ def plot_fb():
         'cloudflare-quic.com', cf_urls)
     plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
-    graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
-    Path(graph_dir).mkdir(parents=True, exist_ok=True)
     plt.show()
     fig.savefig(Path.joinpath(graph_dir, 'CF'), dpi=fig.dpi)
     plt.close(fig=fig)
 
+    # Plot microsoft
+    fig = plt.figure(figsize=(6, 6))
+    plt.title('Microsoft')
+    plt.legend(handles=[
+        mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='cyan', label='Chrome H3'),
+        mpatches.Patch(color='orange', label='Firefox H2'),
+        mpatches.Patch(color='blue', label='Firefox H3'),
+        mpatches.Patch(color='magenta', label='Curl H2'),
+        mpatches.Patch(color='yellow', label='Curl H3'),
+        mpatches.Patch(color='green', label='Proxygen H3'),
+    ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
+    plt.ylabel('Time (ms)')
+    plt.ylim(1, 20000)
 
-def populate_graph(host: str, urls: list):
-    xticks_pos = []
-    xtick_labels = []
+    xtick_pos, xtick_labels = populate_graph(
+        'quic.westus.cloudapp.azure.com', ms_urls)
+    plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
-    for i, client in enumerate(['chrome', 'firefox', 'curl', 'hq']):
-        har_dir = Path.joinpath(
-            Path.home(), 'quic-benchmarks', 'browser', 'har', client)
+    plt.show()
+    fig.savefig(Path.joinpath(graph_dir, 'MS'), dpi=fig.dpi)
+    plt.close(fig=fig)
 
-        for j, url in enumerate(urls):
-            xticks_pos.append(j)
-            xtick_labels.append(url)
+    # Plot f5
+    fig = plt.figure(figsize=(6, 6))
+    plt.title('F5')
+    plt.legend(handles=[
+        mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='cyan', label='Chrome H3'),
+        mpatches.Patch(color='orange', label='Firefox H2'),
+        mpatches.Patch(color='blue', label='Firefox H3'),
+        mpatches.Patch(color='magenta', label='Curl H2'),
+        mpatches.Patch(color='yellow', label='Curl H3'),
+        mpatches.Patch(color='green', label='Proxygen H3'),
+    ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
+    plt.ylabel('Time (ms)')
+    plt.ylim(1, 25000)
 
-            for k, h in enumerate(['h2', 'h3']):
-                filename = Path.joinpath(
-                    har_dir, h, host, "{}.json".format(url))
+    xtick_pos, xtick_labels = populate_graph(
+        'f5quic.com:4433', f5_urls)
+    plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
-                with open(filename) as f:
-                    data = json.load(f)
-                    total_mean = np.mean(data['total'])
-
-                    x = j + 0.16 * i + 0.08 * k
-                    if client == 'chrome':
-                        if h == 'h2':
-                            color = 'r'
-                        else:
-                            color = 'c'
-                    elif client == 'firefox':
-                        if h == 'h2':
-                            color = '#ffa500'
-                        else:
-                            color = 'b'
-                    elif client == 'curl':
-                        if h == 'h2':
-                            color = 'm'
-                        else:
-                            color = 'y'
-                    elif client == 'hq':
-                        if h == 'h2':
-                            continue
-                        else:
-                            x -= 0.08
-                            color = 'g'
-
-                    plt.vlines(x, 0, total_mean, color, lw=10)
-
-    return xticks_pos, xtick_labels
-
-
-def main():
-    plot_fb()
+    plt.show()
+    fig.savefig(Path.joinpath(graph_dir, 'F5'), dpi=fig.dpi)
+    plt.close(fig=fig)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,12 @@ cf_urls = [
     'https://cloudflare-quic.com/5MB.png',
 ]
 
+ms_urls = [
+    'https://quic.westus.cloudapp.azure.com/1MBfile.txt',
+    'https://quic.westus.cloudapp.azure.com/5000000.txt',
+    'https://quic.westus.cloudapp.azure.com/10000000.txt',
+]
+
 h2_profile = webdriver.FirefoxProfile()
 h2_profile.set_preference('browser.cache.disk.enable', False)
 h2_profile.set_preference('browser.cache.memory.enable', False)
@@ -53,6 +59,71 @@ firefox_options = FirefoxOptions()
 firefox_options.add_argument('-devtools')
 
 
+def query_file(driver, url: str, force_quic: bool):
+    timings = {
+        'total': [],
+    }
+
+    url_obj = urlparse(url)
+    driver.get('https://{}'.format(url_obj.netloc))
+
+    for i in range(ITERATIONS):
+        print('{} - ITERATION: {}'.format(url, i))
+        time.sleep(1)
+        for i in range(RETRIES):
+            try:
+                if i >= 1:
+                    print('retrying')
+                start = time.time()
+                result = driver.execute_script("""
+                async function triggerExport(url) {
+                    const res = await fetch(url);
+                    console.log(res)
+                    const text = await res.text();
+                    return text;
+                };
+                return triggerExport(arguments[0]);""", url)
+                print('len(result): {}'.format(len(result)))
+                elapsed = (time.time() - start) * 1000
+                break
+            except:
+                if i == RETRIES - 1:
+                    raise "Failed"
+
+        timings['total'].append(elapsed)
+
+    if force_quic:
+        har_dir = Path.joinpath(
+            Path.home(),
+            'quic-benchmarks',
+            'browser',
+            'har',
+            'firefox',
+            'h3',
+            url_obj.netloc
+        )
+    else:
+        har_dir = Path.joinpath(
+            Path.home(),
+            'quic-benchmarks',
+            'browser',
+            'har',
+            'firefox',
+            'h2',
+            url_obj.netloc
+        )
+
+    Path(har_dir).mkdir(parents=True, exist_ok=True)
+
+    har_path = Path.joinpath(
+        har_dir,
+        "{}.json".format(url_obj.path[1:])
+    )
+
+    with open(har_path, 'w') as har_file:
+        json.dump(timings, har_file)
+
+
 def query(driver, url: str, force_quic: bool):
     timings = {
         'total': [],
@@ -76,7 +147,6 @@ def query(driver, url: str, force_quic: bool):
                 driver.get(url)
                 har = driver.execute_script("""
                 async function triggerExport() {
-                    console.log('here')
                     const result = await HAR.triggerExport();
                     return result;
                 };
@@ -138,18 +208,24 @@ def query(driver, url: str, force_quic: bool):
 
 # Test Firefox H2
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options) as driver:
-    for url in fb_urls:
-        # Test H2
-        query(driver, url, False)
+    for url in ms_urls:
+        query_file(driver, url, False)
 
-    for url in cf_urls:
-        query(driver, url, False)
+    # for url in fb_urls:
+    #     # Test H2
+    #     query(driver, url, False)
+
+    # for url in cf_urls:
+    #     query(driver, url, False)
 
 # Test Firefox H3
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:
-    for url in fb_urls:
-        # Test H3
-        query(driver, url, True)
+    for url in ms_urls:
+        query_file(driver, url, True)
 
-    for url in cf_urls:
-        query(driver, url, True)
+    # for url in fb_urls:
+    #     # Test H3
+    #     query(driver, url, True)
+
+    # for url in cf_urls:
+    #     query(driver, url, True)
