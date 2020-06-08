@@ -34,7 +34,7 @@ def query(urls: list, client: str):
 
             url_obj = urlparse(url)
             url_host = url_obj.netloc
-            url_path = url_obj.path[1:].split('.')[0]
+            url_path = url_obj.path[1:]
 
             for i in range(ITERATIONS):
                 print('{} - {} - Iteration: {}'.format(h, url, i))
@@ -63,7 +63,7 @@ def query(urls: list, client: str):
                                 '--port=443',
                                 '--path=/{}'.format(url_path),
                                 '--v=0',
-                                '>', 
+                                '>',
                                 '/dev/null'
                             ],
                         )
@@ -85,7 +85,7 @@ def query(urls: list, client: str):
 
 
 def main():
-    for urls in [fb_urls, cloudfare_urls]:
+    for urls in [cloudfare_urls]:
         for client in ['hq']:
             query(urls, client)
 

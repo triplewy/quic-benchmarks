@@ -3,11 +3,12 @@ import time
 
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from pathlib import Path
 from urllib.parse import urlparse
 
 ITERATIONS = 10
+RETRIES = 5
 
 fb_urls = [
     'https://scontent.xx.fbcdn.net/speedtest-0B',
@@ -19,6 +20,11 @@ fb_urls = [
     'https://scontent.xx.fbcdn.net/speedtest-2MB',
     'https://scontent.xx.fbcdn.net/speedtest-5MB',
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
+]
+
+cf_urls = [
+    'https://cloudflare-quic.com/1MB.png',
+    'https://cloudflare-quic.com/5MB.png',
 ]
 
 h2_profile = webdriver.FirefoxProfile()
@@ -43,8 +49,8 @@ h3_profile.add_extension(
 binary = FirefoxBinary(
     firefox_path='/Applications/Firefox Nightly.app/Contents/MacOS/firefox')
 
-options = Options()
-options.add_argument('-devtools')
+firefox_options = FirefoxOptions()
+firefox_options.add_argument('-devtools')
 
 
 def query(driver, url: str, force_quic: bool):
@@ -63,7 +69,7 @@ def query(driver, url: str, force_quic: bool):
     for i in range(ITERATIONS):
         print('{} - ITERATION: {}'.format(url, i))
         time.sleep(1)
-        for i in range(3):
+        for i in range(RETRIES):
             try:
                 if i >= 1:
                     print('retrying')
@@ -77,7 +83,7 @@ def query(driver, url: str, force_quic: bool):
                 return triggerExport();""")
                 break
             except:
-                if i == 2:
+                if i == RETRIES - 1:
                     raise "Failed"
 
         entries = har['entries']
@@ -130,14 +136,20 @@ def query(driver, url: str, force_quic: bool):
             json.dump(timings, har_file)
 
 
-# Test H2
-with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=options) as driver:
+# Test Firefox H2
+with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options) as driver:
     for url in fb_urls:
-        # Test H3
+        # Test H2
         query(driver, url, False)
 
-# Test H3
-with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=options) as driver:
+    for url in cf_urls:
+        query(driver, url, False)
+
+# Test Firefox H3
+with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:
     for url in fb_urls:
         # Test H3
+        query(driver, url, True)
+
+    for url in cf_urls:
         query(driver, url, True)

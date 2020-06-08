@@ -7,12 +7,29 @@ const puppeteer = require('puppeteer-core');
 const PuppeteerHar = require('puppeteer-har');
 const webdriver = require('selenium-webdriver');
 const firefox = require('selenium-webdriver/firefox');
+const { harFromMessages } = require('chrome-har');
+
 
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
 const ITERATIONS = 10;
+
+// event types to observe
+const observe = [
+    'Page.loadEventFired',
+    'Page.domContentEventFired',
+    'Page.frameStartedLoading',
+    'Page.frameAttached',
+    'Network.requestWillBeSent',
+    'Network.requestServedFromCache',
+    'Network.dataReceived',
+    'Network.responseReceived',
+    'Network.resourceChangedPriority',
+    'Network.loadingFinished',
+    'Network.loadingFailed',
+];
 
 const chromeArgs = (urlString, forceQuic) => {
     const args = [
@@ -34,16 +51,6 @@ const chromeArgs = (urlString, forceQuic) => {
     return args;
 };
 
-const firefoxOptions = (forceQuic) => {
-    const options = new firefox.Options()
-        .addArguments('--devtools')
-        .setBinary('/Applications/Firefox Nightly.app/Contents/MacOS/firefox')
-        .setProfile('/Users/alexyu/Library/Application Support/Firefox/Profiles/3w5xom8x.default-nightly')
-        .addExtensions('/Users/alexyu/Library/Application Support/Firefox/Profiles/3w5xom8x.default-nightly/extensions/harexporttrigger@getfirebug.com.xpi');
-
-    return options;
-};
-
 const runChrome = async (browser, urlString, forceQuic) => {
     const timings = {
         total: [],
@@ -62,9 +69,20 @@ const runChrome = async (browser, urlString, forceQuic) => {
         console.log(`${urlString} Iteration: ${i}`);
 
         const page = await browser.newPage();
-        const har = new PuppeteerHar(page);
 
-        await har.start();
+        // list of events for converting to HAR
+        const events = [];
+
+        // register events listeners
+        const client = await page.target().createCDPSession();
+        await client.send('Page.enable');
+        await client.send('Network.enable');
+        observe.forEach((method) => {
+            client.on(method, (params) => {
+                events.push({ method, params });
+            });
+        });
+
         try {
             await page.goto(urlString, {
                 timeout: 120000,
@@ -73,8 +91,10 @@ const runChrome = async (browser, urlString, forceQuic) => {
             console.error(error);
         }
 
-        const harResult = await har.stop();
-        const { entries } = harResult.log;
+        // convert events to HAR file
+        const har = harFromMessages(events);
+        const { entries } = har.log;
+
         const result = entries.filter((entry) => entry.request.url === urlString);
 
         if (result.length !== 1) {
@@ -106,111 +126,69 @@ const runChrome = async (browser, urlString, forceQuic) => {
     );
 };
 
-const runFirefox = async (driver, urlString, forceQuic) => {
-    const timings = {
-        total: [],
-        blocked: [],
-        dns: [],
-        connect: [],
-        send: [],
-        wait: [],
-        receive: [],
-        ssl: [],
-        _queued: [],
-    };
+const fbUrls = [
+    'https://scontent.xx.fbcdn.net/speedtest-0B',
+    'https://scontent.xx.fbcdn.net/speedtest-1KB',
+    'https://scontent.xx.fbcdn.net/speedtest-10KB',
+    'https://scontent.xx.fbcdn.net/speedtest-100KB',
+    'https://scontent.xx.fbcdn.net/speedtest-500KB',
+    'https://scontent.xx.fbcdn.net/speedtest-1MB',
+    'https://scontent.xx.fbcdn.net/speedtest-2MB',
+    'https://scontent.xx.fbcdn.net/speedtest-5MB',
+    'https://scontent.xx.fbcdn.net/speedtest-10MB',
+];
 
-    // Repeat test ITERATIONS times
-    for (let i = 0; i < ITERATIONS; i += 1) {
-        await driver.get(urlString);
-        await driver.executeScript(async () => {
-            console.log('here');
-            const har = await HAR.exportTrigger();
-            console.log(har);
-        });
-    }
-};
+const cloudfareUrls = [
+    'https://cloudflare-quic.com/1MB.png',
+    'https://cloudflare-quic.com/5MB.png',
+];
+
+const microsoftUrls = [
+    'https://quic.westus.cloudapp.azure.com/1MBfile.txt',
+    'https://quic.westus.cloudapp.azure.com/5000000.txt',
+    'https://quic.westus.cloudapp.azure.com/10000000.txt',
+];
 
 (async () => {
-    const fbUrls = [
-        'https://scontent.xx.fbcdn.net/speedtest-0B',
-        'https://scontent.xx.fbcdn.net/speedtest-1KB',
-        'https://scontent.xx.fbcdn.net/speedtest-10KB',
-        'https://scontent.xx.fbcdn.net/speedtest-100KB',
-        'https://scontent.xx.fbcdn.net/speedtest-500KB',
-        'https://scontent.xx.fbcdn.net/speedtest-1MB',
-        'https://scontent.xx.fbcdn.net/speedtest-2MB',
-        'https://scontent.xx.fbcdn.net/speedtest-5MB',
-        'https://scontent.xx.fbcdn.net/speedtest-10MB',
-    ];
-
-    const cloudfareUrls = [
-        'https://cloudflare-quic.com/1MB.png',
-        'https://cloudflare-quic.com/5MB.png',
-    ];
-
-    // // Test H2 - Chrome
-    // let args = chromeArgs('', false);
-    // let chromeBrowser = await puppeteer.launch({
-    //     headless: false,
-    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    //     args,
-    // });
-    // console.log('Chrome: benchmarking H2');
+    // Test H2 - Chrome
+    let args = chromeArgs('', false);
+    let chromeBrowser = await puppeteer.launch({
+        headless: false,
+        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        args,
+    });
+    console.log('Chrome: benchmarking H2');
+    for (const urlString of microsoftUrls) {
+        await runChrome(chromeBrowser, urlString, false);
+    }
     // for (const urlString of fbUrls) {
     //     await runChrome(chromeBrowser, urlString, false);
     // }
     // for (const urlString of cloudfareUrls) {
     //     await runChrome(chromeBrowser, urlString, false);
     // }
-    // await chromeBrowser.close();
+    await chromeBrowser.close();
 
-    // // Test H3 - Chrome
-    // console.log('Chrome: benchmarking H3');
-    // args = chromeArgs(fbUrls[0], true);
-    // chromeBrowser = await puppeteer.launch({
-    //     headless: false,
-    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    //     args,
-    // });
-    // for (const urlString of fbUrls) {
-    //     await runChrome(chromeBrowser, urlString, true);
-    // }
-    // await chromeBrowser.close();
-    // args = chromeArgs(cloudfareUrls[0], true);
-    // chromeBrowser = await puppeteer.launch({
-    //     headless: false,
-    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    //     args,
-    // });
-    // for (const urlString of cloudfareUrls) {
-    //     await runChrome(chromeBrowser, urlString, true);
-    // }
-    // await chromeBrowser.close();
-
-    // Test H2 - Firefox
-    console.log('Firefox: benchmarking H2');
-    let options = firefoxOptions(false);
-
-    let firefoxBrowser = await new webdriver.Builder()
-        .forBrowser('firefox')
-        .setFirefoxOptions(options)
-        .build();
-
+    // Test H3 - Chrome
+    console.log('Chrome: benchmarking H3');
+    args = chromeArgs(fbUrls[0], true);
+    chromeBrowser = await puppeteer.launch({
+        headless: false,
+        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        args,
+    });
     for (const urlString of fbUrls) {
-        await runFirefox(firefoxBrowser, urlString, false);
+        await runChrome(chromeBrowser, urlString, true);
     }
-    await firefoxBrowser.quit();
-
-    // Test H3 - Firefox
-    console.log('Firefox: benchmarking H3');
-    options = firefoxOptions(true);
-    profile = cap.get('moz:profile');
-
-    firefoxBrowser = await new webdriver.Builder().forBrowser('firefox')
-        .setFirefoxOptions(options).build();
-    cap = await firefoxBrowser.getCapabilities();
-    for (const urlString of fbUrls) {
-        await runFirefox(firefoxBrowser, urlString, false);
+    await chromeBrowser.close();
+    args = chromeArgs(cloudfareUrls[0], true);
+    chromeBrowser = await puppeteer.launch({
+        headless: false,
+        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        args,
+    });
+    for (const urlString of cloudfareUrls) {
+        await runChrome(chromeBrowser, urlString, true);
     }
-    await firefoxBrowser.close();
+    await chromeBrowser.close();
 })();

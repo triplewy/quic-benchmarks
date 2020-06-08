@@ -121,6 +121,11 @@ def plot_fb():
         'speedtest-10MB',
     ]
 
+    cf_urls = [
+        '1MB.png',
+        '5MB.png'
+    ]
+
     # Plot KB together
     fig = plt.figure(figsize=(12, 6))
     plt.title('Facebook')
@@ -134,10 +139,10 @@ def plot_fb():
         mpatches.Patch(color='green', label='Proxygen H3'),
     ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
     plt.ylabel('Time (ms)')
-    # plt.yscale('log')
     plt.ylim(1, 500)
 
-    xtick_pos, xtick_labels = populate_fb_graph(fb_urls[:5])
+    xtick_pos, xtick_labels = populate_graph(
+        'scontent.xx.fbcdn.net', fb_urls[:5])
     plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
     graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
@@ -147,7 +152,7 @@ def plot_fb():
     plt.close(fig=fig)
 
     # Plot MB together
-    fig = plt.figure(figsize=(12, 6))
+    fig = plt.figure(figsize=(10, 6))
     plt.title('Facebook')
     plt.legend(handles=[
         mpatches.Patch(color='red', label='Chrome H2'),
@@ -159,10 +164,10 @@ def plot_fb():
         mpatches.Patch(color='green', label='Proxygen H3'),
     ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
     plt.ylabel('Time (ms)')
-    # plt.yscale('log')
     plt.ylim(1, 60000)
 
-    xtick_pos, xtick_labels = populate_fb_graph(fb_urls[5:])
+    xtick_pos, xtick_labels = populate_graph(
+        'scontent.xx.fbcdn.net', fb_urls[5:])
     plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
     graph_dir = Path.joinpath(
@@ -173,10 +178,33 @@ def plot_fb():
         graph_dir, 'FB-{}'.format('MB')), dpi=fig.dpi)
     plt.close(fig=fig)
 
+    # Plot cloudflare
+    fig = plt.figure(figsize=(4, 6))
+    plt.title('Cloudflare')
+    plt.legend(handles=[
+        mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='cyan', label='Chrome H3'),
+        mpatches.Patch(color='orange', label='Firefox H2'),
+        mpatches.Patch(color='blue', label='Firefox H3'),
+        mpatches.Patch(color='magenta', label='Curl H2'),
+        mpatches.Patch(color='yellow', label='Curl H3'),
+        mpatches.Patch(color='green', label='Proxygen H3'),
+    ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
+    plt.ylabel('Time (ms)')
+    plt.ylim(1, 5000)
 
-def populate_fb_graph(urls: list):
-    fb_host = 'scontent.xx.fbcdn.net'
+    xtick_pos, xtick_labels = populate_graph(
+        'cloudflare-quic.com', cf_urls)
+    plt.xticks(xtick_pos, xtick_labels, rotation=10)
 
+    graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
+    Path(graph_dir).mkdir(parents=True, exist_ok=True)
+    plt.show()
+    fig.savefig(Path.joinpath(graph_dir, 'CF'), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+
+def populate_graph(host: str, urls: list):
     xticks_pos = []
     xtick_labels = []
 
@@ -190,15 +218,11 @@ def populate_fb_graph(urls: list):
 
             for k, h in enumerate(['h2', 'h3']):
                 filename = Path.joinpath(
-                    har_dir, h, fb_host, "{}.json".format(url))
+                    har_dir, h, host, "{}.json".format(url))
 
                 with open(filename) as f:
                     data = json.load(f)
-
                     total_mean = np.mean(data['total'])
-                    # send_mean = np.mean(data['send'])
-                    # wait_mean = np.mean(data['wait'])
-                    # receive_mean = np.mean(data['receive'])
 
                     x = j + 0.16 * i + 0.08 * k
                     if client == 'chrome':
@@ -225,21 +249,6 @@ def populate_fb_graph(urls: list):
 
                     plt.vlines(x, 0, total_mean, color, lw=10)
 
-                    # plt.text(i, total_mean + 10,
-                    #          '{:,} ms'.format(int(round(total_mean))), rotation=30)
-                    # plt.errorbar(i, total_mean, np.std(data['total']), ecolor='k')
-
-                    # plt.vlines(i + 0.1, 0, send_mean, 'g', lw=8)
-                    # plt.errorbar(i + 0.1, send_mean,
-                    #              np.std(data['send']), ecolor='k')
-
-                    # plt.vlines(i + 0.1, 0, wait_mean, 'y', lw=8)
-                    # plt.errorbar(i + 0.1, wait_mean, np.std(
-                    #     data['wait']), ecolor='k')
-
-                    # plt.vlines(i + 0.2, 0, receive_mean, 'c', lw=8)
-                    # plt.errorbar(i + 0.2, receive_mean, np.std(
-                    #     data['receive']), ecolor='k')
     return xticks_pos, xtick_labels
 
 

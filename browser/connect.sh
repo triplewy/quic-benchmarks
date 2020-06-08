@@ -6,5 +6,5 @@
 --quic-version=h3-27 \
 --disk-cache-dir=/dev/null \
 --disk-cache-size=1 \
---origin-to-force-quic-on=cloudflare-quic.com:443 \
-https://cloudflare-quic.com/5MB.png
+--origin-to-force-quic-on=f5quic.com:4433 \
+https://f5quic.com:4433/10000000
