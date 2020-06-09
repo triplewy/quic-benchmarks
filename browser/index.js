@@ -102,14 +102,12 @@ const runChrome = async (browser, urlString, forceQuic) => {
         const har = await new PuppeteerHar(page);
 
         await har.start();
-        try {
-            await page.goto(urlString, {
-                timeout: 120000,
-            });
-        } catch (error) {
-            error.contains('net::ERR_ABORTED');
-            console.error(error);
-        }
+        const loadPage = page.goto(urlString, {
+            timeout: 120000,
+        });
+        const idlePage = await browser.newPage();
+        await idlePage.bringToFront();
+        await loadPage;
 
         const harResult = await har.stop();
         const { entries } = harResult.log;
@@ -128,6 +126,7 @@ const runChrome = async (browser, urlString, forceQuic) => {
         });
 
         await page.close();
+        await idlePage.close();
     }
 
     const urlObject = url.parse(urlString);
@@ -182,6 +181,7 @@ const f5Urls = [
         headless: false,
         executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
         args,
+        devtools: true,
     });
     console.log('Chrome: benchmarking H2');
     // for (const urlString of microsoftUrls) {
@@ -196,18 +196,18 @@ const f5Urls = [
 
     await chromeBrowser.close();
 
-    // // Test H3 - Chrome
-    // console.log('Chrome: benchmarking H3');
-    // args = chromeArgs(fbUrls[0], true);
-    // chromeBrowser = await puppeteer.launch({
-    //     headless: false,
-    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    //     args,
-    // });
-    // for (const urlString of fbUrls) {
-    //     await runChrome(chromeBrowser, urlString, true);
-    // }
-    // await chromeBrowser.close();
+    // Test H3 - Chrome
+    console.log('Chrome: benchmarking H3');
+    args = chromeArgs(fbUrls[0], true);
+    chromeBrowser = await puppeteer.launch({
+        headless: false,
+        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        args,
+    });
+    for (const urlString of fbUrls) {
+        await runChrome(chromeBrowser, urlString, true);
+    }
+    await chromeBrowser.close();
 
     // // H3 - Cloudflare
     // args = chromeArgs(cloudfareUrls[0], true);
@@ -233,15 +233,15 @@ const f5Urls = [
     // }
     // await chromeBrowser.close();
 
-    // H3 - F5
-    args = chromeArgs(f5Urls[0], true);
-    chromeBrowser = await puppeteer.launch({
-        headless: false,
-        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-        args,
-    });
-    for (const urlString of f5Urls) {
-        await queryFile(chromeBrowser, urlString, true);
-    }
-    await chromeBrowser.close();
+    // // H3 - F5
+    // args = chromeArgs(f5Urls[0], true);
+    // chromeBrowser = await puppeteer.launch({
+    //     headless: false,
+    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    //     args,
+    // });
+    // for (const urlString of f5Urls) {
+    //     await queryFile(chromeBrowser, urlString, true);
+    // }
+    // await chromeBrowser.close();
 })();

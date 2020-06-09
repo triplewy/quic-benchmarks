@@ -228,7 +228,7 @@ def main():
         mpatches.Patch(color='green', label='Proxygen H3'),
     ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
     plt.ylabel('Time (ms)')
-    plt.ylim(1, 60000)
+    plt.ylim(1, 10000)
 
     xtick_pos, xtick_labels = populate_graph(
         'scontent.xx.fbcdn.net', fb_urls[5:])
