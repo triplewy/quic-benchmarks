@@ -1,5 +1,6 @@
 import json
 import time
+import sys
 
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
@@ -7,18 +8,18 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 10
-RETRIES = 5
+ITERATIONS = 1
+RETRIES = 1
 
 fb_urls = [
     'https://scontent.xx.fbcdn.net/speedtest-0B',
-    'https://scontent.xx.fbcdn.net/speedtest-1KB',
-    'https://scontent.xx.fbcdn.net/speedtest-10KB',
-    'https://scontent.xx.fbcdn.net/speedtest-100KB',
-    'https://scontent.xx.fbcdn.net/speedtest-500KB',
-    'https://scontent.xx.fbcdn.net/speedtest-1MB',
-    'https://scontent.xx.fbcdn.net/speedtest-2MB',
-    'https://scontent.xx.fbcdn.net/speedtest-5MB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-1KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-10KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-100KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-500KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-1MB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-2MB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-5MB',
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
 ]
 
@@ -38,6 +39,7 @@ h2_profile.set_preference('browser.cache.disk.enable', False)
 h2_profile.set_preference('browser.cache.memory.enable', False)
 h2_profile.set_preference('browser.cache.offline.enable', False)
 h2_profile.set_preference('network.http.use-cache', False)
+h2_profile.set_preference('network.http.http3.enabled', False)
 h2_profile.set_preference('devtools.toolbox.selectedTool', 'netmonitor')
 h2_profile.add_extension(
     '/Users/alexyu/Library/Application Support/Firefox/Profiles/3w5xom8x.default-nightly/extensions/harexporttrigger@getfirebug.com.xpi')
@@ -124,7 +126,7 @@ def query_file(driver, url: str, force_quic: bool):
         json.dump(timings, har_file)
 
 
-def query(driver, url: str, force_quic: bool):
+def query(driver, url: str, force_quic: bool, loss: int):
     timings = {
         'total': [],
         'blocked': [],
@@ -136,6 +138,46 @@ def query(driver, url: str, force_quic: bool):
         'ssl': [],
         '_queued': [],
     }
+
+    url_result = urlparse(url)
+
+    if force_quic:
+        har_dir = Path.joinpath(
+            Path.home(),
+            'quic-benchmarks',
+            'browser',
+            'har',
+            'loss_{}'.format(loss),
+            'firefox',
+            'h3',
+            url_result.netloc
+        )
+    else:
+        har_dir = Path.joinpath(
+            Path.home(),
+            'quic-benchmarks',
+            'browser',
+            'har',
+            'loss_{}'.format(loss),
+            'firefox',
+            'h2',
+            url_result.netloc
+        )
+
+    Path(har_dir).mkdir(parents=True, exist_ok=True)
+
+    har_path = Path.joinpath(
+        har_dir,
+        "{}.json".format(url_result.path[1:])
+    )
+
+    driver.set_page_load_timeout(300)
+
+    try:
+        with open(har_path, 'r') as har_file:
+            timings = json.load(har_file)
+    except:
+        pass
 
     for i in range(ITERATIONS):
         print('{} - ITERATION: {}'.format(url, i))
@@ -172,60 +214,32 @@ def query(driver, url: str, force_quic: bool):
                 continue
             timings[k].append(v)
 
-        url_result = urlparse(url)
-
-        if force_quic:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'firefox',
-                'h3',
-                url_result.netloc
-            )
-        else:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'firefox',
-                'h2',
-                url_result.netloc
-            )
-
-        Path(har_dir).mkdir(parents=True, exist_ok=True)
-
-        har_path = Path.joinpath(
-            har_dir,
-            "{}.json".format(url_result.path[1:])
-        )
-
         with open(har_path, 'w') as har_file:
             json.dump(timings, har_file)
 
 
-# Test Firefox H2
-with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options) as driver:
-    for url in ms_urls:
-        query_file(driver, url, False)
+loss = int(sys.argv[1])
 
-    # for url in fb_urls:
-    #     # Test H2
-    #     query(driver, url, False)
+# # Test Firefox H2
+# with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options) as driver:
+#     # for url in ms_urls:
+#     #     query_file(driver, url, False)
 
-    # for url in cf_urls:
-    #     query(driver, url, False)
+#     for url in fb_urls:
+#         # Test H2
+#         query(driver, url, False, loss)
+
+#     # for url in cf_urls:
+#     #     query(driver, url, False)
 
 # Test Firefox H3
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:
-    for url in ms_urls:
-        query_file(driver, url, True)
+    # for url in ms_urls:
+    #     query_file(driver, url, True)
 
-    # for url in fb_urls:
-    #     # Test H3
-    #     query(driver, url, True)
+    for url in fb_urls:
+        # Test H3
+        query(driver, url, True, loss)
 
     # for url in cf_urls:
     #     query(driver, url, True)

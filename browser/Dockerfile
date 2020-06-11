@@ -17,4 +17,4 @@ COPY client.py .
 
 RUN mkdir /tmp/logs
 
-ENTRYPOINT [ "python3", "client.py" ]
+# ENTRYPOINT [ "python3", "client.py", "hq", "1" ]

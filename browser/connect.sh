@@ -7,5 +7,7 @@
 --disk-cache-dir=/dev/null \
 --disk-cache-size=1 \
 --aggressive-cache-discard \
---origin-to-force-quic-on=f5quic.com:4433 \
-https://f5quic.com:4433/50000
+--auto-open-devtools-for-tabs \
+--ssl-key-log-file=/Users/alexyu/wireshark/sslkeylog.log \
+--origin-to-force-quic-on=scontent.xx.fbcdn.net:443 \
+https://scontent.xx.fbcdn.net/speedtest-10MB
