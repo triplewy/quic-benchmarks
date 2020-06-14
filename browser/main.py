@@ -34,6 +34,10 @@ ms_urls = [
     'https://quic.westus.cloudapp.azure.com/10000000.txt',
 ]
 
+aio_urls = [
+    'https://quic.aiortc.org/10485760'  # 10MB
+]
+
 h2_profile = webdriver.FirefoxProfile()
 h2_profile.set_preference('browser.cache.disk.enable', False)
 h2_profile.set_preference('browser.cache.memory.enable', False)
@@ -50,6 +54,7 @@ h3_profile.set_preference('browser.cache.memory.enable', False)
 h3_profile.set_preference('browser.cache.offline.enable', False)
 h3_profile.set_preference('network.http.use-cache', False)
 h3_profile.set_preference('network.http.http3.enabled', True)
+h3_profile.set_preference('network.http.http3.support_draft28', True)
 h3_profile.set_preference('devtools.toolbox.selectedTool', 'netmonitor')
 h3_profile.add_extension(
     '/Users/alexyu/Library/Application Support/Firefox/Profiles/3w5xom8x.default-nightly/extensions/harexporttrigger@getfirebug.com.xpi')
@@ -237,9 +242,13 @@ with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, option
     # for url in ms_urls:
     #     query_file(driver, url, True)
 
-    for url in fb_urls:
-        # Test H3
+    # for url in fb_urls:
+    #     query(driver, url, True, loss)
+
+    for url in cf_urls:
         query(driver, url, True, loss)
 
-    # for url in cf_urls:
-    #     query(driver, url, True)
+    # for url in aio_urls:
+    #     query(driver, url, True, loss)
+
+    time.sleep(600)
