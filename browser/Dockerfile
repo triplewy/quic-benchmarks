@@ -1,13 +1,15 @@
-FROM debian:buster
+FROM ubuntu:bionic
 
-RUN apt-get update
-RUN apt-get --yes --fix-missing update
+RUN apt-get update && apt-get install -y software-properties-common
+RUN add-apt-repository ppa:mhier/libboost-latest
 
 # Get and build proxygen with HTTP/3 support
-RUN apt-get install --yes wget net-tools iputils-ping tcpdump ethtool iperf python3
+RUN apt-get install --yes libboost1.67-dev python3 
 
 # Copy HQ
 COPY hq .
+COPY proxygen_curl .
+
 # Copy shared libs
 COPY libs.tar .
 RUN tar xvf libs.tar
@@ -16,5 +18,3 @@ RUN rm libs.tar
 COPY client.py .
 
 RUN mkdir /tmp/logs
-
-# ENTRYPOINT [ "python3", "client.py", "hq", "1" ]

@@ -10,7 +10,8 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 1;
+const ITERATIONS = 10;
+const RETRIES = 5;
 
 function sleep(ms) {
     return new Promise((resolve) => {
@@ -21,8 +22,6 @@ function sleep(ms) {
 const chromeArgs = (urlString, forceQuic) => {
     const args = [
         '--user-data-dir=/tmp/chrome-profile',
-        '--enable-quic',
-        '--quic-version=h3-27',
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
@@ -32,6 +31,8 @@ const chromeArgs = (urlString, forceQuic) => {
     if (forceQuic) {
         const urlObject = url.parse(urlString);
         args.push(
+            '--quic-version=h3-29',
+            '--enable-quic',
             `--origin-to-force-quic-on=${urlObject.host}`,
         );
     }
@@ -45,10 +46,17 @@ const queryFile = async (browser, urlString, forceQuic, loss) => {
     };
     const urlObject = url.parse(urlString);
     const page = await browser.newPage();
-    try {
-        await page.goto(urlString);
-    } catch (error) {
-        console.error(error);
+
+    for (let i = 0; i < RETRIES; i += 1) {
+        try {
+            await page.goto(urlString);
+            break;
+        } catch (error) {
+            console.error(error);
+            if (i === RETRIES - 1) {
+                throw error;
+            }
+        }
     }
 
     // Repeat test ITERATIONS times
@@ -81,7 +89,7 @@ const queryFile = async (browser, urlString, forceQuic, loss) => {
     );
 };
 
-const runChrome = async (browser, urlString, forceQuic, loss) => {
+const runChrome = async (browser, urlString, forceQuic, loss, bw) => {
     let timings = {
         total: [],
         blocked: [],
@@ -96,10 +104,16 @@ const runChrome = async (browser, urlString, forceQuic, loss) => {
 
     const urlObject = url.parse(urlString);
     const harDir = (() => {
-        if (forceQuic) {
-            return path.join('har', `loss_${loss}`, 'chrome', 'h3', urlObject.host);
+        if (loss !== '0') {
+            if (forceQuic) {
+                return path.join('har', `loss_${loss}`, 'chrome', 'h3', urlObject.host);
+            }
+            return path.join('har', `loss_${loss}`, 'chrome', 'h2', urlObject.host);
         }
-        return path.join('har', `loss_${loss}`, 'chrome', 'h2', urlObject.host);
+        if (forceQuic) {
+            return path.join('har', `bw_${bw}`, 'chrome', 'h3', urlObject.host);
+        }
+        return path.join('har', `bw_${bw}`, 'chrome', 'h2', urlObject.host);
     })();
     const harPath = path.join(harDir, `${urlObject.path.slice(1)}.json`);
     fs.mkdirSync(harDir, { recursive: true });
@@ -152,13 +166,13 @@ const runChrome = async (browser, urlString, forceQuic, loss) => {
 
 const fbUrls = [
     'https://scontent.xx.fbcdn.net/speedtest-0B',
-    // 'https://scontent.xx.fbcdn.net/speedtest-1KB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-10KB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-100KB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-500KB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-1MB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-2MB',
-    // 'https://scontent.xx.fbcdn.net/speedtest-5MB',
+    'https://scontent.xx.fbcdn.net/speedtest-1KB',
+    'https://scontent.xx.fbcdn.net/speedtest-10KB',
+    'https://scontent.xx.fbcdn.net/speedtest-100KB',
+    'https://scontent.xx.fbcdn.net/speedtest-500KB',
+    'https://scontent.xx.fbcdn.net/speedtest-1MB',
+    'https://scontent.xx.fbcdn.net/speedtest-2MB',
+    'https://scontent.xx.fbcdn.net/speedtest-5MB',
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
 ];
 
@@ -179,28 +193,28 @@ const f5Urls = [
     'https://f5quic.com:4433/10000000',
 ];
 
-const [, , loss] = process.argv;
+const [, , loss, bw] = process.argv;
 
 (async () => {
-    // // Test H2 - Chrome
-    // let args = chromeArgs('', false);
-    // let chromeBrowser = await puppeteer.launch({
-    //     headless: false,
-    //     executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    //     args,
-    //     devtools: true,
-    // });
-    // console.log('Chrome: benchmarking H2');
-    // // for (const urlString of microsoftUrls) {
-    // //     await queryFile(chromeBrowser, urlString, false);
-    // // }
-    // // for (const urlString of cloudfareUrls) {
-    // //     await runChrome(chromeBrowser, urlString, false);
-    // // }
-    // for (const urlString of fbUrls) {
-    //     await runChrome(chromeBrowser, urlString, false, loss);
+    // Test H2 - Chrome
+    let args = chromeArgs('', false);
+    let chromeBrowser = await puppeteer.launch({
+        headless: false,
+        executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        args,
+        devtools: true,
+    });
+    console.log('Chrome: benchmarking H2');
+    // for (const urlString of microsoftUrls) {
+    //     await queryFile(chromeBrowser, urlString, false);
     // }
-    // await chromeBrowser.close();
+    // for (const urlString of cloudfareUrls) {
+    //     await runChrome(chromeBrowser, urlString, false);
+    // }
+    for (const urlString of fbUrls) {
+        await runChrome(chromeBrowser, urlString, false, loss, bw);
+    }
+    await chromeBrowser.close();
 
     // Test H3 - Chrome
     console.log('Chrome: benchmarking H3');
@@ -211,7 +225,7 @@ const [, , loss] = process.argv;
         args,
     });
     for (const urlString of fbUrls) {
-        await runChrome(chromeBrowser, urlString, true, loss);
+        await runChrome(chromeBrowser, urlString, true, loss, bw);
     }
     await chromeBrowser.close();
 

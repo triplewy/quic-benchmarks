@@ -7,10 +7,18 @@ page. Curl and HQ have poorer results in the smaller sized pages since they are
 run in subprocesses and the time measurement consists of the process starting 
 and exiting.
 
-![fb-kb-0](./graphs/FB-KB-loss_0.png)
-![fb-mb-0](./graphs/FB-MB-loss_0.png)
-![fb-kb-1](./graphs/FB-KB-loss_1.png)
-![fb-mb-1](./graphs/FB-MB-loss_1.png)
+![fb-kb-bw_1](./graphs/FB-KB-bw_1.png)
+![fb-mb-bw_1](./graphs/FB-MB-bw_1.png)
+![fb-kb-bw_5](./graphs/FB-KB-bw_5.png)
+![fb-mb-bw_5](./graphs/FB-MB-bw_5.png)
+![fb-kb-bw_10](./graphs/FB-KB-bw_10.png)
+![fb-mb-bw_10](./graphs/FB-MB-bw_10.png)
+![fb-kb-loss_1](./graphs/FB-KB-loss_1.png)
+![fb-mb-loss_1](./graphs/FB-MB-loss_1.png)
+![fb-kb-loss_5](./graphs/FB-KB-loss_5.png)
+![fb-mb-loss_5](./graphs/FB-MB-loss_5.png)
+![fb-kb-loss_5](./graphs/FB-KB-loss_10.png)
+![fb-mb-loss_5](./graphs/FB-MB-loss_10.png)
 
 ### Conclusion
 

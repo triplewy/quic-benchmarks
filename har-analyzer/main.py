@@ -44,101 +44,7 @@ f5_urls = [
 ]
 
 
-def plot(title: str, page: str, entries: object):
-    entries.sort(key=lambda x: x['startedDateTime'])
-    size = page.split('/')[-2]
-    numObjects = page.split('/')[-1].split('.')[0].split('-')[-1]
-
-    start_time = datetime.strptime(
-        entries[0]['startedDateTime'], ISO_8601_FORMAT)
-
-    captions = list(map(lambda x: x['request']['url'].split('/')[-1], entries))
-    captions.insert(0, '')
-
-    fig = plt.figure()
-    plt.title(title)
-    plt.yticks(np.arange(len(entries) + 1), captions)
-    plt.ylim(0, len(entries) + 1)
-
-    if size == '10kb':
-        if numObjects == '1':
-            plt.xlim(0, 500)
-        elif numObjects == '10':
-            plt.xlim(0, 1500)
-        elif numObjects == '100':
-            plt.xlim(0, 5000)
-    elif size == '100kb':
-        if numObjects == '1':
-            plt.xlim(0, 1000)
-        elif numObjects == '10':
-            plt.xlim(0, 5000)
-        elif numObjects == '100':
-            plt.xlim(0, 15000)
-    elif size == '1000kb':
-        if numObjects == '1':
-            plt.xlim(0, 3000)
-        elif numObjects == '10':
-            plt.xlim(0, 10000)
-        elif numObjects == '100':
-            plt.xlim(0, 20000)
-
-    plt.autoscale(False)
-    plt.xlabel('Time (ms)')
-    plt.legend(handles=[
-        mpatches.Patch(color='green', label='connect'),
-        mpatches.Patch(color='cyan', label='send'),
-        mpatches.Patch(color='yellow', label='wait'),
-        mpatches.Patch(color='magenta', label='receive')
-    ])
-
-    for i, entry in enumerate(entries):
-        start = datetime.strptime(
-            entry['startedDateTime'], ISO_8601_FORMAT)
-        end = start + timedelta(milliseconds=entry['time'])
-        connect, send, wait, receive, = itemgetter(
-            'connect', 'send', 'wait', 'receive')(entry['timings'])
-
-        y = i + 1
-        xstart = (start - start_time) / timedelta(milliseconds=1)
-        xstop = (end - start_time) / timedelta(milliseconds=1)
-
-        # Total time
-        plt.hlines(y, xstart, xstop, 'r', lw=8)
-        # line_height = len(entries) / 40
-        # plt.vlines(xstart, y+line_height, y-line_height, 'k', lw=2)
-        # plt.vlines(xstop, y+line_height, y-line_height, 'k', lw=2)
-
-        # Connect time: green
-        if connect != -1:
-            plt.hlines(y, xstart, xstart + connect, 'g', lw=8)
-            xstart += connect
-
-        # Send time: cyan
-        plt.hlines(y, xstart, xstart + send, 'c', lw=8)
-        xstart += send
-
-        # Wait time: yellow
-        plt.hlines(y, xstart, xstart + wait, 'y', lw=8)
-        xstart += wait
-
-        # Receive time: magenta
-        plt.hlines(y, xstart, xstart + receive, 'm', lw=8)
-        xstart += receive
-
-    # plt.show()
-    graph_dir = Path.joinpath(
-        Path.home(), 'quic', 'graphs', size, numObjects, title)
-    Path(graph_dir).mkdir(parents=True, exist_ok=True)
-
-    graph_file = Path.joinpath(graph_dir, 'graph.png')
-    if os.path.isfile(graph_file):
-        os.remove(graph_file)
-
-    fig.savefig(graph_file, dpi=fig.dpi)
-    plt.close(fig=fig)
-
-
-def populate_line_graph(host: str, urls: list, loss: int):
+def populate_line_graph(host: str, urls: list, loss: int, bw: int):
     xticks_pos = np.arange(len(urls))
     xtick_labels = urls
     plt.xticks(xticks_pos, xtick_labels, rotation=10)
@@ -149,7 +55,9 @@ def populate_line_graph(host: str, urls: list, loss: int):
         mpatches.Patch(color='orange', label='Firefox H2'),
         mpatches.Patch(color='blue', label='Firefox H3'),
         mpatches.Patch(color='magenta', label='Curl H2'),
-        mpatches.Patch(color='yellow', label='Curl H3'),
+        # mpatches.Patch(color='yellow', label='Curl H3'),
+        mpatches.Patch(color='yellow', label='Ngtcp2 H3'),
+        # mpatches.Patch(color='#573192', label='Proxygen H2'),
         mpatches.Patch(color='green', label='Proxygen H3'),
     ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
     plt.ylabel('Time (ms)')
@@ -157,9 +65,14 @@ def populate_line_graph(host: str, urls: list, loss: int):
     lines = defaultdict(list)
     y_max = 1
 
-    for i, client in enumerate(['chrome', 'firefox', 'curl', 'hq']):
-        har_dir = Path.joinpath(
-            Path.home(), 'quic-benchmarks', 'browser', 'har', 'loss_{}'.format(loss), client)
+    for i, client in enumerate(['chrome', 'firefox', 'curl', 'proxygen', 'ngtcp2']):
+        if loss is not None:
+            har_dir = Path.joinpath(
+                Path.home(), 'quic-benchmarks', 'browser', 'har', 'loss_{}'.format(loss), client)
+        else:
+            har_dir = Path.joinpath(
+                Path.home(), 'quic-benchmarks', 'browser', 'har', 'bw_{}'.format(bw), client)
+
         for j, url in enumerate(urls):
             for k, h in enumerate(['h2', 'h3']):
                 filename = Path.joinpath(
@@ -196,10 +109,17 @@ def populate_line_graph(host: str, urls: list, loss: int):
             if h == 'h2':
                 color = 'm'
             else:
-                color = 'y'
-        elif client == 'hq':
+                continue
+                # color = 'y'
+        elif client == 'ngtcp2':
             if h == 'h2':
                 continue
+            else:
+                color = 'y'
+        elif client == 'proxygen':
+            if h == 'h2':
+                continue
+                # color = '#573192'
             else:
                 color = 'g'
 
@@ -282,26 +202,58 @@ def main():
     graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
     Path(graph_dir).mkdir(parents=True, exist_ok=True)
 
-    # FB KB 0% Loss
+    # FB KB 1 MB BW
     fig = plt.figure(figsize=(12, 8))
-    plt.title('Facebook 0% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 0)
+    plt.title('Facebook 1MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], None, 1)
     fig.savefig(Path.joinpath(
-        graph_dir, 'FB-{}-loss_{}'.format('KB', 0)), dpi=fig.dpi)
+        graph_dir, 'FB-{}-bw_{}'.format('KB', 1)), dpi=fig.dpi)
     plt.close(fig=fig)
 
-    # FB MB 0% Loss
+    # FB MB 1 MB BW
     fig = plt.figure(figsize=(10, 8))
-    plt.title('Facebook 0% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 0)
+    plt.title('Facebook 1MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], None, 1)
     fig.savefig(Path.joinpath(
-        graph_dir, 'FB-{}-loss_{}'.format('MB', 0)), dpi=fig.dpi)
+        graph_dir, 'FB-{}-bw_{}'.format('MB', 1)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB KB 5 MB BW
+    fig = plt.figure(figsize=(12, 8))
+    plt.title('Facebook 5MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], None, 5)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-bw_{}'.format('KB', 5)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB MB 5 MB BW
+    fig = plt.figure(figsize=(10, 8))
+    plt.title('Facebook 5MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], None, 5)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-bw_{}'.format('MB', 5)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB KB 10 MB BW
+    fig = plt.figure(figsize=(12, 8))
+    plt.title('Facebook 10MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], None, 10)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-bw_{}'.format('KB', 10)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB MB 10 MB BW
+    fig = plt.figure(figsize=(10, 8))
+    plt.title('Facebook 10MB Bandwidth')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], None, 10)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-bw_{}'.format('MB', 10)), dpi=fig.dpi)
     plt.close(fig=fig)
 
     # FB KB 1% Loss
     fig = plt.figure(figsize=(12, 8))
     plt.title('Facebook 1% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 1)
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 1, None)
     fig.savefig(Path.joinpath(
         graph_dir, 'FB-{}-loss_{}'.format('KB', 1)), dpi=fig.dpi)
     plt.close(fig=fig)
@@ -309,7 +261,7 @@ def main():
     # FB MB 1% Loss
     fig = plt.figure(figsize=(10, 8))
     plt.title('Facebook 1% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 1)
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 1, None)
     fig.savefig(Path.joinpath(
         graph_dir, 'FB-{}-loss_{}'.format('MB', 1)), dpi=fig.dpi)
     plt.close(fig=fig)
@@ -317,7 +269,7 @@ def main():
     # FB KB 5% Loss
     fig = plt.figure(figsize=(12, 8))
     plt.title('Facebook 5% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 5)
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 5, None)
     fig.savefig(Path.joinpath(
         graph_dir, 'FB-{}-loss_{}'.format('KB', 5)), dpi=fig.dpi)
     plt.close(fig=fig)
@@ -325,9 +277,25 @@ def main():
     # FB MB 5% Loss
     fig = plt.figure(figsize=(10, 8))
     plt.title('Facebook 5% Loss')
-    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 5)
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 5, None)
     fig.savefig(Path.joinpath(
         graph_dir, 'FB-{}-loss_{}'.format('MB', 5)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB KB 10% Loss
+    fig = plt.figure(figsize=(12, 8))
+    plt.title('Facebook 10% Loss')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[:5], 10, None)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-loss_{}'.format('KB', 10)), dpi=fig.dpi)
+    plt.close(fig=fig)
+
+    # FB MB 10% Loss
+    fig = plt.figure(figsize=(10, 8))
+    plt.title('Facebook 10% Loss')
+    populate_line_graph('scontent.xx.fbcdn.net', fb_urls[5:], 10, None)
+    fig.savefig(Path.joinpath(
+        graph_dir, 'FB-{}-loss_{}'.format('MB', 10)), dpi=fig.dpi)
     plt.close(fig=fig)
 
     # # Plot cloudflare
