@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 10;
+const ITERATIONS = 20;
 const RETRIES = 5;
 
 function sleep(ms) {
@@ -25,15 +25,14 @@ const chromeArgs = (urlString, forceQuic) => {
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
-        '--auto-open-devtools-for-tabs',
     ];
 
     if (forceQuic) {
         const urlObject = url.parse(urlString);
         args.push(
-            '--quic-version=h3-29',
             '--enable-quic',
-            `--origin-to-force-quic-on=${urlObject.host}`,
+            '--quic-version=h3-29',
+            `--origin-to-force-quic-on=${urlObject.host}:443`,
         );
     }
 
@@ -89,7 +88,7 @@ const queryFile = async (browser, urlString, forceQuic, loss) => {
     );
 };
 
-const runChrome = async (browser, urlString, forceQuic, loss, bw) => {
+const runChrome = async (browser, urlString, forceQuic, loss, delay, bw) => {
     let timings = {
         total: [],
         blocked: [],
@@ -103,6 +102,7 @@ const runChrome = async (browser, urlString, forceQuic, loss, bw) => {
     };
 
     const urlObject = url.parse(urlString);
+
     const harDir = (() => {
         if (loss !== '0') {
             if (forceQuic) {
@@ -110,11 +110,18 @@ const runChrome = async (browser, urlString, forceQuic, loss, bw) => {
             }
             return path.join('har', `loss_${loss}`, 'chrome', 'h2', urlObject.host);
         }
+        if (delay !== '0') {
+            if (forceQuic) {
+                return path.join('har', `delay_${delay}`, 'chrome', 'h3', urlObject.host);
+            }
+            return path.join('har', `delay_${delay}`, 'chrome', 'h2', urlObject.host);
+        }
         if (forceQuic) {
             return path.join('har', `bw_${bw}`, 'chrome', 'h3', urlObject.host);
         }
         return path.join('har', `bw_${bw}`, 'chrome', 'h2', urlObject.host);
     })();
+
     const harPath = path.join(harDir, `${urlObject.path.slice(1)}.json`);
     fs.mkdirSync(harDir, { recursive: true });
 
@@ -125,40 +132,57 @@ const runChrome = async (browser, urlString, forceQuic, loss, bw) => {
         console.error(error);
     }
 
+
     // Repeat test ITERATIONS times
     for (let i = 0; i < ITERATIONS; i += 1) {
         console.log(`${urlString} Iteration: ${i}`);
 
         const page = await browser.newPage();
         const har = await new PuppeteerHar(page);
-
-        await har.start();
-        const loadPage = page.goto(urlString, {
-            timeout: 120000,
-        });
         const idlePage = await browser.newPage();
-        await sleep(100);
-        await idlePage.bringToFront();
-        await loadPage;
 
-        const harResult = await har.stop();
-        const { entries } = harResult.log;
+        for (let j = 0; j < RETRIES; j += 1) {
+            try {
+                await har.start();
+                const start = Date.now();
+                const loadPage = page.goto(urlString, {
+                    timeout: 120000,
+                });
+                await sleep(100);
+                await idlePage.bringToFront();
+                await loadPage;
+                const elapsed = Date.now() - start;
+                const harResult = await har.stop();
+                const { entries } = harResult.log;
 
-        const result = entries.filter((entry) => entry.request.url === urlString);
+                console.log(entries);
 
-        if (result.length !== 1) {
-            throw Error;
+                const result = entries.filter((entry) => entry.request.url === urlString);
+
+                if (result.length !== 1) {
+                    console.error('Invalid HAR');
+                    throw Error;
+                }
+
+                const entry = result[0];
+                console.log(entry.response.httpVersion, entry.time);
+                timings.total.push(entry.time);
+                // const timing = entry.timings;
+                // Object.entries(timing).forEach(([key, value]) => {
+                //     timings[key].push(value);
+                // });
+
+                await page.close();
+                await idlePage.close();
+
+                break;
+            } catch (error) {
+                if (j === RETRIES - 1) {
+                    console.error(error);
+                    throw error;
+                }
+            }
         }
-
-        const entry = result[0];
-        timings.total.push(entry.time);
-        const timing = entry.timings;
-        Object.entries(timing).forEach(([key, value]) => {
-            timings[key].push(value);
-        });
-
-        await page.close();
-        await idlePage.close();
     }
 
     fs.writeFileSync(harPath, JSON.stringify(timings));
@@ -174,6 +198,10 @@ const fbUrls = [
     'https://scontent.xx.fbcdn.net/speedtest-2MB',
     'https://scontent.xx.fbcdn.net/speedtest-5MB',
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
+];
+
+const instagramUrls = [
+    'https://www.instagram.com',
 ];
 
 const cloudfareUrls = [
@@ -193,10 +221,12 @@ const f5Urls = [
     'https://f5quic.com:4433/10000000',
 ];
 
-const [, , loss, bw] = process.argv;
+const [, , loss, delay, bw] = process.argv;
 
 (async () => {
     // Test H2 - Chrome
+    console.log('Chrome: benchmarking H2');
+    fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
     let args = chromeArgs('', false);
     let chromeBrowser = await puppeteer.launch({
         headless: false,
@@ -204,7 +234,6 @@ const [, , loss, bw] = process.argv;
         args,
         devtools: true,
     });
-    console.log('Chrome: benchmarking H2');
     // for (const urlString of microsoftUrls) {
     //     await queryFile(chromeBrowser, urlString, false);
     // }
@@ -212,21 +241,30 @@ const [, , loss, bw] = process.argv;
     //     await runChrome(chromeBrowser, urlString, false);
     // }
     for (const urlString of fbUrls) {
-        await runChrome(chromeBrowser, urlString, false, loss, bw);
+        await runChrome(chromeBrowser, urlString, false, loss, delay, bw);
     }
+    // for (const urlString of instagramUrls) {
+    //     await runChrome(chromeBrowser, urlString, false, loss, delay, bw);
+    // }
+
     await chromeBrowser.close();
 
     // Test H3 - Chrome
     console.log('Chrome: benchmarking H3');
-    args = chromeArgs(fbUrls[0], true);
+    fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+    args = chromeArgs(instagramUrls[0], true);
     chromeBrowser = await puppeteer.launch({
         headless: false,
         executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
         args,
+        devtools: true,
     });
     for (const urlString of fbUrls) {
-        await runChrome(chromeBrowser, urlString, true, loss, bw);
+        await runChrome(chromeBrowser, urlString, true, loss, delay, bw);
     }
+    // for (const urlString of instagramUrls) {
+    //     await runChrome(chromeBrowser, urlString, false, loss, delay, bw);
+    // }
     await chromeBrowser.close();
 
     // // H3 - Cloudflare

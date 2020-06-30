@@ -21,6 +21,10 @@ fb_urls = [
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
 ]
 
+insta_urls = [
+    'https://www.instagram.com'
+]
+
 cloudfare_urls = [
     'https://cloudflare-quic.com/1MB.png',
     'https://cloudflare-quic.com/5MB.png',
@@ -39,7 +43,7 @@ f5_urls = [
 ]
 
 
-def query(urls: list, client: str, loss: int, bw: int):
+def query(urls: list, client: str, loss: int, delay: int, bw: int):
     for h in ['h2', 'h3']:
         for url in urls:
             times = {
@@ -53,6 +57,9 @@ def query(urls: list, client: str, loss: int, bw: int):
             if loss != 0:
                 results_dir = Path.joinpath(
                     Path.cwd(), 'har', 'loss_{}'.format(loss), client, h, url_host)
+            elif delay != 0:
+                results_dir = Path.joinpath(
+                    Path.cwd(), 'har', 'delay_{}'.format(delay), client, h, url_host)
             else:
                 results_dir = Path.joinpath(
                     Path.cwd(), 'har', 'bw_{}'.format(bw), client, h, url_host)
@@ -77,6 +84,8 @@ def query(urls: list, client: str, loss: int, bw: int):
                     if retry > 0:
                         print('Retrying')
 
+                    time.sleep(0.2)
+
                     start = time.time()
                     output = run_process(client, h, url)
 
@@ -88,6 +97,7 @@ def query(urls: list, client: str, loss: int, bw: int):
                         elapsed = time.time() - start
                         elapsed *= 1000
                         times['total'].append(elapsed)
+                        print(client, h, elapsed)
                         break
 
                     if retry == RETRIES - 1:
@@ -102,6 +112,7 @@ def run_process(client: str, h: str, url: str):
     url_obj = urlparse(url)
     url_host = url_obj.netloc
     url_path = url_obj.path[1:]
+    url_port = '443'
 
     if client == 'curl':
         if h == 'h2':
@@ -124,21 +135,22 @@ def run_process(client: str, h: str, url: str):
             return None
         else:
             subprocess.run(
-                ['/Users/alexyu/ngtcp2/examples/client', '--quiet',
-                 '--no-quic-dump', '--no-http-dump',
-                 '--exit-on-all-streams-close', 'scontent.xx.fbcdn.net', '443', url]
+                [
+                    '{}/ngtcp2/examples/client'.format(Path.home()),
+                    '--quiet',
+                    '--exit-on-all-streams-close',
+                    '--max-data=1073741824',
+                    '--max-stream-data-uni=1073741824',
+                    '--max-stream-data-bidi-local=1073741824',
+                    url_host,
+                    url_port,
+                    url
+                ]
             )
             return 'success'
     elif client == 'proxygen':
         if h == 'h2':
             return None
-            # subprocess.run(
-            #     [
-            #         './proxygen_curl',
-            #         '--log_response=false',
-            #         '--url={}'.format(url)
-            #     ]
-            # )
         else:
             if url_host.count(':') > 0:
                 [host, port] = url_host.split(':')
@@ -148,16 +160,18 @@ def run_process(client: str, h: str, url: str):
 
             subprocess.run(
                 [
-                    './hq',
+                    '{}/proxygen/proxygen/_build/proxygen/httpserver/hq'.format(
+                        Path.home()),
                     '--log_response=false',
                     '--mode=client',
-                    '--draft_version=29',
+                    '--stream_flow_control=1073741824',
+                    '--conn_flow_control=1073741824',
+                    '--use_draft=true',
+                    '--protocol=h3-29',
                     '--host={}'.format(host),
                     '--port={}'.format(port),
                     '--path=/{}'.format(url_path),
                     '--v=0',
-                    '>',
-                    '/dev/null'
                 ]
             )
         return 'success'
@@ -166,10 +180,11 @@ def run_process(client: str, h: str, url: str):
 def main():
     client = sys.argv[1]
     loss = int(sys.argv[2])
-    bw = int(sys.argv[3])
+    delay = int(sys.argv[3])
+    bw = int(sys.argv[4])
 
     for urls in [fb_urls]:
-        query(urls, client, loss, bw)
+        query(urls, client, loss, delay, bw)
 
 
 if __name__ == "__main__":

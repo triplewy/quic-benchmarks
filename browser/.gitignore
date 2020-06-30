@@ -1,6 +1,6 @@
 node_modules
 har
-hq
+hq*
 libs.tar
 geckodriver.log
 proxygen_curl

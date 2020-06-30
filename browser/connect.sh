@@ -9,5 +9,5 @@
 --aggressive-cache-discard \
 --auto-open-devtools-for-tabs \
 --ssl-key-log-file=/Users/alexyu/wireshark/chrome_sslkeylog \
---origin-to-force-quic-on=cloudflare-quic.com:443 \
-https://cloudflare-quic.com
+--origin-to-force-quic-on=www.instagram.com:443 \
+https://www.instagram.com

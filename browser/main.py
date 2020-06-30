@@ -8,7 +8,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 10
+ITERATIONS = 20
 RETRIES = 10
 
 fb_urls = [
@@ -21,6 +21,10 @@ fb_urls = [
     'https://scontent.xx.fbcdn.net/speedtest-2MB',
     'https://scontent.xx.fbcdn.net/speedtest-5MB',
     'https://scontent.xx.fbcdn.net/speedtest-10MB',
+]
+
+insta_urls = [
+    'https://www.instagram.com'
 ]
 
 cf_urls = [
@@ -236,6 +240,7 @@ def query(driver, url: str, force_quic: bool, loss: int, bw: int):
 
         entry = entries[0]
 
+        print(entry['response']['httpVersion'], entry['time'])
         timings['total'].append(entry['time'])
 
         for (k, v) in entry['timings'].items():
@@ -261,6 +266,9 @@ with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, option
     # for url in cf_urls:
     #     query(driver, url, False)
 
+    # for url in insta_urls:
+    #     query(driver, url, False, loss, bw)
+
 # Test Firefox H3
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:
     # for url in ms_urls:
@@ -268,6 +276,9 @@ with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, option
 
     for url in fb_urls:
         query(driver, url, True, loss, bw)
+
+    # for url in insta_urls:
+    #     query(driver, url, True, loss, bw)
 
     # for url in cf_urls:
     #     query(driver, url, True, loss)

@@ -1,23 +1,20 @@
 #!/bin/bash
 
 LOSS=$1
-BW=$2
+DELAY=$2
+BW=$3
 
-# Chrome
-node index.js $LOSS $BW
+# # Chrome
+# node index.js $LOSS $DELAY $BW
 
 # # Firefox
 # python3 main.py $LOSS $BW
 
 # Curl
-python3 client.py curl $LOSS $BW
+python3 client.py curl $LOSS $DELAY $BW
 
 # Ngtcp2
-python3 client.py ngtcp2 $LOSS $BW
+python3 client.py ngtcp2 $LOSS $DELAY $BW
 
 # Proxygen
-docker rm hq
-docker run \
---name hq \
--v /Users/alexyu/quic-benchmarks/browser/har:/har \
-hq python3 client.py proxygen $LOSS $BW
+python3 client.py proxygen $LOSS $DELAY $BW

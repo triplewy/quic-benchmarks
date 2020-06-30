@@ -8,7 +8,6 @@ RUN apt-get install --yes libboost1.67-dev python3
 
 # Copy HQ
 COPY hq .
-COPY proxygen_curl .
 
 # Copy shared libs
 COPY libs.tar .

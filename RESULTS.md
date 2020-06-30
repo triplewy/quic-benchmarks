@@ -20,6 +20,11 @@ and exiting.
 ![fb-kb-loss_5](./graphs/FB-KB-loss_10.png)
 ![fb-mb-loss_5](./graphs/FB-MB-loss_10.png)
 
+![](./graphs/quiche-client_qlog.png)
+![](./graphs/aioquic_client.png)
+![](./graphs/ngtcp2_client.png)
+![](./graphs/mvfst_qlog_from_single_connection.png)
+
 ### Conclusion
 
 No egregious discrepancies. H3 and H2 performance seem quite similar.
