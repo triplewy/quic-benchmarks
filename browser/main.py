@@ -8,15 +8,15 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 20
-RETRIES = 10
+ITERATIONS = 10
+RETRIES = 20
 
 fb_urls = [
-    'https://scontent.xx.fbcdn.net/speedtest-0B',
-    'https://scontent.xx.fbcdn.net/speedtest-1KB',
-    'https://scontent.xx.fbcdn.net/speedtest-10KB',
-    'https://scontent.xx.fbcdn.net/speedtest-100KB',
-    'https://scontent.xx.fbcdn.net/speedtest-500KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-0B',
+    # 'https://scontent.xx.fbcdn.net/speedtest-1KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-10KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-100KB',
+    # 'https://scontent.xx.fbcdn.net/speedtest-500KB',
     'https://scontent.xx.fbcdn.net/speedtest-1MB',
     'https://scontent.xx.fbcdn.net/speedtest-2MB',
     'https://scontent.xx.fbcdn.net/speedtest-5MB',
@@ -70,72 +70,7 @@ firefox_options = FirefoxOptions()
 firefox_options.add_argument('-devtools')
 
 
-def query_file(driver, url: str, force_quic: bool):
-    timings = {
-        'total': [],
-    }
-
-    url_obj = urlparse(url)
-    driver.get('https://{}'.format(url_obj.netloc))
-
-    for i in range(ITERATIONS):
-        print('{} - ITERATION: {}'.format(url, i))
-        time.sleep(1)
-        for i in range(RETRIES):
-            try:
-                if i >= 1:
-                    print('retrying')
-                start = time.time()
-                result = driver.execute_script("""
-                async function triggerExport(url) {
-                    const res = await fetch(url);
-                    console.log(res)
-                    const text = await res.text();
-                    return text;
-                };
-                return triggerExport(arguments[0]);""", url)
-                print('len(result): {}'.format(len(result)))
-                elapsed = (time.time() - start) * 1000
-                break
-            except:
-                if i == RETRIES - 1:
-                    raise "Failed"
-
-        timings['total'].append(elapsed)
-
-    if force_quic:
-        har_dir = Path.joinpath(
-            Path.home(),
-            'quic-benchmarks',
-            'browser',
-            'har',
-            'firefox',
-            'h3',
-            url_obj.netloc
-        )
-    else:
-        har_dir = Path.joinpath(
-            Path.home(),
-            'quic-benchmarks',
-            'browser',
-            'har',
-            'firefox',
-            'h2',
-            url_obj.netloc
-        )
-
-    Path(har_dir).mkdir(parents=True, exist_ok=True)
-
-    har_path = Path.joinpath(
-        har_dir,
-        "{}.json".format(url_obj.path[1:])
-    )
-
-    with open(har_path, 'w') as har_file:
-        json.dump(timings, har_file)
-
-
-def query(driver, url: str, force_quic: bool, loss: int, bw: int):
+def query(driver, url: str, force_quic: bool, loss: int, delay: int, bw: int):
     timings = {
         'total': [],
         'blocked': [],
@@ -150,52 +85,19 @@ def query(driver, url: str, force_quic: bool, loss: int, bw: int):
 
     url_result = urlparse(url)
 
-    if loss != 0:
-        if force_quic:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'loss_{}'.format(loss),
-                'firefox',
-                'h3',
-                url_result.netloc
-            )
-        else:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'loss_{}'.format(loss),
-                'firefox',
-                'h2',
-                url_result.netloc
-            )
+    base_dir = Path.joinpath(
+        Path.home(),
+        'quic-benchmarks',
+        'browser',
+        'har',
+        'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
+        'firefox'
+    )
+
+    if force_quic:
+        har_dir = Path.joinpath(base_dir, 'h3', url_result.netloc)
     else:
-        if force_quic:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'bw_{}'.format(bw),
-                'firefox',
-                'h3',
-                url_result.netloc
-            )
-        else:
-            har_dir = Path.joinpath(
-                Path.home(),
-                'quic-benchmarks',
-                'browser',
-                'har',
-                'bw_{}'.format(bw),
-                'firefox',
-                'h2',
-                url_result.netloc
-            )
+        har_dir = Path.joinpath(base_dir, 'h2', url_result.netloc)
 
     Path(har_dir).mkdir(parents=True, exist_ok=True)
 
@@ -214,11 +116,15 @@ def query(driver, url: str, force_quic: bool, loss: int, bw: int):
 
     for i in range(ITERATIONS):
         print('{} - ITERATION: {}'.format(url, i))
-        time.sleep(1)
+        time.sleep(0.5)
         for i in range(RETRIES):
             try:
                 if i >= 1:
                     print('retrying')
+                    driver.close()
+                    driver = webdriver.Firefox(
+                        firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options)
+
                 driver.get(url)
                 har = driver.execute_script("""
                 async function triggerExport() {
@@ -253,21 +159,23 @@ def query(driver, url: str, force_quic: bool, loss: int, bw: int):
 
 
 loss = int(sys.argv[1])
-bw = int(sys.argv[2])
+delay = int(sys.argv[2])
+bw = int(sys.argv[3])
 
 # Test Firefox H2
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options) as driver:
     # for url in ms_urls:
     #     query_file(driver, url, False)
 
-    for url in fb_urls:
-        query(driver, url, False, loss, bw)
+    # for url in fb_urls:
+    #     query(driver, url, False, loss, delay, bw)
 
     # for url in cf_urls:
     #     query(driver, url, False)
 
     # for url in insta_urls:
     #     query(driver, url, False, loss, bw)
+    pass
 
 # Test Firefox H3
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:
@@ -275,7 +183,7 @@ with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, option
     #     query_file(driver, url, True)
 
     for url in fb_urls:
-        query(driver, url, True, loss, bw)
+        query(driver, url, True, loss, delay, bw)
 
     # for url in insta_urls:
     #     query(driver, url, True, loss, bw)

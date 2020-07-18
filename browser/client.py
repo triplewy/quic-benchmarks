@@ -54,15 +54,16 @@ def query(urls: list, client: str, loss: int, delay: int, bw: int):
             url_host = url_obj.netloc
             url_path = url_obj.path[1:]
 
-            if loss != 0:
-                results_dir = Path.joinpath(
-                    Path.cwd(), 'har', 'loss_{}'.format(loss), client, h, url_host)
-            elif delay != 0:
-                results_dir = Path.joinpath(
-                    Path.cwd(), 'har', 'delay_{}'.format(delay), client, h, url_host)
-            else:
-                results_dir = Path.joinpath(
-                    Path.cwd(), 'har', 'bw_{}'.format(bw), client, h, url_host)
+            results_dir = Path.joinpath(
+                Path.home(),
+                'quic-benchmarks',
+                'browser',
+                'har',
+                'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
+                client,
+                h,
+                url_host
+            )
 
             Path(results_dir).mkdir(parents=True, exist_ok=True)
             results_file = Path.joinpath(
@@ -80,28 +81,14 @@ def query(urls: list, client: str, loss: int, delay: int, bw: int):
             for i in range(ITERATIONS):
                 print('{} - {} - Iteration: {}'.format(h, url, i))
 
-                for retry in range(RETRIES):
-                    if retry > 0:
-                        print('Retrying')
+                elapsed = run_process(client, h, url)
 
-                    time.sleep(0.2)
+                if elapsed is None:
+                    break
 
-                    start = time.time()
-                    output = run_process(client, h, url)
-
-                    if output is None:
-                        break
-
-                    if output == 'success' or str(output.stderr).count('Operation timed out') == 0:
-                        # Python measures time in seconds
-                        elapsed = time.time() - start
-                        elapsed *= 1000
-                        times['total'].append(elapsed)
-                        print(client, h, elapsed)
-                        break
-
-                    if retry == RETRIES - 1:
-                        raise "Failed retries"
+                elapsed *= 1000
+                times['total'].append(elapsed)
+                print(client, h, elapsed)
 
             with open(results_file, 'w') as f:
                 print(times)
@@ -116,25 +103,40 @@ def run_process(client: str, h: str, url: str):
 
     if client == 'curl':
         if h == 'h2':
-            return subprocess.run(
-                ['curl', '--output', '/dev/null',
-                    '--connect-timeout', '5',
-                    '--max-time', '120', '--http2', url],
-                capture_output=True
-            )
+            # Have to add retry logic to curl
+            for retry in range(RETRIES):
+                if retry > 0:
+                    print('Retrying')
+
+                time.sleep(0.2)
+
+                output = subprocess.run(
+                    [
+                        'time',
+                        '/usr/local/opt/curl/bin/curl',
+                        '--output', '/dev/null',
+                        '--connect-timeout', '5',
+                        '--max-time', '120',
+                        '--http2', url
+                    ],
+                    capture_output=True
+                )
+
+                output = output.stderr.decode()
+
+                if output.count('Operation timed out') == 0:
+                    output = output.split('\n')[-2]
+                    output = output.split()
+                    return float(output[0])
+
+            raise 'Failed retries'
         else:
             return None
-            # return subprocess.run(
-            #     ['curl', '--output', '/dev/null',
-            #         '--connect-timeout', '5',
-            #         '--max-time', '120', '--http3', url],
-            #     capture_output=True
-            # )
     elif client == 'ngtcp2':
         if h == 'h2':
             return None
         else:
-            subprocess.run(
+            return run_subprocess(
                 [
                     '{}/ngtcp2/examples/client'.format(Path.home()),
                     '--quiet',
@@ -147,7 +149,6 @@ def run_process(client: str, h: str, url: str):
                     url
                 ]
             )
-            return 'success'
     elif client == 'proxygen':
         if h == 'h2':
             return None
@@ -158,7 +159,7 @@ def run_process(client: str, h: str, url: str):
                 host = url_host
                 port = 443
 
-            subprocess.run(
+            return run_subprocess(
                 [
                     '{}/proxygen/proxygen/_build/proxygen/httpserver/hq'.format(
                         Path.home()),
@@ -174,7 +175,18 @@ def run_process(client: str, h: str, url: str):
                     '--v=0',
                 ]
             )
-        return 'success'
+
+
+def run_subprocess(command: list) -> float:
+    output = subprocess.run(
+        ['time'] + command,
+        capture_output=True
+    )
+
+    output = output.stderr.decode().split('\n')[-2]
+    output = output.split()
+
+    return float(output[0])
 
 
 def main():

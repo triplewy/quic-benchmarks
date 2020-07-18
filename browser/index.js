@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 20;
+const ITERATIONS = 10;
 const RETRIES = 5;
 
 function sleep(ms) {
@@ -39,55 +39,6 @@ const chromeArgs = (urlString, forceQuic) => {
     return args;
 };
 
-const queryFile = async (browser, urlString, forceQuic, loss) => {
-    const timings = {
-        total: [],
-    };
-    const urlObject = url.parse(urlString);
-    const page = await browser.newPage();
-
-    for (let i = 0; i < RETRIES; i += 1) {
-        try {
-            await page.goto(urlString);
-            break;
-        } catch (error) {
-            console.error(error);
-            if (i === RETRIES - 1) {
-                throw error;
-            }
-        }
-    }
-
-    // Repeat test ITERATIONS times
-    for (let i = 0; i < ITERATIONS; i += 1) {
-        console.log(`${urlString} Iteration: ${i}`);
-        const start = Date.now();
-        const result = await page.evaluate(async (url) => {
-            const res = await fetch(url);
-            const text = await res.text();
-            return text;
-        }, urlString);
-        const elapsed = Date.now() - start;
-        console.log(`result.length: ${result.length}`);
-        timings.total.push(elapsed);
-    }
-
-    await page.close();
-
-    const harDir = (() => {
-        if (forceQuic) {
-            return path.join('har', 'chrome', 'h3', urlObject.host);
-        }
-        return path.join('har', 'chrome', 'h2', urlObject.host);
-    })();
-
-    fs.mkdirSync(harDir, { recursive: true });
-    fs.writeFileSync(
-        path.join(harDir, `${urlObject.path.slice(1)}.json`),
-        JSON.stringify(timings),
-    );
-};
-
 const runChrome = async (browser, urlString, forceQuic, loss, delay, bw) => {
     let timings = {
         total: [],
@@ -104,22 +55,10 @@ const runChrome = async (browser, urlString, forceQuic, loss, delay, bw) => {
     const urlObject = url.parse(urlString);
 
     const harDir = (() => {
-        if (loss !== '0') {
-            if (forceQuic) {
-                return path.join('har', `loss_${loss}`, 'chrome', 'h3', urlObject.host);
-            }
-            return path.join('har', `loss_${loss}`, 'chrome', 'h2', urlObject.host);
-        }
-        if (delay !== '0') {
-            if (forceQuic) {
-                return path.join('har', `delay_${delay}`, 'chrome', 'h3', urlObject.host);
-            }
-            return path.join('har', `delay_${delay}`, 'chrome', 'h2', urlObject.host);
-        }
         if (forceQuic) {
-            return path.join('har', `bw_${bw}`, 'chrome', 'h3', urlObject.host);
+            return path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, 'chrome', 'h3', urlObject.host);
         }
-        return path.join('har', `bw_${bw}`, 'chrome', 'h2', urlObject.host);
+        return path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, 'chrome', 'h2', urlObject.host);
     })();
 
     const harPath = path.join(harDir, `${urlObject.path.slice(1)}.json`);
@@ -144,18 +83,14 @@ const runChrome = async (browser, urlString, forceQuic, loss, delay, bw) => {
         for (let j = 0; j < RETRIES; j += 1) {
             try {
                 await har.start();
-                const start = Date.now();
                 const loadPage = page.goto(urlString, {
                     timeout: 120000,
                 });
                 await sleep(100);
                 await idlePage.bringToFront();
                 await loadPage;
-                const elapsed = Date.now() - start;
                 const harResult = await har.stop();
                 const { entries } = harResult.log;
-
-                console.log(entries);
 
                 const result = entries.filter((entry) => entry.request.url === urlString);
 

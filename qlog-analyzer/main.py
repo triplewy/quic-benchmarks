@@ -6,6 +6,27 @@ import matplotlib.patches as mpatches
 
 from pathlib import Path
 from glob import glob
+from optparse import OptionParser
+
+
+# Returns duration in ms
+def qlog_duration(filename: str):
+    with open(filename) as f:
+        data = json.load(f)
+        traces = data['traces'][0]
+        vantage = traces['vantage_point']
+        events = traces['events']
+        if 'configuration' in traces:
+            time_units = traces['configuration']['time_units']
+        else:
+            time_units = 'ms'
+        start = int(events[0][0])
+        end = int(events[-1][0])
+
+        if time_units == 'ms':
+            return end - start
+
+        return end / 1000 - start / 1000
 
 
 def analyze_qlog(filename: str) -> (dict, str):
@@ -129,17 +150,30 @@ def plot_ack(data, graph_title: str):
 
 
 def main():
-    dir_name = sys.argv[1]
-    size = sys.argv[2]
-    rtt = sys.argv[3]
-    loss = sys.argv[4]
+    parser = OptionParser()
+    parser.add_option(
+        "--dir", dest="dir_name"
+    )
+    parser.add_option(
+        "--output", dest="output", metavar="FILE")
+
+    (options, args) = parser.parse_args()
+
+    dir_name = options.dir_name
+    output = options.output
+
     data = []
 
     files = glob('{}/**/*.qlog'.format(dir_name), recursive=True)
+    times = []
+    for qlog in files:
+        times.append(qlog_duration(qlog))
 
-    for qlog_file in files:
-        data.append(analyze_qlog(qlog_file))
-    plot_ack(data, '{}-{}ms-{}loss'.format(size, rtt, loss))
+    with open(output, 'w') as f:
+        json.dump(times, f)
+    # for qlog_file in files:
+    #     data.append(analyze_qlog(qlog_file))
+    # plot_ack(data, '{}-{}ms-{}loss'.format(size, rtt, loss))
 
 
 if __name__ == "__main__":
