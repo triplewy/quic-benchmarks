@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 10
+ITERATIONS = 20
 RETRIES = 10
 
 fb_urls = [
@@ -168,7 +168,7 @@ def run_process(client: str, h: str, url: str):
                     '--stream_flow_control=1073741824',
                     '--conn_flow_control=1073741824',
                     '--use_draft=true',
-                    '--protocol=h3-29',
+                    '--draft-version=29',
                     '--host={}'.format(host),
                     '--port={}'.format(port),
                     '--path=/{}'.format(url_path),

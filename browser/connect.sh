@@ -8,6 +8,6 @@
 --disk-cache-size=1 \
 --aggressive-cache-discard \
 --auto-open-devtools-for-tabs \
---ssl-key-log-file=/Users/alexyu/wireshark/chrome_sslkeylog \
---origin-to-force-quic-on=www.instagram.com:443 \
-https://www.instagram.com
+--origin-to-force-quic-on=scontent.xx.fbcdn.net:443 \
+--log-net-log=/tmp/netlog/speedtest-0B.netlog \
+https://scontent.xx.fbcdn.net/speedtest-0B

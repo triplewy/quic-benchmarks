@@ -12,11 +12,11 @@ ITERATIONS = 10
 RETRIES = 20
 
 fb_urls = [
-    # 'https://scontent.xx.fbcdn.net/speedtest-0B',
-    # 'https://scontent.xx.fbcdn.net/speedtest-1KB',
-    # 'https://scontent.xx.fbcdn.net/speedtest-10KB',
-    # 'https://scontent.xx.fbcdn.net/speedtest-100KB',
-    # 'https://scontent.xx.fbcdn.net/speedtest-500KB',
+    'https://scontent.xx.fbcdn.net/speedtest-0B',
+    'https://scontent.xx.fbcdn.net/speedtest-1KB',
+    'https://scontent.xx.fbcdn.net/speedtest-10KB',
+    'https://scontent.xx.fbcdn.net/speedtest-100KB',
+    'https://scontent.xx.fbcdn.net/speedtest-500KB',
     'https://scontent.xx.fbcdn.net/speedtest-1MB',
     'https://scontent.xx.fbcdn.net/speedtest-2MB',
     'https://scontent.xx.fbcdn.net/speedtest-5MB',
@@ -167,15 +167,15 @@ with webdriver.Firefox(firefox_binary=binary, firefox_profile=h2_profile, option
     # for url in ms_urls:
     #     query_file(driver, url, False)
 
-    # for url in fb_urls:
-    #     query(driver, url, False, loss, delay, bw)
+    for url in fb_urls:
+        query(driver, url, False, loss, delay, bw)
 
     # for url in cf_urls:
     #     query(driver, url, False)
 
     # for url in insta_urls:
     #     query(driver, url, False, loss, bw)
-    pass
+
 
 # Test Firefox H3
 with webdriver.Firefox(firefox_binary=binary, firefox_profile=h3_profile, options=firefox_options) as driver:

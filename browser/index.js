@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 10;
+const ITERATIONS = 20;
 const RETRIES = 5;
 
 function sleep(ms) {
@@ -25,6 +25,7 @@ const chromeArgs = (urlString, forceQuic) => {
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
+        '--log-net-log=/tmp/netlog',
     ];
 
     if (forceQuic) {

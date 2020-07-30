@@ -75,8 +75,8 @@ def populate_line_graph(host: str, urls: list, loss: int, delay: int, bw: int):
     plt.legend(handles=[
         mpatches.Patch(color='red', label='Chrome H2'),
         mpatches.Patch(color='cyan', label='Chrome H3'),
-        mpatches.Patch(color='orange', label='Firefox H2'),
-        mpatches.Patch(color='blue', label='Firefox H3'),
+        # mpatches.Patch(color='orange', label='Firefox H2'),
+        # mpatches.Patch(color='blue', label='Firefox H3'),
         mpatches.Patch(color='magenta', label='Curl H2'),
         mpatches.Patch(color='yellow', label='Ngtcp2 H3'),
         mpatches.Patch(color='green', label='Proxygen H3'),
@@ -99,7 +99,7 @@ def populate_line_graph(host: str, urls: list, loss: int, delay: int, bw: int):
 
         for url in urls:
             for h in ['h2', 'h3']:
-                if client == 'firefox' and h == 'h3':
+                if client == 'firefox':
                     break
                 filename = Path.joinpath(
                     har_dir, h, host, "{}.json".format(url))
@@ -172,14 +172,15 @@ def populate_line_graph(host: str, urls: list, loss: int, delay: int, bw: int):
 def main():
     # (loss, delay, bw)
     graphs = [
-        # (0, 0, 10),
-        # (0, 0, 5),
-        # (0, 0, 1),
-        # (1, 0, 10),
-        # (5, 0, 10),
-        # (10, 0, 10),
+        (0, 0, 10),
+        (0, 0, 5),
+        (0, 0, 1),
+        (1, 0, 10),
+        (5, 0, 10),
+        (10, 0, 10),
         (0, 200, 10),
-        # (0, 500, 10),
+        (0, 500, 10),
+        (5, 200, 10)
     ]
 
     for loss, delay, bw in graphs:

@@ -1,5 +1,13 @@
 # Results
 
+| Bandwidth | Loss | Delay (RTT) |
+| --------- | ---- | ----------- |
+| 10 MB     | 0%   | 0ms         |
+| 10 MB     | 5%   | 0ms         |
+| 10 MB     | 0%   | 200ms       |
+| 10 MB     | 5%   | 200ms       |
+
+
 ## Facebook
 
 20 Iterations for each endpoint. Graphs show mean of total time to load the web 
