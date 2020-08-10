@@ -9,5 +9,5 @@
 --aggressive-cache-discard \
 --auto-open-devtools-for-tabs \
 --origin-to-force-quic-on=scontent.xx.fbcdn.net:443 \
---log-net-log=/tmp/netlog/speedtest-0B.netlog \
+--log-net-log=/tmp/netlog/demo.netlog \
 https://scontent.xx.fbcdn.net/speedtest-0B
