@@ -8,6 +8,9 @@
 --disk-cache-size=1 \
 --aggressive-cache-discard \
 --auto-open-devtools-for-tabs \
---origin-to-force-quic-on=scontent.xx.fbcdn.net:443 \
+--origin-to-force-quic-on=www.instagram.com:443 \
+--origin-to-force-quic-on=connect.facebook.net:443 \
+--origin-to-force-quic-on=www.facebook.com:443 \
+--origin-to-force-quic-on=graph.instagram.com:443 \
 --log-net-log=/tmp/netlog/demo.netlog \
-https://scontent.xx.fbcdn.net/speedtest-0B
+https://www.instagram.com

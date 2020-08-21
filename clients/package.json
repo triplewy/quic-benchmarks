@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "argparse": "^2.0.0",
     "browsermob-proxy": "^1.0.10",
     "chrome-har": "^0.11.9",
     "puppeteer-core": "^3.3.0",
