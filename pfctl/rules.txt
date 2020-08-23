@@ -1,1 +1,0 @@
-dummynet out on lo0 proto udp from any to any pipe 1

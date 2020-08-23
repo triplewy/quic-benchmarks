@@ -14,36 +14,6 @@ ISO_8601_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 # http://www.softwareishard.com/blog/har-12-spec/#timings
 
-fb_urls = [
-    'speedtest-0B',
-    'speedtest-1KB',
-    'speedtest-10KB',
-    'speedtest-100KB',
-    'speedtest-500KB',
-    'speedtest-1MB',
-    'speedtest-2MB',
-    'speedtest-5MB',
-    'speedtest-10MB',
-]
-
-cf_urls = [
-    '1MB.png',
-    '5MB.png'
-]
-
-ms_urls = [
-    '1MBfile.txt',
-    '5000000.txt',
-    '10000000.txt',
-]
-
-f5_urls = [
-    '50000',
-    '5000000',
-    '10000000',
-]
-
-clients = ['chrome', 'firefox', 'curl', 'ngtcp2', 'proxygen']
 
 graph_dir = Path.joinpath(Path.home(), 'quic-benchmarks', 'graphs')
 Path(graph_dir).mkdir(parents=True, exist_ok=True)
@@ -185,75 +155,6 @@ def main():
 
     for loss, delay, bw in graphs:
         graph(loss, delay, bw, 'scontent.xx.fbcdn.net')
-
-    # # Plot cloudflare
-    # fig = plt.figure(figsize=(4, 6))
-    # plt.title('Cloudflare')
-    # plt.legend(handles=[
-    #     mpatches.Patch(color='red', label='Chrome H2'),
-    #     mpatches.Patch(color='cyan', label='Chrome H3'),
-    #     mpatches.Patch(color='orange', label='Firefox H2'),
-    #     mpatches.Patch(color='blue', label='Firefox H3'),
-    #     mpatches.Patch(color='magenta', label='Curl H2'),
-    #     mpatches.Patch(color='yellow', label='Curl H3'),
-    #     mpatches.Patch(color='green', label='Proxygen H3'),
-    # ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
-    # plt.ylabel('Time (ms)')
-    # plt.ylim(1, 5000)
-
-    # xtick_pos, xtick_labels = populate_graph(
-    #     'cloudflare-quic.com', cf_urls)
-    # plt.xticks(xtick_pos, xtick_labels, rotation=10)
-
-    # plt.show()
-    # fig.savefig(Path.joinpath(graph_dir, 'CF'), dpi=fig.dpi)
-    # plt.close(fig=fig)
-
-    # # Plot microsoft
-    # fig = plt.figure(figsize=(6, 6))
-    # plt.title('Microsoft')
-    # plt.legend(handles=[
-    #     mpatches.Patch(color='red', label='Chrome H2'),
-    #     mpatches.Patch(color='cyan', label='Chrome H3'),
-    #     mpatches.Patch(color='orange', label='Firefox H2'),
-    #     mpatches.Patch(color='blue', label='Firefox H3'),
-    #     mpatches.Patch(color='magenta', label='Curl H2'),
-    #     mpatches.Patch(color='yellow', label='Curl H3'),
-    #     mpatches.Patch(color='green', label='Proxygen H3'),
-    # ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
-    # plt.ylabel('Time (ms)')
-    # plt.ylim(1, 20000)
-
-    # xtick_pos, xtick_labels = populate_graph(
-    #     'quic.westus.cloudapp.azure.com', ms_urls)
-    # plt.xticks(xtick_pos, xtick_labels, rotation=10)
-
-    # plt.show()
-    # fig.savefig(Path.joinpath(graph_dir, 'MS'), dpi=fig.dpi)
-    # plt.close(fig=fig)
-
-    # # Plot f5
-    # fig = plt.figure(figsize=(6, 6))
-    # plt.title('F5')
-    # plt.legend(handles=[
-    #     mpatches.Patch(color='red', label='Chrome H2'),
-    #     mpatches.Patch(color='cyan', label='Chrome H3'),
-    #     mpatches.Patch(color='orange', label='Firefox H2'),
-    #     mpatches.Patch(color='blue', label='Firefox H3'),
-    #     mpatches.Patch(color='magenta', label='Curl H2'),
-    #     mpatches.Patch(color='yellow', label='Curl H3'),
-    #     mpatches.Patch(color='green', label='Proxygen H3'),
-    # ], loc='upper left', bbox_to_anchor=(0., 1.02, 1., .102))
-    # plt.ylabel('Time (ms)')
-    # plt.ylim(1, 25000)
-
-    # xtick_pos, xtick_labels = populate_graph(
-    #     'f5quic.com:4433', f5_urls)
-    # plt.xticks(xtick_pos, xtick_labels, rotation=10)
-
-    # plt.show()
-    # fig.savefig(Path.joinpath(graph_dir, 'F5'), dpi=fig.dpi)
-    # plt.close(fig=fig)
 
 
 if __name__ == "__main__":
