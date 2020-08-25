@@ -2,6 +2,8 @@ import json
 import time
 import sys
 import argparse
+import shutil
+import os
 
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
@@ -15,30 +17,17 @@ DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
 h2_profile = webdriver.FirefoxProfile()
-h2_profile.set_preference('browser.cache.disk.enable', False)
-h2_profile.set_preference('browser.cache.memory.enable', False)
-h2_profile.set_preference('browser.cache.offline.enable', False)
-h2_profile.set_preference('browser.cache.disk.capacity', -1)
-h2_profile.set_preference('browser.cache.memory.capacity', -1)
-h2_profile.set_preference('browser.cache.offline.capacity', -1)
-h2_profile.set_preference('devtools.cache.disabled', True)
-h2_profile.set_preference('network.http.use-cache', False)
+h2_profile.set_preference(
+    'browser.cache.disk.parent_directory', '/tmp/firefox-profile')
 h2_profile.set_preference('network.http.http3.enabled', False)
 h2_profile.set_preference('devtools.toolbox.selectedTool', 'netmonitor')
 h2_profile.add_extension(
     '/Users/alexyu/Library/Application Support/Firefox/Profiles/3w5xom8x.default-nightly/extensions/harexporttrigger@getfirebug.com.xpi')
 
 h3_profile = webdriver.FirefoxProfile()
-h3_profile.set_preference('browser.cache.disk.enable', False)
-h3_profile.set_preference('browser.cache.memory.enable', False)
-h3_profile.set_preference('browser.cache.offline.enable', False)
-h3_profile.set_preference('browser.cache.disk.capacity', -1)
-h3_profile.set_preference('browser.cache.memory.capacity', -1)
-h3_profile.set_preference('browser.cache.offline.capacity', -1)
-h3_profile.set_preference('devtools.cache.disabled', True)
-h3_profile.set_preference('network.http.use-cache', False)
+h2_profile.set_preference(
+    'browser.cache.disk.parent_directory', '/tmp/firefox-profile')
 h3_profile.set_preference('network.http.http3.enabled', True)
-h3_profile.set_preference('network.http.http3.support_draft28', True)
 h3_profile.set_preference(
     'network.http.http3.alt-svc-mapping-for-testing', True)
 h3_profile.set_preference('devtools.toolbox.selectedTool', 'netmonitor')
@@ -50,6 +39,7 @@ binary = FirefoxBinary(
 
 firefox_options = FirefoxOptions()
 firefox_options.add_argument('-devtools')
+firefox_options.add_argument('-headless')
 
 
 def query(url: str, isH3: bool):
@@ -57,6 +47,9 @@ def query(url: str, isH3: bool):
 
     for i in range(ITERATIONS):
         print('{} - ITERATION: {}'.format(url, i))
+
+        if os.path.exists('/tmp/firefox-profile'):
+            shutil.rmtree('/tmp/firefox-profile')
 
         if isH3:
             driver = webdriver.Firefox(
@@ -66,6 +59,7 @@ def query(url: str, isH3: bool):
                 firefox_binary=binary, firefox_profile=h2_profile, options=firefox_options)
 
         driver.set_page_load_timeout(60)
+        devtools = driver.getDevTools()
 
         for j in range(RETRIES):
             try:
