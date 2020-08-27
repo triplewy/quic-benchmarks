@@ -3,33 +3,134 @@
         "100KB": "https://scontent.xx.fbcdn.net/speedtest-100KB",
         "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
         "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
-        "web": {
-            "url": "https://www.instagram.com",
+        "small": {
+            "url": "https://www.instagram.com/about/jobs",
             "domains": [
                 "https://www.instagram.com"
-            ]
+            ],
+            "size": 0.62
+        },
+        "medium": {
+            "url": "https://www.instagram.com",
+            "domains": [
+                "https://www.instagram.com",
+                "https://connect.facebook.net"
+            ],
+            "size": 1.00
+        },
+        "large": {
+            "url": "https://www.facebook.com/careers/?ref=pf",
+            "domains": [
+                "https://business.instagram.com/",
+                "https://about.instagram.com",
+                "https://www.facebook.com",
+                "https://static.xx.fbcdn.net",
+                "https://external-bos3-1.xx.fbcdn.net",
+                "https://scontent-bos3-1.xx.fbcdn.net",
+                "https://video-bos3-1.xx.fbcdn.net",
+                "https://connect.facebook.net",
+                "https://www.google-analytics.com"
+            ],
+            "size": 3.65
         }
     },
     "google": {
         "100KB": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_android_auto_color_2x_web_512dp.max-600x600.png",
         "1MB": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/logo_accessibility_color_192dp.max-2800x2800.png",
         "5MB": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/Google-cafe.max-2800x2800.jpg",
-        "web": {
-            "url": "https://about.google",
+        "small": {
+            "url": "https://www.google.com",
             "domains": [
-                "https://storage.googleapis.com"
-            ]
+                "https://www.google.com",
+                "https://fonts.gstatic.com",
+                "https://ssl.gstatic.com",
+                "https://www.gstatic.com",
+                "https://apis.google.com"
+            ],
+            "size": 0.46
+        },
+        "medium": {
+            "url": "https://careers.google.com/jobs/",
+            "domains": [
+                "https://www.googleoptimize.com",
+                "https://fonts.googleapis.com",
+                "https://maps.google.com",
+                "https://lh3.googleusercontent.com",
+                "https://storage.googleapis.com",
+                "https://careers.google.com",
+                "https://fonts.gstatic.com",
+                "https://www.google.com",
+                "https://www.google-analytics.com",
+                "https://survey.g.doubleclick.net",
+                "https://www.googleadservices.com",
+                "https://www.googletagmanager.com",
+                "https://googleads.g.doubleclick.net",
+                "https://adservice.google.com",
+                "https://stats.g.doubleclick.net"
+            ],
+            "size": 0.97
+        },
+        "large": {
+            "url": "https://about.google/stories/",
+            "domains": [
+                "https://www.googleoptimize.com",
+                "https://fonts.googleapis.com",
+                "https://maps.google.com",
+                "https://lh3.googleusercontent.com",
+                "https://storage.googleapis.com",
+                "https://careers.google.com",
+                "https://fonts.gstatic.com",
+                "https://www.google.com",
+                "https://www.google-analytics.com",
+                "https://survey.g.doubleclick.net",
+                "https://www.googleadservices.com",
+                "https://www.googletagmanager.com",
+                "https://googleads.g.doubleclick.net",
+                "https://adservice.google.com",
+                "https://stats.g.doubleclick.net"
+            ],
+            "size": 2.49
         }
     },
     "cloudflare": {
         "100KB": "https://www.cloudflare.com/resources/images/slt3lc6tev37/4jZWUf5vPGcuekUAkugiGm/750cf9fc220ff5007d3f703ddd38d3c0/quic-hero.png",
         "1MB": "https://cloudflare-quic.com/1MB.png",
         "5MB": "https://cloudflare-quic.com/5MB.png",
-        "web": {
+        "small": {
             "url": "https://cloudflare-quic.com",
             "domains": [
                 "https://cloudflare-quic.com",
                 "https://www.cloudflare.com"
+            ],
+            "size": 0.37
+        },
+        "medium": {
+            "url": "https://blog.cloudflare.com/http-3-vs-http-2/",
+            "domains": [
+                "https://blog.cloudflare.com",
+                "https://cloudflare.com",
+                "https://c.disquscdn.com",
+                "https://blog-cloudflare-com-assets.storage.googleapis.com",
+                "https://www.cloudflare.com"
+            ]
+        },
+        "large": {
+            "url": "https://www.cloudflare.com/careers/",
+            "domains": [
+                "https://assets.www.cloudflare.com",
+                "https://embed.videodelivery.net",
+                "https://images.ctfassets.net",
+                "https://www.googleoptimize.com",
+                "https://videodelivery.net",
+                "https://info.cloudflare.com",
+                "https://blog.cloudflare.com",
+                "https://cloudflare.com",
+                "https://c.disquscdn.com",
+                "https://blog-cloudflare-com-assets.storage.googleapis.com",
+                "https://www.cloudflare.com",
+                "https://www.googletagmanager.com",
+                "https://embed.cloudflarestream.com",
+                "https://cdn.bizible.com"
             ]
         }
     }

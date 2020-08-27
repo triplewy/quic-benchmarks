@@ -10,8 +10,8 @@ rm -rf /tmp/chrome-profile
 --disk-cache-size=1 \
 --aggressive-cache-discard \
 --auto-open-devtools-for-tabs \
---origin-to-force-quic-on=www.instagram.com:443 \
-https://about.instagram.com
+--origin-to-force-quic-on=about.fb.com:443 \
+https://about.fb.com
 # --origin-to-force-quic-on=connect.facebook.net:443 \
 # --origin-to-force-quic-on=www.facebook.com:443 \
 # --origin-to-force-quic-on=graph.instagram.com:443 \

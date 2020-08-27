@@ -12,10 +12,11 @@ const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 10;
+const ITERATIONS = 25;
 const RETRIES = 5;
-const DOMAINS = ['facebook', 'cloudflare', 'google'];
+const DOMAINS = ['facebook', 'google', 'cloudflare'];
 const sizes = ['100KB', '1MB', '5MB'];
+
 
 const chromeArgs = (urls) => {
     const args = [
@@ -32,10 +33,12 @@ const chromeArgs = (urls) => {
             '--quic-version=h3-29',
         );
 
-        for (const urlString of urls) {
+        const origins = urls.map((urlString) => {
             const urlObject = url.parse(urlString);
-            args.push(`--origin-to-force-quic-on=${urlObject.host}:443`);
-        }
+            return `${urlObject.host}:443`;
+        });
+
+        args.push(`--origin-to-force-quic-on=${origins.join(',')}`);
     } else {
         args.push(
             '--disable-quic',
@@ -56,10 +59,26 @@ const runChrome = async (urlString, isH3) => {
         fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
-            headless: false,
+            headless: true,
             executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
             args,
         });
+
+        let gotoUrl;
+        let idlePage;
+        if (urlString.includes('scontent')) {
+            if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
+                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/100kb.html';
+            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
+                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/1MB.html';
+            } else {
+                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/5MB.html';
+            }
+            // const pages = await browser.pages();
+            // [idlePage] = pages;
+        } else {
+            gotoUrl = urlString;
+        }
 
         for (let j = 0; j < RETRIES; j += 1) {
             try {
@@ -67,12 +86,20 @@ const runChrome = async (urlString, isH3) => {
                 const har = await new PuppeteerHar(page);
 
                 await har.start();
-                await page.goto(urlString, {
+                await page.goto(gotoUrl, {
                     timeout: 120000,
                 });
 
+                // if (idlePage) {
+                //     for (let k = 0; k < 5; k += 1) {
+                //         await idlePage.bringToFront();
+                //     }
+                // }
+
                 const harResult = await har.stop();
                 const { entries } = harResult.log;
+
+                await page.close();
 
                 const result = entries.filter((entry) => entry.request.url === urlString);
 
@@ -83,7 +110,6 @@ const runChrome = async (urlString, isH3) => {
 
                 const entry = result[0];
 
-                await page.close();
 
                 console.log(entry.response.httpVersion, entry.time);
 
@@ -146,8 +172,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
 };
 
 const runChromeWeb = async (obj, isH3) => {
-    const urlString = obj.url;
-    const { domains } = obj;
+    const { domains, size, url: urlString } = obj;
 
     const timings = [];
 
@@ -155,16 +180,16 @@ const runChromeWeb = async (obj, isH3) => {
     for (let i = 0; i < ITERATIONS; i += 1) {
         console.log(`${urlString} Iteration: ${i}`);
 
-        // Restart browser for each iteration to make things fair...
-        fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
-        const args = chromeArgs(isH3 ? domains : null);
-        const browser = await puppeteer.launch({
-            headless: false,
-            executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-            args,
-        });
-
         for (let j = 0; j < RETRIES; j += 1) {
+            // Restart browser for each iteration to make things fair...
+            fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+            const args = chromeArgs(isH3 ? domains : null);
+            const browser = await puppeteer.launch({
+                headless: true,
+                executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+                args,
+            });
+
             try {
                 const page = await browser.newPage();
                 const har = await new PuppeteerHar(page);
@@ -177,13 +202,28 @@ const runChromeWeb = async (obj, isH3) => {
                 const harResult = await har.stop();
                 const { entries } = harResult.log;
 
-                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
-                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
-
                 await page.close();
 
-                if (isH3 && numH3 / entries.length < 0.9) {
-                    console.log('Not enough h3 resources');
+                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
+                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
+                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
+                const payloadMb = (payloadBytes / 1048576).toFixed(2);
+
+                console.log(`Size: ${payloadMb}mb`);
+
+                if (isH3 && numH3 / entries.length < 0.95) {
+                    console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3}`);
+                    if (j === RETRIES - 1) {
+                        throw Error('Exceeded retries');
+                    }
+                    // eslint-disable-next-line no-continue
+                    continue;
+                }
+
+
+                if (payloadMb < size) {
+                    console.log(`Retrieved less than expected payload. Expected: ${size}, Got: ${payloadMb}`);
                     if (j === RETRIES - 1) {
                         throw Error('Exceeded retries');
                     }
@@ -206,10 +246,10 @@ const runChromeWeb = async (obj, isH3) => {
                     console.error('Exceeded retries');
                     throw error;
                 }
+            } finally {
+                await browser.close();
             }
         }
-
-        await browser.close();
     }
 
     return timings;
@@ -222,7 +262,7 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
-            const size = 'web';
+            const size = 'large';
 
             // Create directory
             const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
