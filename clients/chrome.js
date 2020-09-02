@@ -74,11 +74,11 @@ const runChrome = async (urlString, isH3) => {
         // let idlePage;
         if (urlString.includes('scontent')) {
             if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
-                gotoUrl = `file:///${paths['100KB']}`;
+                gotoUrl = `file://${paths['100KB']}`;
             } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
-                gotoUrl = `file:///${paths['1MB']}`;
+                gotoUrl = `file://${paths['1MB']}`;
             } else {
-                gotoUrl = `file:///${paths['5MB']}`;
+                gotoUrl = `file://${paths['5MB']}`;
             }
             // const pages = await browser.pages();
             // [idlePage] = pages;
@@ -150,7 +150,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
             const urls = endpoints[domain];
             for (const size of SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss - ${loss} _delay - ${delay} _bw - ${bw} `, domain, size);
+                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw} `, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists
@@ -271,7 +271,7 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
 
             for (const size of WEBPAGE_SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss - ${loss} _delay - ${delay} _bw - ${bw} `, domain, size);
+                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists

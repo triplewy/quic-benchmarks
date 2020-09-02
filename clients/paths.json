@@ -2,7 +2,7 @@
     "chrome": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
     "proxygen": "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq",
     "ngtcp2": "/Users/alexyu/ngtcp2/examples/client",
-    "100KB": "/Users/alexyu/quic-benchmarks/html/100kb.html",
-    "1MB": "/Users/alexyu/quic-benchmarks/html/1mb.html",
-    "5MB": "/Users/alexyu/quic-benchmarks/html/5mb.html"
+    "100KB": "/Users/alexyu/quic-benchmarks/clients/html/100kb.html",
+    "1MB": "/Users/alexyu/quic-benchmarks/clients/html/1mb.html",
+    "5MB": "/Users/alexyu/quic-benchmarks/clients/html/5mb.html"
 }
