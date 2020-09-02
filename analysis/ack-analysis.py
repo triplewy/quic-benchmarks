@@ -1,37 +1,50 @@
+import argparse
 import sys
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.ticker import StrMethodFormatter
+
 
 from pathlib import Path
 from glob import glob
 from optparse import OptionParser
 
 
-# Returns duration in ms
-def qlog_duration(filename: str):
+def analyze_pcap(filename: str) -> (dict, str):
+    print(filename)
     with open(filename) as f:
         data = json.load(f)
-        traces = data['traces'][0]
-        vantage = traces['vantage_point']
-        events = traces['events']
-        if 'configuration' in traces:
-            time_units = traces['configuration']['time_units']
-        else:
-            time_units = 'ms'
-        start = int(events[0][0])
-        end = int(events[-1][0])
 
-        if time_units == 'ms':
-            return end - start
+        ack_ts = {}
 
-        return end / 1000 - start / 1000
+        fin = False
+
+        # Associate each ACK offset with a timestamp
+        for packet in data:
+            tcp = packet['_source']['layers']['tcp']
+            srcport = tcp['tcp.srcport']
+            dstport = tcp['tcp.dstport']
+            time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
+
+            # receive packet
+            if srcport == '443':
+                if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
+                    fin = True
+                continue
+            # send packet
+            else:
+                if fin:
+                    continue
+                bytes_ack = int(tcp['tcp.ack'])
+                ack_ts[time] = bytes_ack / 1024
+
+    return ack_ts, filename
 
 
 def analyze_qlog(filename: str) -> (dict, str):
     print(filename)
-
     with open(filename) as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -44,11 +57,17 @@ def analyze_qlog(filename: str) -> (dict, str):
 
         ack_ts = {}
         pkts_received = {}
+        received_ts = {}
 
         # Store all stream packets received by client
         for event in events:
             if not event:
                 continue
+
+            if time_units == 'ms':
+                ts = int(event[0])
+            else:
+                ts = int(event[0]) / 1000
 
             event_type = event[2]
             event_data = event[3]
@@ -68,19 +87,7 @@ def analyze_qlog(filename: str) -> (dict, str):
                         offset = int(frame['offset'])
                         length = int(frame['length'])
                         pkts_received[pkt_num] = offset + length
-
-        # Associate each ACK packet sent with a data offset
-        for event in events:
-            if not event:
-                continue
-
-            if time_units == 'ms':
-                ts = int(event[0])
-            else:
-                ts = int(event[0]) / 1000
-
-            event_type = event[2]
-            event_data = event[3]
+                        received_ts[ts] = (offset + length) / 1024
 
             if event_type.lower() == 'packet_sent':
                 # Get max ack sent
@@ -110,70 +117,89 @@ def analyze_qlog(filename: str) -> (dict, str):
                             local_max_ack = max(
                                 local_max_ack, pkts_received[i])
 
-                ack_ts[ts] = local_max_ack
+                if local_max_ack is not None:
+                    ack_ts[ts] = local_max_ack / 1024
 
     if 'title' in traces:
         title = traces['title']
     else:
         title = '{} {}'.format(vantage['name'], vantage['type'])
 
-    return ack_ts, title
+    return ack_ts, filename
 
 
 def plot_ack(data, graph_title: str):
-    colors = ['green', 'cyan', 'orange', 'red', '#763BB1']
-    fig = plt.figure(figsize=(12, 9))
-    plt.ylabel('Total Data ACKed (bytes)')
-    plt.xlabel('Time (ms)')
-    plt.title('ACK timeline for {}'.format(graph_title))
+    colors = [
+        '#41A9C0', 'cyan', 'blue',
+        '#14293D', '#A7DFE2', '#8ED9CD',
+        # 'red', '#C34B5D', '#DC00A1',
+        # '#A9385A', '#C95DB4', 'orange'
+    ]
+    fig, ax = plt.subplots(figsize=(12, 9))
+    # plt.ylabel('Total KB ACKed')
+    # plt.xlabel('Time (ms)')
+    plt.title(graph_title)
 
-    legend = []
+    legend = [
+        mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='blue', label='Proxygen H3')
+    ]
 
     for i, (ack_ts, title) in enumerate(data):
         color = colors[i]
-        legend.append(mpatches.Patch(
-            color=color, label=title.replace(' ', '_')))
+        # legend.append(mpatches.Patch(
+        #     color=color, label=title))
 
         plt.plot(
             [x[0] for x in ack_ts.items()],
             [x[1] for x in ack_ts.items()],
             color=color,
             marker='o',
-            linestyle='',
-            markersize=2,
+            linestyle='-',
+            markersize=3,
         )
 
+    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.tick_params(axis='both', which='minor', labelsize=20)
+
+    formatter0 = StrMethodFormatter('{x:,g} kb')
+    ax.yaxis.set_major_formatter(formatter0)
+
+    formatter1 = StrMethodFormatter('{x:,g} ms')
+    ax.xaxis.set_major_formatter(formatter1)
+
+    # plt.yticks(np.array([0, 250, 500, 750, 1000]))
+    # plt.xticks(np.array([0, 500, 1000, 1500]))
+
     plt.legend(handles=legend)
-    fig.savefig(Path.joinpath(Path.home(), 'quic-benchmarks',
-                              'graphs', 'qlog_{}'.format(graph_title)), dpi=fig.dpi)
+    plt.show()
     plt.close(fig=fig)
 
 
 def main():
-    parser = OptionParser()
-    parser.add_option(
-        "--dir", dest="dir_name"
-    )
-    parser.add_option(
-        "--output", dest="output", metavar="FILE")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--qlogdir")
+    parser.add_argument("--pcapdir")
 
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
-    dir_name = options.dir_name
-    output = options.output
+    qlogdir = args.qlogdir
+    pcapdir = args.pcapdir
 
     data = []
 
-    files = glob('{}/**/*.qlog'.format(dir_name), recursive=True)
-    times = []
+    files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
+    files.sort()
     for qlog in files:
-        times.append(qlog_duration(qlog))
+        if qlog.count('proxygen') > 0:
+            continue
+        data.append(analyze_qlog(qlog))
 
-    with open(output, 'w') as f:
-        json.dump(times, f)
-    # for qlog_file in files:
-    #     data.append(analyze_qlog(qlog_file))
-    # plot_ack(data, '{}-{}ms-{}loss'.format(size, rtt, loss))
+    files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
+    for pcap in files:
+        data.append(analyze_pcap(pcap))
+
+    plot_ack(data, 'Google 1MB - 5% Loss')
 
 
 if __name__ == "__main__":

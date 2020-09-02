@@ -13,21 +13,31 @@ from scipy import stats
 
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
+WEBPAGE_SIZES = ['small', 'medium', 'large']
 CLIENTS = ['chrome_h3', 'proxygen_h3',
            'ngtcp2_h3', 'chrome_h2', 'curl_h2']
+
 NETWORK = [
-    'loss-0_delay-0_bw-1',
-    'loss-1_delay-0_bw-1',
-    'loss-5_delay-0_bw-1',
-    'loss-0_delay-50_bw-1',
-    'loss-0_delay-200_bw-1',
-    'loss-1_delay-200_bw-1',
-    'loss-0_delay-0_bw-10',
-    'loss-1_delay-0_bw-10',
-    'loss-5_delay-0_bw-10',
-    'loss-0_delay-50_bw-10',
-    'loss-0_delay-200_bw-10',
-    'loss-1_delay-200_bw-10',
+    {
+        'dirname': 'loss-0_delay-0_bw-10',
+        'title': '0% Loss'
+    },
+    {
+        'dirname': 'loss-0dot1_delay-0_bw-10',
+        'title': '0.1% Loss'
+    },
+    {
+        'dirname': 'loss-1_delay-0_bw-10',
+        'title': '1% Loss'
+    },
+    {
+        'dirname': 'loss-0_delay-50_bw-10',
+        'title': '50ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-100_bw-10',
+        'title': '100ms RTT Delay'
+    },
 ]
 
 GROUPINGS_V0 = [
@@ -73,8 +83,9 @@ GROUPINGS_V1 = [
             # {'scenario': 'loss-1_delay-0_bw-1', 'title': '1% (1mb bw)'},
             # {'scenario': 'loss-5_delay-0_bw-1', 'title': '5% (1mb bw)'},
             {'scenario': 'loss-0_delay-0_bw-10', 'title': '0%'},
+            {'scenario': 'loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
             {'scenario': 'loss-1_delay-0_bw-10', 'title': '1%'},
-            {'scenario': 'loss-5_delay-0_bw-10', 'title': '5%'},
+            # {'scenario': 'loss-2dot5_delay-0_bw-10', 'title': '2.5%'},
         ]
     },
     {
@@ -85,7 +96,8 @@ GROUPINGS_V1 = [
             # {'scenario': 'loss-0_delay-200_bw-1', 'title': '200ms (1mb bw)'},
             {'scenario': 'loss-0_delay-0_bw-10', 'title': '0ms'},
             {'scenario': 'loss-0_delay-50_bw-10', 'title': '50ms'},
-            {'scenario': 'loss-0_delay-200_bw-10', 'title': '200ms'},
+            {'scenario': 'loss-0_delay-100_bw-10', 'title': '100ms'},
+            # {'scenario': 'loss-0_delay-250_bw-10', 'title': '250ms'},
         ]
     },
 ]
@@ -190,7 +202,7 @@ def h2_vs_h3_v1(timings: object):
         plt.show()
 
 
-def h2_vs_h3_v2(timings: object):
+def h2_vs_h3_v2(timings: object, sizes):
 
     for domain in DOMAINS:
 
@@ -198,7 +210,7 @@ def h2_vs_h3_v2(timings: object):
 
             h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
             h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
-            h2_vs_h3_col_labels = SIZES
+            h2_vs_h3_col_labels = WEBPAGE_SIZES
             bad_cov = 0
 
             for i, item in enumerate(grouping['items']):
@@ -206,7 +218,7 @@ def h2_vs_h3_v2(timings: object):
                 data = h2_vs_h3_data[i]
                 network = item['scenario']
 
-                for size in SIZES:
+                for size in sizes:
                     min_h3_mean = math.inf
                     min_h3_client = None
 
@@ -223,7 +235,7 @@ def h2_vs_h3_v2(timings: object):
                         if client.count('firefox') > 0:
                             continue
 
-                        if len(times) != 20:
+                        if len(times) != 40:
                             print(network, size, client, len(times))
 
                         mean = np.mean(times)
@@ -275,7 +287,7 @@ def h2_vs_h3_v2(timings: object):
                 vmin=-20,
                 vmax=20
             )
-            annotate_heatmap(im, valfmt="{x:.1f}%", threshold=10)
+            annotate_heatmap(im, valfmt="{x:.1f}%", threshold=5)
             fig.tight_layout()
             plt.show()
 
@@ -283,8 +295,9 @@ def h2_vs_h3_v2(timings: object):
 def client_consistency(timings: object):
     percent_diffs = []
 
-    for dirname in timings.keys():
-
+    for obj in NETWORK:
+        dirname = obj['dirname']
+        title = obj['title']
         data = []
         row_labels = []
         col_labels = CLIENTS
@@ -347,7 +360,7 @@ def client_consistency(timings: object):
                 data.append(row_data)
 
         fig, ax = plt.subplots()
-        ax.set_title(dirname)
+        ax.set_title(title)
         im, cbar = heatmap(
             np.array(data),
             row_labels,
@@ -356,7 +369,8 @@ def client_consistency(timings: object):
             cmap="Reds",
             cbarlabel="Percent difference",
             vmin=0,
-            vmax=20
+            vmax=20,
+            rotation=30
         )
         fig.tight_layout()
         plt.show()
@@ -365,46 +379,7 @@ def client_consistency(timings: object):
     print(percent_diffs)
 
 
-def main():
-    timings = {}
-
-    # 1. Walk har directory and fill in timings
-    path = Path.joinpath(
-        Path(os.path.dirname(os.path.abspath(__file__))),
-        '..',
-        'clients',
-        'har'
-    )
-
-    for dirname in os.listdir(path):
-        temp = {}
-        for domain in DOMAINS:
-            temp[domain] = {}
-            for size in SIZES:
-                temp[domain][size] = {}
-
-                experiment_path = Path.joinpath(
-                    path,
-                    dirname,
-                    domain,
-                    size
-                )
-
-                for filename in os.listdir(experiment_path):
-                    with open(Path.joinpath(experiment_path, filename), mode='r') as f:
-                        output = json.load(f)
-
-                        temp[domain][size][filename.split('.')[0]] = output
-
-        timings[dirname] = temp
-
-    h2_vs_h3_v2(timings)
-    h2_vs_h3_v1(timings)
-
-    client_consistency(timings)
-
-
-def heatmap(data, row_labels, col_labels, ax=None,
+def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
             cbar_kw={}, cbarlabel="", **kwargs):
     """
     Create a heatmap from a numpy array and two lists of labels.
@@ -454,7 +429,12 @@ def heatmap(data, row_labels, col_labels, ax=None,
     #                labeltop=True, labelbottom=False)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=30, ha="right",
+    if rotation == 0:
+        ha = 'center'
+    else:
+        ha = 'right'
+
+    plt.setp(ax.get_xticklabels(), rotation=rotation, ha=ha,
              rotation_mode="anchor")
 
     # Turn spines off and create white grid.
@@ -527,6 +507,53 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             texts.append(text)
 
     return texts
+
+
+def main():
+    timings = {}
+
+    # 1. Walk har directory and fill in timings
+    path = Path.joinpath(
+        Path(os.path.dirname(os.path.abspath(__file__))),
+        '..',
+        'clients',
+        'har'
+    )
+
+    for dirname in os.listdir(path):
+        temp = {}
+        for domain in DOMAINS:
+            temp[domain] = {}
+            for size in SIZES + WEBPAGE_SIZES:
+                temp[domain][size] = {}
+
+                experiment_path = Path.joinpath(
+                    path,
+                    dirname,
+                    domain,
+                    size
+                )
+
+                if not os.path.exists(experiment_path):
+                    continue
+
+                for filename in os.listdir(experiment_path):
+                    if size == 'small':
+                        print(dirname, domain, filename)
+                    try:
+                        with open(Path.joinpath(experiment_path, filename), mode='r') as f:
+                            output = json.load(f)
+
+                            temp[domain][size][filename.split('.')[0]] = output
+                    except:
+                        pass
+
+        timings[dirname] = temp
+
+    # h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+
+    client_consistency(timings)
 
 
 if __name__ == "__main__":

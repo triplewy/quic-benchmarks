@@ -15,8 +15,12 @@ const url = require('url');
 const ITERATIONS = 25;
 const RETRIES = 5;
 const DOMAINS = ['facebook', 'google', 'cloudflare'];
-const sizes = ['100KB', '1MB', '5MB'];
+const SIZES = ['100KB', '1MB', '5MB'];
+const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
+// const DOMAINS = ['facebook'];
+// const WEBPAGE_SIZES = ['small'];
+// const SIZES = ['100KB'];
 
 const chromeArgs = (urls) => {
     const args = [
@@ -24,7 +28,7 @@ const chromeArgs = (urls) => {
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
-        // '--log-net-log=/tmp/netlog',
+        // '--log-net-log=/tmp/netlog/chrome.json',
     ];
 
     if (urls !== null && urls.length > 0) {
@@ -64,20 +68,18 @@ const runChrome = async (urlString, isH3) => {
             args,
         });
 
-        let gotoUrl;
-        let idlePage;
+        let gotoUrl = urlString;
+        // let idlePage;
         if (urlString.includes('scontent')) {
-            if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
+            if (urlString === 'https://scontent-bos3-1.xx.fbcdn.net/speedtest-100KB') {
                 gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/100kb.html';
-            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
+            } else if (urlString === 'https://scontent-bos3-1.xx.fbcdn.net/speedtest-1MB') {
                 gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/1MB.html';
             } else {
                 gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/5MB.html';
             }
             // const pages = await browser.pages();
             // [idlePage] = pages;
-        } else {
-            gotoUrl = urlString;
         }
 
         for (let j = 0; j < RETRIES; j += 1) {
@@ -104,7 +106,7 @@ const runChrome = async (urlString, isH3) => {
                 const result = entries.filter((entry) => entry.request.url === urlString);
 
                 if (result.length !== 1) {
-                    console.error('Invalid HAR');
+                    console.error('Invalid HAR', result);
                     throw Error;
                 }
 
@@ -144,7 +146,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
-            for (const size of sizes) {
+            for (const size of SIZES) {
                 // Create directory
                 const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
@@ -172,7 +174,9 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
 };
 
 const runChromeWeb = async (obj, isH3) => {
-    const { domains, size, url: urlString } = obj;
+    const {
+        domains, size, url: urlString,
+    } = obj;
 
     const timings = [];
 
@@ -211,7 +215,7 @@ const runChromeWeb = async (obj, isH3) => {
 
                 console.log(`Size: ${payloadMb}mb`);
 
-                if (isH3 && numH3 / entries.length < 0.95) {
+                if (isH3 && numH2 > 0) {
                     console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
                     console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3}`);
                     if (j === RETRIES - 1) {
@@ -262,29 +266,30 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
-            const size = 'large';
 
-            // Create directory
-            const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
-            fs.mkdirSync(dir, { recursive: true });
+            for (const size of WEBPAGE_SIZES) {
+                // Create directory
+                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+                fs.mkdirSync(dir, { recursive: true });
 
-            // Read from file if exists
-            const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-            let timings = [];
-            try {
-                timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-            } catch (error) {
-                console.error(error);
+                // Read from file if exists
+                const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+                let timings = [];
+                try {
+                    timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+                } catch (error) {
+                    console.error(error);
+                }
+
+                // Run benchmark
+                const result = await runChromeWeb(urls[size], isH3);
+
+                // Concat result times to existing data
+                timings.push(...result);
+
+                // Save data
+                fs.writeFileSync(file, JSON.stringify(timings));
             }
-
-            // Run benchmark
-            const result = await runChromeWeb(urls[size], isH3);
-
-            // Concat result times to existing data
-            timings.push(...result);
-
-            // Save data
-            fs.writeFileSync(file, JSON.stringify(timings));
         }
     }
 };
@@ -309,11 +314,11 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     console.log('Chrome: H3 - single object');
     await runBenchmark(loss, delay, bw, true);
 
-    // // H2 - multi object
-    // console.log('Chrome: H2 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, false);
+    // H2 - multi object
+    console.log('Chrome: H2 - multi object');
+    await runBenchmarkWeb(loss, delay, bw, false);
 
-    // // H3 - multi object
-    // console.log('Chrome: H3 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, true);
+    // H3 - multi object
+    console.log('Chrome: H3 - multi object');
+    await runBenchmarkWeb(loss, delay, bw, true);
 })();

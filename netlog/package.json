@@ -1,0 +1,17 @@
+{
+  "name": "netlog",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@quictools/qlog-schema": "0.0.16",
+    "@types/argparse": "^2.0.0",
+    "@types/node": "^14.6.2",
+    "argparse": "^2.0.1"
+  }
+}

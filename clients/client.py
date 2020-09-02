@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 10
+ITERATIONS = 25
 RETRIES = 10
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
@@ -44,34 +44,6 @@ def run_process(client: str, url: str):
                 '--http2', url
             ]
         )
-        # # Have to add retry logic to curl
-        # for retry in range(RETRIES):
-        #     if retry > 0:
-        #         print('Retrying')
-
-        #     time.sleep(0.2)
-
-        #     output = subprocess.run(
-        #         [
-        #             'time',
-        #             'curl',
-        #             '--silent',
-        #             '--output', '/dev/null',
-        #             '--connect-timeout', '5',
-        #             '--max-time', '120',
-        #             '--http2', url
-        #         ],
-        #         capture_output=True
-        #     )
-
-        #     output = output.stderr.decode()
-
-        #     if output.count('Operation timed out') == 0:
-        #         output = output.split('\n')[-2]
-        #         output = output.split()
-        #         return float(output[0])
-
-        # raise 'Failed retries'
 
     elif client == 'ngtcp2_h3':
         return run_subprocess(
