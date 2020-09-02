@@ -23,8 +23,6 @@ const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 // const SIZES = ['100KB'];
 
 const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
-const chromePath = paths.chrome;
-
 
 const chromeArgs = (urls) => {
     const args = [
@@ -68,19 +66,19 @@ const runChrome = async (urlString, isH3) => {
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
-            executablePath: chromePath,
+            executablePath: paths.chrome,
             args,
         });
 
         let gotoUrl = urlString;
         // let idlePage;
         if (urlString.includes('scontent')) {
-            if (urlString === 'https://scontent-bos3-1.xx.fbcdn.net/speedtest-100KB') {
-                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/100kb.html';
-            } else if (urlString === 'https://scontent-bos3-1.xx.fbcdn.net/speedtest-1MB') {
-                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/1MB.html';
+            if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
+                gotoUrl = `file:///${paths['100KB']}`;
+            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
+                gotoUrl = `file:///${paths['1MB']}`;
             } else {
-                gotoUrl = 'file:///Users/alexyu/quic-benchmarks/clients/html/5MB.html';
+                gotoUrl = `file:///${paths['5MB']}`;
             }
             // const pages = await browser.pages();
             // [idlePage] = pages;
@@ -152,7 +150,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
             const urls = endpoints[domain];
             for (const size of SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+                const dir = path.join('har', `loss - ${loss} _delay - ${delay} _bw - ${bw} `, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists
@@ -186,7 +184,7 @@ const runChromeWeb = async (obj, isH3) => {
 
     // Repeat test ITERATIONS times
     for (let i = 0; i < ITERATIONS; i += 1) {
-        console.log(`${urlString} Iteration: ${i}`);
+        console.log(`${urlString} Iteration: ${i} `);
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Restart browser for each iteration to make things fair...
@@ -194,7 +192,7 @@ const runChromeWeb = async (obj, isH3) => {
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
-                executablePath: chromePath,
+                executablePath: paths.chrome,
                 args,
             });
 
@@ -217,11 +215,11 @@ const runChromeWeb = async (obj, isH3) => {
                 const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
                 const payloadMb = (payloadBytes / 1048576).toFixed(2);
 
-                console.log(`Size: ${payloadMb}mb`);
+                console.log(`Size: ${payloadMb} mb`);
 
                 if (isH3 && numH2 > 0) {
                     console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
-                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3}`);
+                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
                     if (j === RETRIES - 1) {
                         throw Error('Exceeded retries');
                     }
@@ -231,7 +229,7 @@ const runChromeWeb = async (obj, isH3) => {
 
 
                 if (payloadMb < size) {
-                    console.log(`Retrieved less than expected payload. Expected: ${size}, Got: ${payloadMb}`);
+                    console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
                     if (j === RETRIES - 1) {
                         throw Error('Exceeded retries');
                     }
@@ -245,7 +243,7 @@ const runChromeWeb = async (obj, isH3) => {
                 const end = entries[entries.length - 1]._requestTime + entries[entries.length - 1].time;
                 const time = end - start;
 
-                console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time}`);
+                console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
                 timings.push(time);
                 break;
@@ -273,7 +271,7 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
 
             for (const size of WEBPAGE_SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+                const dir = path.join('har', `loss - ${loss} _delay - ${delay} _bw - ${bw} `, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists

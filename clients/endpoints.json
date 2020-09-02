@@ -1,8 +1,8 @@
 {
     "facebook": {
-        "100KB": "https://scontent-bos3-1.xx.fbcdn.net/speedtest-100KB",
-        "1MB": "https://scontent-bos3-1.xx.fbcdn.net/speedtest-1MB",
-        "5MB": "https://scontent-bos3-1.xx.fbcdn.net/speedtest-5MB",
+        "100KB": "https://scontent.xx.fbcdn.net/speedtest-100KB",
+        "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
+        "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
         "small": {
             "url": "https://www.instagram.com/about/jobs",
             "domains": [
