@@ -12,6 +12,10 @@ RETRIES = 10
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
+PATHS = {}
+with open('paths.json') as f:
+    PATHS = json.load(f)
+
 
 def query(client: str, url: str):
     timings = []
@@ -48,7 +52,7 @@ def run_process(client: str, url: str):
     elif client == 'ngtcp2_h3':
         return run_subprocess(
             [
-                '{}/ngtcp2/examples/client'.format(Path.home()),
+                '{}'.format(PATHS['ngtcp2']),
                 '--quiet',
                 '--exit-on-all-streams-close',
                 '--max-data=1073741824',
@@ -68,8 +72,7 @@ def run_process(client: str, url: str):
 
         return run_subprocess(
             [
-                '{}/proxygen-clone/proxygen/_build/proxygen/httpserver/hq'.format(
-                    Path.home()),
+                '{}'.format(PATHS['proxygen']),
                 '--log_response=false',
                 '--mode=client',
                 '--stream_flow_control=1073741824',

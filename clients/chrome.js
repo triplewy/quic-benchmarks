@@ -22,6 +22,10 @@ const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 // const WEBPAGE_SIZES = ['small'];
 // const SIZES = ['100KB'];
 
+const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
+const chromePath = paths.chrome;
+
+
 const chromeArgs = (urls) => {
     const args = [
         '--user-data-dir=/tmp/chrome-profile',
@@ -64,7 +68,7 @@ const runChrome = async (urlString, isH3) => {
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
-            executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+            executablePath: chromePath,
             args,
         });
 
@@ -190,7 +194,7 @@ const runChromeWeb = async (obj, isH3) => {
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
-                executablePath: '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+                executablePath: chromePath,
                 args,
             });
 
