@@ -12,6 +12,9 @@ RETRIES = 10
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
+# DOMAINS = ['google', 'cloudflare']
+# SIZES = ['1MB']
+
 PATHS = {}
 with open('paths.json') as f:
     PATHS = json.load(f)

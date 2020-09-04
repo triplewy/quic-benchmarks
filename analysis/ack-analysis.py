@@ -6,10 +6,16 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.ticker import StrMethodFormatter
 
-
+from collections import deque
 from pathlib import Path
 from glob import glob
 from optparse import OptionParser
+
+BLUE = deque(['#0000FF', '#0000B3', '#0081B3',
+              '#14293D', '#A7DFE2', '#8ED9CD'])
+RED = deque(['#FF0000', '#950000', '#FF005A', '#A9385A', '#C95DB4', 'orange'])
+GREEN = deque(['#00FF00', '#008D00', '#005300',
+               '#00FF72', '#76FF00', '#24A547'])
 
 
 def analyze_pcap(filename: str) -> (dict, str):
@@ -141,12 +147,21 @@ def plot_ack(data, graph_title: str):
     plt.title(graph_title)
 
     legend = [
-        mpatches.Patch(color='red', label='Chrome H2'),
-        mpatches.Patch(color='blue', label='Proxygen H3')
+        mpatches.Patch(color='red', label='Chrome H3'),
+        mpatches.Patch(color='blue', label='Proxygen H3'),
+        mpatches.Patch(color='green', label='Ngtcp2 H3'),
     ]
 
     for i, (ack_ts, title) in enumerate(data):
-        color = colors[i]
+
+        if title.count('.json') > 0:
+            color = RED.popleft()
+        elif title.count('chrome') > 0:
+            color = RED.popleft()
+        elif title.count('proxygen') > 0:
+            color = BLUE.popleft()
+        elif title.count('ngtcp2') > 0:
+            color = GREEN.popleft()
         # legend.append(mpatches.Patch(
         #     color=color, label=title))
 
@@ -156,7 +171,8 @@ def plot_ack(data, graph_title: str):
             color=color,
             marker='o',
             linestyle='-',
-            markersize=3,
+            linewidth=1,
+            markersize=4,
         )
 
     ax.tick_params(axis='both', which='major', labelsize=20)
@@ -169,7 +185,7 @@ def plot_ack(data, graph_title: str):
     ax.xaxis.set_major_formatter(formatter1)
 
     # plt.yticks(np.array([0, 250, 500, 750, 1000]))
-    # plt.xticks(np.array([0, 500, 1000, 1500]))
+    plt.xticks(np.array([0, 500, 1000, 1500, 2000]))
 
     plt.legend(handles=legend)
     plt.show()
@@ -191,15 +207,13 @@ def main():
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.count('proxygen') > 0:
-            continue
         data.append(analyze_qlog(qlog))
 
     files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
     for pcap in files:
         data.append(analyze_pcap(pcap))
 
-    plot_ack(data, 'Google 1MB - 5% Loss')
+    plot_ack(data, 'Facebook 1MB - 70ms RTT Delay')
 
 
 if __name__ == "__main__":

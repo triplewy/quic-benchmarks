@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+HOST=$1
+WEBPATH=$2
+
 rm -rf /tmp/chrome-profile
 
 /Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary \
@@ -11,5 +14,5 @@ rm -rf /tmp/chrome-profile
 --aggressive-cache-discard \
 --headless \
 --log-net-log=/tmp/netlog/chrome.json \
---origin-to-force-quic-on=fb.mvfst.net:443 \
-https://fb.mvfst.net/100000
+--origin-to-force-quic-on=$HOST:443 \
+https://$HOST/$WEBPATH

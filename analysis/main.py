@@ -3,9 +3,11 @@ import json
 import math
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
+from matplotlib.ticker import StrMethodFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from pathlib import Path
 from pprint import pprint
@@ -33,6 +35,37 @@ NETWORK = [
     {
         'dirname': 'loss-0_delay-50_bw-10',
         'title': '50ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-100_bw-10',
+        'title': '100ms RTT Delay'
+    },
+]
+
+NGTCP2_SCENARIOS = [
+    {
+        'dirname': 'loss-0_delay-0_bw-10',
+        'title': '0ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-50_bw-10',
+        'title': '50ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-60_bw-10',
+        'title': '60ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-70_bw-10',
+        'title': '70ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-80_bw-10',
+        'title': '80ms RTT Delay'
+    },
+    {
+        'dirname': 'loss-0_delay-90_bw-10',
+        'title': '90ms RTT Delay'
     },
     {
         'dirname': 'loss-0_delay-100_bw-10',
@@ -300,9 +333,10 @@ def client_consistency(timings: object):
         title = obj['title']
         data = []
         row_labels = []
-        col_labels = CLIENTS
+        col_labels = CLIENTS[:3]
 
         for domain in DOMAINS:
+
             for i, size in enumerate(SIZES):
                 row_labels.append('{}/{}'.format(domain, size))
                 row_data = []
@@ -316,6 +350,9 @@ def client_consistency(timings: object):
                     if client.count('firefox') > 0:
                         continue
 
+                    if client.count('h2') > 0:
+                        continue
+
                     mean = np.mean(times)
 
                     # h3 client
@@ -327,6 +364,9 @@ def client_consistency(timings: object):
 
                 # perform t-test on other clients
                 for client in CLIENTS:
+                    if client.count('h2') > 0:
+                        continue
+
                     times = timings[dirname][domain][size][client]
 
                     # skip firefox for now...
@@ -377,6 +417,111 @@ def client_consistency(timings: object):
 
     percent_diffs.sort(key=lambda x: x[0], reverse=True)
     print(percent_diffs)
+
+
+def ngtcp2_graph(timings):
+
+    data = []
+    line_labels = []
+
+    for domain in DOMAINS:
+
+        line_labels.append(domain)
+        row_data = []
+
+        for obj in NGTCP2_SCENARIOS:
+            dirname = obj['dirname']
+            size = '1MB'
+            delay = int(dirname.split('_')[1].split('-')[1])
+
+            min_mean = math.inf
+            min_client = None
+
+            # get min_mean of other clients
+            for client, times in timings[dirname][domain][size].items():
+                # skip firefox for now...
+                if client.count('firefox') > 0:
+                    continue
+
+                if client.count('h2') > 0:
+                    continue
+
+                if client.count('ngtcp2_h3') > 0:
+                    continue
+
+                mean = np.mean(times)
+
+                # h3 min mean
+                min_mean = min(min_mean, mean)
+                if min_mean == mean:
+                    min_client = client
+
+            # perform t-test on ngtcp2
+            client = 'ngtcp2_h3'
+
+            if client not in timings[dirname][domain][size]:
+                continue
+
+            times = timings[dirname][domain][size][client]
+
+            ttest = stats.ttest_ind(
+                timings[dirname][domain][size][min_client],
+                times,
+                equal_var=False
+            )
+
+            # accept null hypothesis
+            if ttest.pvalue >= 0.05:
+                row_data.append((delay, 0))
+            # reject null hypothesis
+            else:
+                mean = np.mean(times)
+                diff = (mean - min_mean) / min_mean * 100
+                row_data.append((delay, diff))
+
+        data.append(row_data)
+
+    fig, ax = plt.subplots(figsize=(12, 9))
+    # plt.ylabel('Total KB ACKed')
+    plt.xlabel('RTT Delay (ms)', fontsize=20)
+
+    legend = [
+        mpatches.Patch(color='green', label='Facebook'),
+        mpatches.Patch(color='red', label='Cloudflare'),
+        mpatches.Patch(color='blue', label='Google'),
+    ]
+
+    for i in range(len(data)):
+        if i == 0:
+            color = 'green'
+        elif i == 1:
+            color = 'red'
+        else:
+            color = 'blue'
+
+        row_data = data[i]
+
+        plt.plot(
+            [x[0] for x in row_data],
+            [x[1] for x in row_data],
+            color=color,
+            marker='o',
+            linestyle='-',
+            linewidth=1,
+            markersize=8,
+        )
+
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.tick_params(axis='both', which='minor', labelsize=18)
+
+    formatter0 = StrMethodFormatter('{x:,g} %')
+    ax.yaxis.set_major_formatter(formatter0)
+
+    plt.xticks(np.array([0, 50, 60, 70, 80, 90, 100]))
+    plt.grid(axis='x')
+    plt.legend(handles=legend)
+    plt.show()
+    plt.close(fig=fig)
 
 
 def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
@@ -538,8 +683,6 @@ def main():
                     continue
 
                 for filename in os.listdir(experiment_path):
-                    if size == 'small':
-                        print(dirname, domain, filename)
                     try:
                         with open(Path.joinpath(experiment_path, filename), mode='r') as f:
                             output = json.load(f)
@@ -551,8 +694,8 @@ def main():
         timings[dirname] = temp
 
     # h2_vs_h3_v2(timings, SIZES)
-    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
-
+    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+    ngtcp2_graph(timings)
     client_consistency(timings)
 
 

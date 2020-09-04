@@ -18,9 +18,9 @@ const DOMAINS = ['facebook', 'google', 'cloudflare'];
 const SIZES = ['100KB', '1MB', '5MB'];
 const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
-// const DOMAINS = ['facebook'];
+// const DOMAINS = ['google', 'cloudflare'];
 // const WEBPAGE_SIZES = ['small'];
-// const SIZES = ['100KB'];
+// const SIZES = ['1MB'];
 
 const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
 
@@ -150,7 +150,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
             const urls = endpoints[domain];
             for (const size of SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw} `, domain, size);
+                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists
