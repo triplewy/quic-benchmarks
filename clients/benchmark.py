@@ -89,11 +89,12 @@ def benchmark(loss: str, delay: str):
     subprocess.run(args)
 
     # Delete all tc rules
-    subprocess.run(
+    subprocess.run([
         'sudo',
         'tcdel',
         'ens192',
         '--all',
+    ]
     )
 
 
