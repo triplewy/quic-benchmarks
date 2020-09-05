@@ -183,7 +183,7 @@ def main():
 
             result = query(client, urls[size])
 
-            timings = timings[40:] + result
+            timings = timings[20:] + result
 
             with open(filepath, 'w') as f:
                 json.dump(timings, f)

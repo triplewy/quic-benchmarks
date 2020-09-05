@@ -13,18 +13,13 @@ RETRIES = 10
 CLIENTS = ['proxygen_h3', 'ngtcp2_h3', 'chrome']
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
-SCENARIOS = [
-    ('0', '0', '50'),
-    ('0dot1', '0', '50'),
-    ('1', '0', '50'),
-    ('0', '50', '50'),
-    ('0', '100', '50'),
-]
+
 
 PATHS = {}
 with open('paths.json') as f:
     PATHS = json.load(f)
 
+Path('/tmp/logs').mkdir(parents=True, exist_ok=True)
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
 
@@ -132,90 +127,65 @@ def get_time_from_qlog() -> float:
         return end / 1000 - start / 1000
 
 
-def start_network(loss: str, delay: str, bw: str):
-    rate = '{}mbps'.format(bw)
-
-    if loss == '0dot1':
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--loss', '0.1%' '--direction', 'incoming'])
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--loss', '0.1%', '--direction', 'outgoing'])
-    elif loss == '1':
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--loss', '1%' '--direction', 'incoming'])
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--loss', '1%', '--direction', 'outgoing'])
-    elif delay == '50':
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--delay', '50ms' '--direction', 'incoming'])
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--delay', '50ms', '--direction', 'outgoing'])
-    elif delay == '100':
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--delay', '100ms' '--direction', 'incoming'])
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--delay', '100ms', '--direction', 'outgoing'])
-    else:
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--direction', 'incoming'])
-        subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        rate, '--direction', 'outgoing'])
-
-
 def main():
+    # Get network scenario from command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('loss')
+    parser.add_argument('delay')
+    parser.add_argument('bw')
+
+    args = parser.parse_args()
+
+    loss = args.loss
+    delay = args.delay
+    bw = args.bw
+
     endpoints = {}
 
     # Read endpoints from endpoints.json
     with open('endpoints.json', 'r') as f:
         endpoints = json.load(f)
 
-    for _ in range(2):
-        for (loss, delay, bw) in SCENARIOS:
+    print('{} loss, {} delay, {} bw'.format(loss, delay, bw))
 
-            print('{} loss, {} delay, {} bw'.format(loss, delay, bw))
+    for client in shuffle_clients():
 
-            start_network(loss, delay, bw)
+        if client == 'chrome':
+            subprocess.run(['node', 'chrome.js', loss, delay, bw])
+            continue
 
-            for client in shuffle_clients():
+        for domain in shuffle_domains():
 
-                if client == 'chrome':
-                    subprocess.run(['node', 'chrome.js', loss, delay, bw])
-                    continue
+            urls = endpoints[domain]
 
-                for domain in shuffle_domains:
+            for size in SIZES:
+                dirpath = Path.joinpath(
+                    Path.cwd(),
+                    'har',
+                    'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
+                    domain,
+                    size
+                )
+                Path(dirpath).mkdir(parents=True, exist_ok=True)
 
-                    urls = endpoints[domain]
+                filepath = Path.joinpath(
+                    dirpath,
+                    "{}.json".format(client)
+                )
 
-                    for size in SIZES:
-                        dirpath = Path.joinpath(
-                            Path.cwd(),
-                            'har',
-                            'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
-                            domain,
-                            size
-                        )
-                        Path(dirpath).mkdir(parents=True, exist_ok=True)
+                timings = []
+                try:
+                    with open(filepath, 'r') as f:
+                        timings = json.load(f)
+                except:
+                    pass
 
-                        filepath = Path.joinpath(
-                            dirpath,
-                            "{}.json".format(client)
-                        )
+                result = query(client, urls[size])
 
-                        timings = []
-                        try:
-                            with open(filepath, 'r') as f:
-                                timings = json.load(f)
-                        except:
-                            pass
+                timings += result
 
-                        result = query(client, urls[size])
-
-                        timings += result
-
-                        with open(filepath, 'w') as f:
-                            json.dump(timings, f)
-
-            subprocess.run(['sudo', 'tcdel', 'ens192', '--all'])
+                with open(filepath, 'w') as f:
+                    json.dump(timings, f)
 
 
 if __name__ == "__main__":
