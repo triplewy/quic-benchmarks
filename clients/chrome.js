@@ -11,16 +11,17 @@ const argparse = require('argparse');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
+const netlogToQlog = require('../netlog/netlogtoqlog.js');
 
-const ITERATIONS = 25;
+const ITERATIONS = 2;
 const RETRIES = 5;
-const DOMAINS = ['facebook', 'google', 'cloudflare'];
-const SIZES = ['100KB', '1MB', '5MB'];
+// const DOMAINS = ['facebook', 'google', 'cloudflare'];
+// const SIZES = ['100KB', '1MB', '5MB'];
 const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
-// const DOMAINS = ['google', 'cloudflare'];
+const DOMAINS = ['google'];
 // const WEBPAGE_SIZES = ['small'];
-// const SIZES = ['1MB'];
+const SIZES = ['100KB'];
 
 const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
 
@@ -62,7 +63,7 @@ const runChrome = async (urlString, isH3) => {
         console.log(`${urlString} Iteration: ${i}`);
 
         // Restart browser for each iteration to make things fair...
-        fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+        // fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
@@ -71,7 +72,6 @@ const runChrome = async (urlString, isH3) => {
         });
 
         let gotoUrl = urlString;
-        // let idlePage;
         if (urlString.includes('scontent')) {
             if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
                 gotoUrl = `file://${paths['100KB']}`;
@@ -80,8 +80,6 @@ const runChrome = async (urlString, isH3) => {
             } else {
                 gotoUrl = `file://${paths['5MB']}`;
             }
-            // const pages = await browser.pages();
-            // [idlePage] = pages;
         }
 
         for (let j = 0; j < RETRIES; j += 1) {
@@ -93,12 +91,6 @@ const runChrome = async (urlString, isH3) => {
                 await page.goto(gotoUrl, {
                     timeout: 120000,
                 });
-
-                // if (idlePage) {
-                //     for (let k = 0; k < 5; k += 1) {
-                //         await idlePage.bringToFront();
-                //     }
-                // }
 
                 const harResult = await har.stop();
                 const { entries } = harResult.log;
@@ -113,7 +105,6 @@ const runChrome = async (urlString, isH3) => {
                 }
 
                 const entry = result[0];
-
 
                 console.log(entry.response.httpVersion, entry.time);
 
@@ -308,19 +299,19 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
 
     const { loss, delay, bw } = cliArgs;
 
-    // H2 - single object
-    console.log('Chrome: H2 - single object');
-    await runBenchmark(loss, delay, bw, false);
+    // // H2 - single object
+    // console.log('Chrome: H2 - single object');
+    // await runBenchmark(loss, delay, bw, false);
 
     // H3 - single object
     console.log('Chrome: H3 - single object');
     await runBenchmark(loss, delay, bw, true);
 
-    // H2 - multi object
-    console.log('Chrome: H2 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, false);
+    // // H2 - multi object
+    // console.log('Chrome: H2 - multi object');
+    // await runBenchmarkWeb(loss, delay, bw, false);
 
-    // H3 - multi object
-    console.log('Chrome: H3 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, true);
+    // // H3 - multi object
+    // console.log('Chrome: H3 - multi object');
+    // await runBenchmarkWeb(loss, delay, bw, true);
 })();

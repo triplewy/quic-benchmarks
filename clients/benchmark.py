@@ -10,7 +10,7 @@ from pathlib import Path
 
 ITERATIONS = 25
 RETRIES = 10
-CLIENTS = ['proxygen_h3', 'ngtcp2_h3', 'curl_h2' 'chrome']
+CLIENTS = ['proxygen_h3', 'ngtcp2_h3', 'chrome']
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 SCENARIOS = [
@@ -25,9 +25,17 @@ PATHS = {}
 with open('paths.json') as f:
     PATHS = json.load(f)
 
+Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
-def shuffle():
-    arr = ['proxygen_h3', 'ngtcp2_h3', 'curl_h2' 'chrome']
+
+def shuffle_clients():
+    arr = ['proxygen_h3', 'ngtcp2_h3', 'chrome']
+    random.shuffle(arr)
+    return arr
+
+
+def shuffle_domains():
+    arr = ['facebook', 'cloudflare', 'google']
     random.shuffle(arr)
     return arr
 
@@ -38,7 +46,7 @@ def query(client: str, url: str):
     for i in range(ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
-        elapsed = run_process(client, url) * 1000
+        elapsed = run_process(client, url)
 
         timings.append(elapsed)
         print(client, elapsed)
@@ -52,19 +60,7 @@ def run_process(client: str, url: str):
     url_path = url_obj.path[1:]
     url_port = '443'
 
-    if client == 'curl_h2':
-        return run_subprocess(
-            [
-                'curl',
-                '--silent',
-                '--output', '/dev/null',
-                '--connect-timeout', '5',
-                '--max-time', '120',
-                '--http2', url
-            ]
-        )
-
-    elif client == 'ngtcp2_h3':
+    if client == 'ngtcp2_h3':
         return run_subprocess(
             [
                 '{}'.format(PATHS['ngtcp2']),
@@ -73,6 +69,7 @@ def run_process(client: str, url: str):
                 '--max-data=1073741824',
                 '--max-stream-data-uni=1073741824',
                 '--max-stream-data-bidi-local=1073741824',
+                '--qlog-file=/tmp/qlog/.qlog',
                 url_host,
                 url_port,
                 url
@@ -94,6 +91,7 @@ def run_process(client: str, url: str):
                 '--conn_flow_control=1073741824',
                 '--use_draft=true',
                 '--draft-version=29',
+                '--qlogger_path=/tmp/qlog',
                 '--host={}'.format(host),
                 '--port={}'.format(port),
                 '--path=/{}'.format(url_path),
@@ -105,15 +103,33 @@ def run_process(client: str, url: str):
 
 
 def run_subprocess(command: list) -> float:
-    output = subprocess.run(
-        ['time'] + command,
-        capture_output=True
-    )
+    subprocess.run(command)
 
-    output = output.stderr.decode().split('\n')[-2]
-    output = output.split()
+    return get_time_from_qlog()
 
-    return float(output[0])
+
+def get_time_from_qlog() -> float:
+    with open('/tmp/qlog/.qlog', mode='r') as f:
+        data = json.load(f)
+        traces = data['traces'][0]
+        events = traces['events']
+        if 'configuration' in traces:
+            time_units = traces['configuration']['time_units']
+        else:
+            time_units = 'ms'
+
+        start = int(events[0][0])
+
+        last = len(events) - 1
+        while len(events[last]) == 0:
+            last -= 1
+
+        end = int(events[last][0])
+
+        if time_units == 'ms':
+            return end - start
+
+        return end / 1000 - start / 1000
 
 
 def start_network(loss: str, delay: str):
@@ -154,17 +170,17 @@ def main():
     for _ in range(2):
         for (loss, delay) in SCENARIOS:
 
+            print('{} loss, {} delay'.format(loss, delay))
+
             start_network(loss, delay)
 
-            for client in shuffle():
+            for client in shuffle_clients():
 
                 if client == 'chrome':
                     subprocess.run(['node', 'chrome.js', loss, delay, '100'])
                     continue
 
-                for domain in DOMAINS:
-
-                    print(client, loss, delay, domain)
+                for domain in shuffle_domains():
 
                     urls = endpoints[domain]
 

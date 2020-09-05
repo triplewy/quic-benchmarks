@@ -243,7 +243,7 @@ def h2_vs_h3_v2(timings: object, sizes):
 
             h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
             h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
-            h2_vs_h3_col_labels = WEBPAGE_SIZES
+            h2_vs_h3_col_labels = sizes
             bad_cov = 0
 
             for i, item in enumerate(grouping['items']):
@@ -693,8 +693,8 @@ def main():
 
         timings[dirname] = temp
 
-    # h2_vs_h3_v2(timings, SIZES)
-    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+    h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
     ngtcp2_graph(timings)
     client_consistency(timings)
 
