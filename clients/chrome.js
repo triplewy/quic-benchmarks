@@ -11,17 +11,16 @@ const argparse = require('argparse');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
-const netlogToQlog = require('../netlog/netlogtoqlog.js');
 
-const ITERATIONS = 2;
+const ITERATIONS = 25;
 const RETRIES = 5;
-// const DOMAINS = ['facebook', 'google', 'cloudflare'];
-// const SIZES = ['100KB', '1MB', '5MB'];
+const DOMAINS = ['facebook', 'google', 'cloudflare'];
+const SIZES = ['100KB', '1MB', '5MB'];
 const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
-const DOMAINS = ['google'];
+// const DOMAINS = ['google'];
 // const WEBPAGE_SIZES = ['small'];
-const SIZES = ['100KB'];
+// const SIZES = ['100KB'];
 
 const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
 
@@ -299,19 +298,19 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
 
     const { loss, delay, bw } = cliArgs;
 
-    // // H2 - single object
-    // console.log('Chrome: H2 - single object');
-    // await runBenchmark(loss, delay, bw, false);
+    // H2 - single object
+    console.log('Chrome: H2 - single object');
+    await runBenchmark(loss, delay, bw, false);
 
     // H3 - single object
     console.log('Chrome: H3 - single object');
     await runBenchmark(loss, delay, bw, true);
 
-    // // H2 - multi object
-    // console.log('Chrome: H2 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, false);
+    // H2 - multi object
+    console.log('Chrome: H2 - multi object');
+    await runBenchmarkWeb(loss, delay, bw, false);
 
-    // // H3 - multi object
-    // console.log('Chrome: H3 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, true);
+    // H3 - multi object
+    console.log('Chrome: H3 - multi object');
+    await runBenchmarkWeb(loss, delay, bw, true);
 })();
