@@ -14,11 +14,11 @@ CLIENTS = ['proxygen_h3', 'ngtcp2_h3', 'chrome']
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 SCENARIOS = [
-    ('0', '0'),
-    ('0dot1', '0'),
-    ('1', '0'),
-    ('0', '50'),
-    ('0', '100'),
+    ('0', '0', '50'),
+    ('0dot1', '0', '50'),
+    ('1', '0', '50'),
+    ('0', '50', '50'),
+    ('0', '100', '50'),
 ]
 
 PATHS = {}
@@ -132,32 +132,34 @@ def get_time_from_qlog() -> float:
         return end / 1000 - start / 1000
 
 
-def start_network(loss: str, delay: str):
+def start_network(loss: str, delay: str, bw: str):
+    rate = '{}mbps'.format(bw)
+
     if loss == '0dot1':
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--loss', '0.1%' '--direction', 'incoming'])
+                        rate, '--loss', '0.1%' '--direction', 'incoming'])
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--loss', '0.1%', '--direction', 'outgoing'])
+                        rate, '--loss', '0.1%', '--direction', 'outgoing'])
     elif loss == '1':
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--loss', '1%' '--direction', 'incoming'])
+                        rate, '--loss', '1%' '--direction', 'incoming'])
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--loss', '1%', '--direction', 'outgoing'])
+                        rate, '--loss', '1%', '--direction', 'outgoing'])
     elif delay == '50':
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--delay', '50ms' '--direction', 'incoming'])
+                        rate, '--delay', '50ms' '--direction', 'incoming'])
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--delay', '50ms', '--direction', 'outgoing'])
+                        rate, '--delay', '50ms', '--direction', 'outgoing'])
     elif delay == '100':
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--delay', '100ms' '--direction', 'incoming'])
+                        rate, '--delay', '100ms' '--direction', 'incoming'])
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--delay', '100ms', '--direction', 'outgoing'])
+                        rate, '--delay', '100ms', '--direction', 'outgoing'])
     else:
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--direction', 'incoming'])
+                        rate, '--direction', 'incoming'])
         subprocess.run(['sudo', 'tcset', 'ens192', '--rate',
-                        '100mbps', '--direction', 'outgoing'])
+                        rate, '--direction', 'outgoing'])
 
 
 def main():
@@ -168,19 +170,19 @@ def main():
         endpoints = json.load(f)
 
     for _ in range(2):
-        for (loss, delay) in SCENARIOS:
+        for (loss, delay, bw) in SCENARIOS:
 
-            print('{} loss, {} delay'.format(loss, delay))
+            print('{} loss, {} delay, {} bw'.format(loss, delay, bw))
 
-            start_network(loss, delay)
+            start_network(loss, delay, bw)
 
             for client in shuffle_clients():
 
                 if client == 'chrome':
-                    subprocess.run(['node', 'chrome.js', loss, delay, '100'])
+                    subprocess.run(['node', 'chrome.js', loss, delay, bw])
                     continue
 
-                for domain in shuffle_domains():
+                for domain in shuffle_domains:
 
                     urls = endpoints[domain]
 
@@ -188,8 +190,7 @@ def main():
                         dirpath = Path.joinpath(
                             Path.cwd(),
                             'har',
-                            'loss-{}_delay-{}_bw-{}'.format(loss,
-                                                            delay, '100'),
+                            'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
                             domain,
                             size
                         )
