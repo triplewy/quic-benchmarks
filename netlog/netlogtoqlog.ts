@@ -208,7 +208,7 @@ class QUICConnection {
 export default class NetlogToQlog {
 
     public static convert(netlogJSON: netlogschema.Netlog): qlogschema.IQLog {
-        console.log("NetlogToQlog: converting file with " + netlogJSON.events.length + " events");
+        // console.log("NetlogToQlog: converting file with " + netlogJSON.events.length + " events");
 
         // unit tests would be nice for this type of thing...
         // console.error("Calculate ack ranges", calculateAckRanges( 2115, [2056,2057,2058,2059,2060,2061,2062,2063,2064,2065,2066,2067,2068,2069,2070,2071,2072,2073,2074,2075,2076,2077,2078,2079,2080,2081,2082,2083,2084,2085,2086,2087,2088,2089,2090,2091,2092,2093,2094,2095,2096,2097,2098,2099,2100,2101,2102,2103,2104,2105,2106,2107,2108,2109,2110,2111,2112,2113,2114] )); // should be [2055,2055],[2155,2155]
@@ -234,7 +234,7 @@ export default class NetlogToQlog {
             // source of event
             const source_type: string | undefined = source_types.get(event.source.type);
             if (source_type === undefined) {
-                console.error("netlog2qlog:convert : unknown source type!", event, source_type);
+                // console.error("netlog2qlog:convert : unknown source type!", event, source_type);
                 continue;
             }
 
@@ -250,14 +250,14 @@ export default class NetlogToQlog {
             // event_type of event
             const event_type: string | undefined = event_types.get(event.type);
             if (event_type === undefined) {
-                console.error("netlog2qlog:convert : unknown event type!", event, event_type);
+                // console.error("netlog2qlog:convert : unknown event type!", event, event_type);
                 continue;
             }
 
             // phase of event
             const phase: string | undefined = phases.get(event.phase);
             if (phase === undefined) {
-                console.error("netlog2qlog:convert : unknown event phase!", event, phase);
+                // console.error("netlog2qlog:convert : unknown event phase!", event, phase);
                 continue;
             }
 
@@ -505,7 +505,6 @@ export default class NetlogToQlog {
                         // Deep-copy frames to put into qlogEvent
                         const frames: Array<qlogschema.QuicFrame> = new Array<qlogschema.QuicFrame>();
                         connection.rxQUICFrames.forEach((frame) => frames.push(Object.assign({}, frame)));
-
                         connection.rxPacket.frames = frames;
                     }
 
@@ -544,6 +543,9 @@ export default class NetlogToQlog {
                     connection.rxPacket.packet_type = packet_type;
                     connection.rxPacket.header.packet_number = event_params.packet_number.toString();
 
+                    if (event_params.packet_number === 6) {
+                        console.log(connection.rxPacket);
+                    }
                     break;
                 }
 
@@ -597,13 +599,6 @@ export default class NetlogToQlog {
                 }
 
                 case 'QUIC_SESSION_BUFFERED_UNDECRYPTABLE_PACKET': {
-                    // const frame: qlogschema.IEventPacketBuffered = {
-                    //     packet_type: qlogschema.PacketType.onertt,
-                    // }
-                    // qlogEvent.push(qlogschema.EventCategory.transport);
-                    // qlogEvent.push(qlogschema.TransportEventType.packet_buffered);
-                    // qlogEvent.push(frame);
-                    // connection.qlogEvents.push(qlogEvent);
                     break;
                 }
 
@@ -695,8 +690,6 @@ export default class NetlogToQlog {
                     qlogEvent.push(frame);
                     connection.qlogEvents.push(qlogEvent);
                     break;
-
-                    break;
                 }
 
                 case 'HTTP3_SETTINGS_RECEIVED':
@@ -777,9 +770,22 @@ export default class NetlogToQlog {
                     break;
                 }
 
+                case 'CERT_VERIFIER_REQUEST': {
+                    qlogEvent.push(qlogschema.EventCategory.info);
+                    qlogEvent.push(qlogschema.GenericEventType.marker);
+
+                    if (phase === 'PHASE_BEGIN') {
+                        qlogEvent.push('CERT_VERIFIER_REQUEST BEGIN')
+                    } else {
+                        qlogEvent.push('CERT_VERIFIER_REQUEST END')
+                    }
+
+                    break;
+                }
+
                 default: {
                     // Netlog event types not yet covered
-                    console.warn("netlog2qlog:convert : unknown QUIC event, not supported yet!", event, event_type);
+                    // console.warn("netlog2qlog:convert : unknown QUIC event, not supported yet!", event, event_type);
                     break;
                 }
             }
@@ -787,7 +793,7 @@ export default class NetlogToQlog {
 
         const qlogs: Array<qlogschema.ITrace> = new Array<qlogschema.ITrace>();
 
-        console.log(connectionMap);
+        // console.log(connectionMap);
 
         connectionMap.forEach((conn: QUICConnection, key: number) => {
             qlogs.push({

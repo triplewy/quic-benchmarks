@@ -389,17 +389,9 @@ def client_consistency(timings: object):
                         mean_diffs += diff
                         row_data.append(diff)
 
-                # print(min_client, min_mean, diff)
-                # percent_diffs.append(
-                #     (
-                #         diff,
-                #         '{}/{}/{}'.format(dirname, domain, size),
-                #         min_client
-                #     )
-                # )
                 data.append(row_data)
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 9))
         ax.set_title(title)
         im, cbar = heatmap(
             np.array(data),
@@ -522,6 +514,22 @@ def ngtcp2_graph(timings):
     plt.legend(handles=legend)
     plt.show()
     plt.close(fig=fig)
+
+
+def check_data_lengths(timings):
+    for obj in NETWORK:
+        dirname = obj['dirname']
+        for domain in DOMAINS:
+            for size in SIZES + WEBPAGE_SIZES:
+
+                times = timings[dirname][domain][size]
+
+                for client in CLIENTS:
+                    if client not in times:
+                        continue
+
+                    if len(times[client]) != 40:
+                        print(dirname, domain, size, client)
 
 
 def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
@@ -693,9 +701,10 @@ def main():
 
         timings[dirname] = temp
 
-    h2_vs_h3_v2(timings, SIZES)
-    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
-    ngtcp2_graph(timings)
+    check_data_lengths(timings)
+    # h2_vs_h3_v2(timings, SIZES)
+    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+    # ngtcp2_graph(timings)
     client_consistency(timings)
 
 

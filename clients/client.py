@@ -7,14 +7,14 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 20
+ITERATIONS = 25
 RETRIES = 10
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
-# DOMAINS = ['google', 'cloudflare']
+# DOMAINS = ['facebook']
 # SIZES = ['1MB']
 
 PATHS = {}
@@ -48,6 +48,7 @@ def run_process(client: str, url: str):
             [
                 'curl',
                 '--silent',
+                '--insecure',
                 '--output', '/dev/null',
                 '--connect-timeout', '5',
                 '--max-time', '120',

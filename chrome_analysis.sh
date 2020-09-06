@@ -4,10 +4,6 @@ DIR=$1
 HOST=$2
 WEBPATH=$3
 
-# echo $DIR
-# echo $HOST
-# echo $PATH
-
 DATA_DIR="analysis/data/$DIR"
 
 mkdir -p /tmp/logs
@@ -23,6 +19,7 @@ do
     # chrome
     ./clients/connect.sh $HOST $WEBPATH
     node netlog/index.js /tmp/netlog/chrome.json $DATA_DIR/chrome$i.qlog
+    mv /tmp/netlog/chrome.json $DATA_DIR/chrome$i.json
     
     # proxygen
     $HOME/proxygen-clone/proxygen/_build/proxygen/httpserver/hq \
@@ -32,6 +29,7 @@ do
     --conn_flow_control=1073741824 \
     --use_draft=true \
     --draft-version=29 \
+    --client_auth_mode='Required' \
     --qlogger_path=/tmp/qlog \
     --v=0 \
     --host=$HOST \
@@ -55,4 +53,23 @@ do
     https://$HOST/$WEBPATH
     
     mv /tmp/qlog/.qlog $DATA_DIR/ngtcp2$i.qlog
+    
+    # quiche
+    QLOGDIR=/tmp/qlog quiche-client \
+    --max-data=1073741824 \
+    --max-stream-data=1073741824 \
+    https://$HOST/$WEBPATH > /dev/null
+    
+    find /tmp/qlog -name '*.qlog' -exec mv '{}' $DATA_DIR/quiche$i.qlog \;
+    
+    # # aioquic
+    # python3 $HOME/aioquic/examples/http3_client.py \
+    # -q /tmp/qlog \
+    # --max-data=1073741824 \
+    # --max-stream-data=1073741824 \
+    # https://$HOST/$WEBPATH > /dev/null
+    
+    # find /tmp/qlog -name '*.qlog' -exec mv '{}' $DATA_DIR/aioquic$i.qlog \;
 done
+
+python3 analysis/ack-analysis.py --qlogdir $DATA_DIR

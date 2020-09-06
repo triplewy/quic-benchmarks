@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo tcdel ens192 --all
+
 for i in 1 2
 do
     # 0 loss

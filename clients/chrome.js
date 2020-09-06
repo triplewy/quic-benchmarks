@@ -23,6 +23,7 @@ const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 // const SIZES = ['100KB'];
 
 const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
+fs.mkdirSync('/tmp/netlog', { recursive: true });
 
 const chromeArgs = (urls) => {
     const args = [
@@ -30,7 +31,9 @@ const chromeArgs = (urls) => {
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
-        // '--log-net-log=/tmp/netlog/chrome.json',
+        '--log-net-log=/tmp/netlog/chrome.json',
+        '--ignore-certificate-errors',
+        '--ignore-urlfetcher-cert-requests',
     ];
 
     if (urls !== null && urls.length > 0) {
@@ -62,7 +65,7 @@ const runChrome = async (urlString, isH3) => {
         console.log(`${urlString} Iteration: ${i}`);
 
         // Restart browser for each iteration to make things fair...
-        // fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+        fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
@@ -156,7 +159,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
                 const result = await runChrome(urls[size], isH3);
 
                 // Concat result times to existing data
-                timings.push(...result);
+                timings = timings.slice(20).concat(...result);
 
                 // Save data
                 fs.writeFileSync(file, JSON.stringify(timings));
