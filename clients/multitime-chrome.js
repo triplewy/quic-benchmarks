@@ -14,7 +14,7 @@ const math = require('mathjs');
 
 const RETRIES = 5;
 
-const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
+const paths = JSON.parse(fs.readFileSync(`${__dirname}/paths.json`, 'utf8'));
 
 const chromeArgs = (urlString) => {
     const args = [
@@ -117,5 +117,5 @@ const runChrome = async (urlString) => {
     const max = math.max(times).toFixed(3);
     const median = math.median(times).toFixed(3);
 
-    console.log(`Mean: ${mean}, Std Dev: ${std}, Min: ${min}, Max: ${max}, Median: ${median}`);
+    console.log(`Mean: ${mean}\nStd Dev: ${std}\nMin: ${min}\nMax: ${max}\nMedian: ${median}`);
 })();
