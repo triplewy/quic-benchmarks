@@ -1,5 +1,6 @@
 #!/bin/bash
 
+CHROME_DEVEL_SANDBOX=/usr/local/sbin/chrome-devel-sandbox
 HOST=127.0.0.1
 PORT=30000
 SIZE=1048576
@@ -29,7 +30,7 @@ lnicco/mvfst-qns \
 sleep 2
 
 # setup network conditions
-sudo tcdel lo --all
+sudo tcdel lo --all --direction outgoing
 sudo tcset lo --delay 55ms --direction outgoing
 
 sleep 2
