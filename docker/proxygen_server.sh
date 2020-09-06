@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DELAY=$1
+
 CHROME_DEVEL_SANDBOX=/usr/local/sbin/chrome-devel-sandbox
 HOST=127.0.0.1
 PORT=30000
@@ -30,8 +32,8 @@ lnicco/mvfst-qns \
 sleep 2
 
 # setup network conditions
-sudo tcdel lo --all --direction outgoing
-sudo tcset lo --delay 55ms --direction outgoing
+# sudo tcdel lo --all
+sudo tcset lo --delay ${DELAY}ms --direction outgoing --overwrite
 
 sleep 2
 
@@ -61,4 +63,4 @@ ${PORT} \
 https://${HOST}:${PORT}/${SIZE}
 
 # chrome
-node /quic/quic-benchmarks/clients/multitime-chrome.js -n 5 https://${HOST}:${PORT}/${SIZE}
+# node /quic/quic-benchmarks/clients/multitime-chrome.js -n 5 https://${HOST}:${PORT}/${SIZE}

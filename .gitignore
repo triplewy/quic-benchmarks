@@ -2,3 +2,5 @@
 wireshark
 qlog
 certs
+paths.json
+endpoints.json
