@@ -12,55 +12,15 @@ from glob import glob
 
 BLUE = deque(['#0000FF', '#0000B3', '#0081B3',
               '#14293D', '#A7DFE2', '#8ED9CD'])
-RED = deque(['#FF0000', '#950000', '#FF005A',
-             '#A9385A', '#C95DB4', 'orange',
-             '#FF0000', '#950000', ])
+RED = deque(['#FF0000', '#950000', '#FF005A', '#A9385A', '#C95DB4', 'orange'])
 GREEN = deque(['#00FF00', '#008D00', '#005300',
-               '#00FF72', '#76FF00', '#24A547',
-               '#00FF00', '#008D00', ])
-ORANGE = deque(['#FF8100', '#FFA700', '#FF6D26'])
+               '#00FF72', '#76FF00', '#24A547'])
+ORANGE = deque(['#FF8100', '#FFA700', '#FF6D26', '#FFB500', '#FF632F'])
 YELLOW = deque(['#FFFF00', '#DCFF20', '#DCC05A'])
 PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
-def analyze_pcap(filename: str) -> (dict, str):
-    print(filename)
-    with open(filename) as f:
-        data = json.load(f)
-
-        ack_ts = {}
-        received_ts = {}
-
-        fin = False
-
-        # Associate each ACK offset with a timestamp
-        for packet in data:
-            tcp = packet['_source']['layers']['tcp']
-            srcport = tcp['tcp.srcport']
-            dstport = tcp['tcp.dstport']
-            time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
-
-            # receive packet
-            if srcport == '443':
-                if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
-                    fin = True
-                bytes_ack = int(tcp['tcp.seq'])
-                received_ts[time] = bytes_ack / 1024
-            # send packet
-            else:
-                if fin:
-                    continue
-                if tcp['tcp.flags_tree']['tcp.flags.syn'] == '1' and time > 500:
-                    fin = True
-                    continue
-
-                bytes_ack = int(tcp['tcp.ack'])
-                ack_ts[time] = bytes_ack / 1024
-
-    return ack_ts, filename
-
-
-def analyze_qlog(filename: str) -> (dict, str):
+def analyze_cc(filename: str) -> (dict, str):
     print(filename)
     with open(filename) as f:
         data = json.load(f)
@@ -71,14 +31,7 @@ def analyze_qlog(filename: str) -> (dict, str):
         else:
             time_units = 'ms'
 
-        first_time = None
-
-        ack_ts = {}
-        pkts_received = {}
-        received_ts = {}
-
-        prev_pkt = {'pn': 0, 'dl': 0}
-        loss_count = 0
+        cc_ts = {}
 
         # Store all stream packets received by client
         for event in events:
@@ -93,13 +46,40 @@ def analyze_qlog(filename: str) -> (dict, str):
             event_type = event[2]
             event_data = event[3]
 
-            if event_type.lower() == 'packet_sent' and first_time is None:
-                first_time = ts
+            if event_type.lower() == 'metrics_updated':
+                cwnd = float(event_data['congestion_window']) / 1000
+                cc_ts[ts] = cwnd
 
-            if first_time is None:
+    return cc_ts
+
+
+def analyze_ack(filename: str) -> (dict, str):
+    print(filename)
+    with open(filename) as f:
+        data = json.load(f)
+        traces = data['traces'][0]
+        events = traces['events']
+        if 'configuration' in traces:
+            time_units = traces['configuration']['time_units']
+        else:
+            time_units = 'ms'
+
+        ack_ts = {}
+        pkts_received = {}
+        received_ts = {}
+
+        # Store all stream packets received by client
+        for event in events:
+            if not event:
                 continue
 
-            ts -= first_time
+            if time_units == 'ms':
+                ts = int(event[0])
+            else:
+                ts = int(event[0]) / 1000
+
+            event_type = event[2]
+            event_data = event[3]
 
             if event_type.lower() == 'packet_received':
 
@@ -117,19 +97,8 @@ def analyze_qlog(filename: str) -> (dict, str):
                         pkt_num = int(event_data['header']['packet_number'])
                         offset = int(frame['offset'])
                         length = int(frame['length'])
-
-                        data_length = (offset + length) / 1024
-
-                        pkts_received[pkt_num] = data_length
-                        received_ts[ts] = data_length
-
-                        if prev_pkt['dl'] < data_length:
-                            prev_pkt = {'pn': pkt_num, 'dl': data_length}
-                        elif prev_pkt['pn'] < pkt_num:
-                            # print('loss detected', prev_pkt, data_length)
-                            loss_count += 1
-                        else:
-                            print('out of order packet')
+                        pkts_received[pkt_num] = offset + length
+                        received_ts[ts] = (offset + length) / 1024
 
             if event_type.lower() == 'packet_sent':
                 # Get max ack sent
@@ -160,14 +129,14 @@ def analyze_qlog(filename: str) -> (dict, str):
                                 local_max_ack, pkts_received[i])
 
                 if local_max_ack is not None:
-                    ack_ts[ts] = local_max_ack
+                    ack_ts[ts] = local_max_ack / 1024
 
-    print(loss_count)
-    return ack_ts, filename
+    return ack_ts
 
 
-def plot_ack(data, graph_title: str):
-    fig, ax = plt.subplots(figsize=(8, 6))
+def plot(client_data, server_data, graph_title: str):
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+    ax2 = ax1.twinx()
     # plt.ylabel('Total KB ACKed')
     # plt.xlabel('Time (ms)')
     # plt.title(graph_title)
@@ -180,23 +149,9 @@ def plot_ack(data, graph_title: str):
         mpatches.Patch(color='yellow', label='Aioquic H3'),
     ]
 
-    for i, (ack_ts, title) in enumerate(data):
-
-        if title.count('.json') > 0:
-            color = RED.popleft()
-        elif title.count('chrome') > 0:
-            color = BLUE.popleft()
-        elif title.count('proxygen') > 0:
-            # color = BLUE.popleft()
-            color = 'green'
-        elif title.count('ngtcp2') > 0:
-            color = GREEN.popleft()
-        elif title.count('quiche') > 0:
-            color = PURPLE.popleft()
-        elif title.count('aioquic') > 0:
-            color = YELLOW.popleft()
-
-        plt.plot(
+    for i, ack_ts in enumerate(client_data):
+        color = BLUE.popleft()
+        ax1.plot(
             [x[0] for x in ack_ts.items()],
             [x[1] for x in ack_ts.items()],
             color=color,
@@ -206,60 +161,61 @@ def plot_ack(data, graph_title: str):
             markersize=4,
         )
 
-    ax.tick_params(axis='both', which='major', labelsize=18)
-    ax.tick_params(axis='both', which='minor', labelsize=18)
+    for i, cc_ts in enumerate(server_data):
+        color = ORANGE.popleft()
+        ax2.plot(
+            [x[0] for x in cc_ts.items()],
+            [x[1] for x in cc_ts.items()],
+            color=color,
+            marker='o',
+            linestyle='-',
+            linewidth=2,
+            markersize=0,
+        )
+
+    ax1.tick_params(axis='both', which='major', labelsize=18)
+    ax1.tick_params(axis='both', which='minor', labelsize=18)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    ax2.tick_params(axis='both', which='minor', labelsize=18)
 
     formatter0 = StrMethodFormatter('{x:,g} kb')
-    ax.yaxis.set_major_formatter(formatter0)
+    ax1.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
-    ax.xaxis.set_major_formatter(formatter1)
+    ax1.xaxis.set_major_formatter(formatter1)
+
+    ax2.yaxis.set_major_formatter(formatter0)
 
     # plt.yticks(np.array([0, 250, 500, 750, 1000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    # plt.xticks(np.array([250, 500, 750, 1000, 1250]))
     fig.tight_layout()
     plt.savefig(
-        '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
-    # plt.legend(handles=legend)
+        '{}/Desktop/graphs/quiche_analysis'.format(Path.home()), transparent=True)
     plt.show()
     plt.close(fig=fig)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--qlogdir")
-    parser.add_argument("--pcapdir")
+    parser.add_argument("qlogdir")
 
     args = parser.parse_args()
 
     qlogdir = args.qlogdir
-    pcapdir = args.pcapdir
 
-    data = []
+    client_data = []
+    server_data = []
 
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
         if qlog.count('server') > 0:
-            continue
-        if qlog.count('proxygen') == 0:
-            continue
-        # if qlog.split('.')[0][-2:] not in ['n8', '20', '21']:
-        #     continue
+            server_data.append(analyze_cc(qlog))
+        elif qlog.count('client') > 0:
+            client_data.append(analyze_ack(qlog))
 
-        data.append(analyze_qlog(qlog))
-        print(qlog, max(data[-1][0].keys()))
-
-    if pcapdir is not None:
-        files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
-        for pcap in files:
-            if pcap.split('.')[0][-1] > '3':
-                continue
-            data.append(analyze_pcap(pcap))
-            print(pcap, max(data[-1][0].keys()))
-
-    plot_ack(data, qlogdir.split('/')[-1])
+    plot(client_data, server_data, qlogdir.split('/')[-1])
 
 
 if __name__ == "__main__":

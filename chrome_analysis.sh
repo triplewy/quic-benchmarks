@@ -11,15 +11,13 @@ mkdir -p /tmp/qlog
 mkdir -p /tmp/netlog
 mkdir -p $DATA_DIR
 
-ITERATIONS=(1 2 3)
-for i in ${ITERATIONS[@]}
+for i in {1..40}
 do
     echo $i
     
-    # chrome
-    ./clients/connect.sh $HOST $WEBPATH
-    node netlog/index.js /tmp/netlog/chrome.json $DATA_DIR/chrome$i.qlog
-    mv /tmp/netlog/chrome.json $DATA_DIR/chrome$i.json
+    # # chrome
+    # ./clients/connect.sh $HOST $WEBPATH
+    # node netlog/index.js /tmp/netlog/chrome.json $DATA_DIR/chrome$i.qlog
     
     # proxygen
     $HOME/proxygen-clone/proxygen/_build/proxygen/httpserver/hq \
@@ -29,8 +27,8 @@ do
     --conn_flow_control=1073741824 \
     --use_draft=true \
     --draft-version=29 \
-    --client_auth_mode='Required' \
     --qlogger_path=/tmp/qlog \
+    --headers=x-fb-socket-option=QUIC_CONGESTION=cubic \
     --v=0 \
     --host=$HOST \
     --port=443 \
@@ -38,38 +36,23 @@ do
     
     mv /tmp/qlog/.qlog $DATA_DIR/proxygen$i.qlog
     
-    # ngtcp2
-    $HOME/ngtcp2/examples/client \
-    --quiet \
-    --no-quic-dump \
-    --exit-on-all-streams-close \
-    --max-data=1073741824 \
-    --max-stream-data-uni=1073741824 \
-    --max-stream-data-bidi-local=1073741824 \
-    --cc=cubic \
-    --qlog-file=/tmp/qlog/.qlog \
-    $HOST \
-    443 \
-    https://$HOST/$WEBPATH
-    
-    mv /tmp/qlog/.qlog $DATA_DIR/ngtcp2$i.qlog
-    
-    # quiche
-    QLOGDIR=/tmp/qlog quiche-client \
-    --max-data=1073741824 \
-    --max-stream-data=1073741824 \
-    https://$HOST/$WEBPATH > /dev/null
-    
-    find /tmp/qlog -name '*.qlog' -exec mv '{}' $DATA_DIR/quiche$i.qlog \;
-    
-    # # aioquic
-    # python3 $HOME/aioquic/examples/http3_client.py \
-    # -q /tmp/qlog \
+    # # ngtcp2
+    # $HOME/ngtcp2/examples/client \
+    # --quiet \
+    # --no-quic-dump \
+    # --exit-on-all-streams-close \
     # --max-data=1073741824 \
-    # --max-stream-data=1073741824 \
-    # https://$HOST/$WEBPATH > /dev/null
+    # --max-stream-data-uni=1073741824 \
+    # --max-stream-data-bidi-local=1073741824 \
+    # --cc=cubic \
+    # --qlog-file=/tmp/qlog/.qlog \
+    # $HOST \
+    # 443 \
+    # https://$HOST/$WEBPATH
     
-    # find /tmp/qlog -name '*.qlog' -exec mv '{}' $DATA_DIR/aioquic$i.qlog \;
+    # mv /tmp/qlog/.qlog $DATA_DIR/ngtcp2$i.qlog
+    
+    # c
 done
 
-python3 analysis/ack-analysis.py --qlogdir $DATA_DIR
+# python3 analysis/ack-analysis.py --qlogdir $DATA_DIR --pcapdir $DATA_DIR

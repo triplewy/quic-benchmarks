@@ -4,7 +4,7 @@
         "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
         "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
         "small": {
-            "url": "https://www.instagram.com/about/jobs",
+            "url": "https://www.instagram.com/about/jobs/",
             "domains": [
                 "https://www.instagram.com"
             ],
@@ -24,7 +24,7 @@
                 "https://www.google.com"
             ],
             "numResources": 37,
-            "size": 1.21
+            "size": 1.45
         },
         "large": {
             "url": "https://www.facebook.com/business/marketing-partners",
@@ -39,7 +39,7 @@
                 "https://www.google-analytics.com"
             ],
             "numResources": 84,
-            "size": 2.13
+            "size": 2.14
         }
     },
     "google": {
@@ -60,7 +60,7 @@
             "size": 0.46
         },
         "medium": {
-            "url": "https://www.google.com/search/howsearchworks/?fg=1",
+            "url": "https://careers.google.com/teams",
             "domains": [
                 "https://www.googleoptimize.com",
                 "https://fonts.googleapis.com",
@@ -78,10 +78,12 @@
                 "https://adservice.google.com",
                 "https://stats.g.doubleclick.net",
                 "https://ajax.googleapis.com",
-                "https://kstatic.googleusercontent.com"
+                "https://kstatic.googleusercontent.com",
+                "https://maps.google.com",
+                "https://bid.g.doubleclick.net"
             ],
-            "numResources": 39,
-            "size": 0.58
+            "numResources": 33,
+            "size": 1.39
         },
         "large": {
             "url": "https://store.google.com/us/category/phones?hl=en-US",
@@ -144,10 +146,10 @@
                 "https://geolocation.onetrust.com"
             ],
             "numResources": 19,
-            "size": 1.80
+            "size": 1.68
         },
         "large": {
-            "url": "https://www.cloudflare.com/about-overview",
+            "url": "https://www.cloudflare.com/athenian",
             "domains": [
                 "https://assets.www.cloudflare.com",
                 "https://embed.videodelivery.net",
@@ -164,10 +166,17 @@
                 "https://embed.cloudflarestream.com",
                 "https://cdn.bizible.com",
                 "https://static.cloudflareinsights.com",
-                "https://geolocation.onetrust.com"
+                "https://geolocation.onetrust.com",
+                "https://app-ab13.marketo.com",
+                "https://cdnjs.cloudflare.com",
+                "https://www.google-analytics.com",
+                "https://stats.g.doubleclick.net",
+                "https://www.google.com",
+                "https://support.cloudflare.com",
+                "https://developers.cloudflare.com"
             ],
             "numResources": 72,
-            "size": 3.46
+            "size": 0.56
         }
     }
 }

@@ -22,23 +22,23 @@ CLIENTS = ['chrome_h3', 'proxygen_h3',
 NETWORK = [
     {
         'dirname': 'loss-0_delay-0_bw-10',
-        'title': '0% Loss'
+        'title': '0_Loss'
     },
     {
         'dirname': 'loss-0dot1_delay-0_bw-10',
-        'title': '0.1% Loss'
+        'title': '0dot1_Loss'
     },
     {
         'dirname': 'loss-1_delay-0_bw-10',
-        'title': '1% Loss'
+        'title': '1_Loss'
     },
     {
         'dirname': 'loss-0_delay-50_bw-10',
-        'title': '50ms RTT Delay'
+        'title': '50_Delay'
     },
     {
         'dirname': 'loss-0_delay-100_bw-10',
-        'title': '100ms RTT Delay'
+        'title': '100_Delay'
     },
 ]
 
@@ -307,22 +307,38 @@ def h2_vs_h3_v2(timings: object, sizes):
 
             # print(bad_cov)
 
+            print('{} - {}'.format(domain.capitalize(), grouping['title']))
             fig, ax = plt.subplots()
-            ax.set_title(
-                '{} - {}'.format(domain.capitalize(), grouping['title']))
+            # ax.set_title()
+            # ax.set_ylabel(grouping['title'], fontsize=18, fontweight='bold')
             im, cbar = heatmap(
                 np.array(h2_vs_h3_data),
                 h2_vs_h3_row_labels,
                 h2_vs_h3_col_labels,
                 ax=ax,
                 cmap="bwr",
-                cbarlabel="% Growth in PLT from H2 to H3",
+                # cbarlabel="% Growth in PLT from H2 to H3",
                 vmin=-20,
-                vmax=20
+                vmax=20,
+                show_cbar=False,
             )
-            annotate_heatmap(im, valfmt="{x:.1f}%", threshold=5)
+            annotate_heatmap(
+                im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
             fig.tight_layout()
-            plt.show()
+
+            condition = None
+            if grouping['title'].count('Loss') > 0:
+                condition = 'Loss'
+            else:
+                condition = 'Delay'
+
+            multiple = ''
+            if sizes == WEBPAGE_SIZES:
+                multiple = '_Multiple'
+
+            plt.savefig(
+                '{}/Desktop/graphs/{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
+            # plt.show()
 
 
 def client_consistency(timings: object):
@@ -333,7 +349,7 @@ def client_consistency(timings: object):
         title = obj['title']
         data = []
         row_labels = []
-        col_labels = CLIENTS[:3]
+        col_labels = ['Chrome', 'Proxygen', 'Ngtcp2']
 
         for domain in DOMAINS:
 
@@ -359,6 +375,8 @@ def client_consistency(timings: object):
                     min_mean = min(min_mean, mean)
                     if min_mean == mean:
                         min_client = client
+
+                print(title, domain, size, min_mean)
 
                 mean_diffs = 0
 
@@ -391,21 +409,25 @@ def client_consistency(timings: object):
 
                 data.append(row_data)
 
-        fig, ax = plt.subplots(figsize=(12, 9))
-        ax.set_title(title)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        print(title)
+        # ax.set_title(title)
         im, cbar = heatmap(
-            np.array(data),
-            row_labels,
+            np.transpose(data),
             col_labels,
+            row_labels,
             ax=ax,
             cmap="Reds",
-            cbarlabel="Percent difference",
+            # cbarlabel="Percent difference",
             vmin=0,
-            vmax=20,
-            rotation=30
+            vmax=30,
+            rotation=20,
+            show_cbar=True,
         )
         fig.tight_layout()
-        plt.show()
+        plt.savefig(
+            '{}/Desktop/graphs/H3_{}'.format(Path.home(), title), transparent=True)
+        # plt.show()
 
     percent_diffs.sort(key=lambda x: x[0], reverse=True)
     print(percent_diffs)
@@ -532,7 +554,7 @@ def check_data_lengths(timings):
                         print(dirname, domain, size, client)
 
 
-def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
+def heatmap(data, row_labels, col_labels, ax=None, rotation=0, show_cbar=False,
             cbar_kw={}, cbarlabel="", **kwargs):
     """
     Create a heatmap from a numpy array and two lists of labels.
@@ -562,13 +584,16 @@ def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
     # Plot the heatmap
     im = ax.imshow(data, **kwargs)
 
-    # Create colorbar
-    divider = make_axes_locatable(ax)
-    width = axes_size.AxesY(ax, aspect=1./15)
-    pad = axes_size.Fraction(0.5, width)
-    cax = divider.append_axes("right", size=width, pad=pad)
-    cbar = ax.figure.colorbar(im, cax=cax, ** cbar_kw)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    cbar = None
+    # # Create colorbar
+    if show_cbar:
+        divider = make_axes_locatable(ax)
+        width = axes_size.AxesY(ax, aspect=1./12)
+        pad = axes_size.Fraction(1, width)
+        cax = divider.append_axes("right", size=width, pad=pad)
+        cbar = ax.figure.colorbar(im, cax=cax, ** cbar_kw)
+        cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+        cbar.ax.tick_params(labelsize=16)
 
     # We want to show all ticks...
     ax.set_xticks(np.arange(data.shape[1]))
@@ -578,6 +603,7 @@ def heatmap(data, row_labels, col_labels, ax=None, rotation=0,
     ax.set_yticklabels(row_labels)
 
     # Let the horizontal axes labeling appear on top.
+    ax.tick_params(labelsize=16)
     # ax.tick_params(top=False, bottom=True,
     #                labeltop=True, labelbottom=False)
 
@@ -701,9 +727,9 @@ def main():
 
         timings[dirname] = temp
 
-    check_data_lengths(timings)
-    # h2_vs_h3_v2(timings, SIZES)
-    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+    # check_data_lengths(timings)
+    h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
     # ngtcp2_graph(timings)
     client_consistency(timings)
 

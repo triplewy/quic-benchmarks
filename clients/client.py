@@ -7,14 +7,15 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 25
+ITERATIONS = 20
 RETRIES = 10
-DOMAINS = ['facebook', 'cloudflare', 'google']
+# DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
+script_dir = Path(__file__).parent.absolute()
 
-# DOMAINS = ['facebook']
+DOMAINS = ['cloudflare']
 # SIZES = ['1MB']
 
 PATHS = {}
@@ -47,8 +48,9 @@ def run_process(client: str, url: str):
             client,
             [
                 'curl',
-                '--silent',
                 '--insecure',
+                '-s',
+                '-w', '@{}/curl-format.txt'.format(script_dir),
                 '--output', '/dev/null',
                 '--connect-timeout', '5',
                 '--max-time', '120',
@@ -66,6 +68,7 @@ def run_process(client: str, url: str):
                 '--max-data=1073741824',
                 '--max-stream-data-uni=1073741824',
                 '--max-stream-data-bidi-local=1073741824',
+                '--group=X25519',
                 '--qlog-file=/tmp/qlog/.qlog',
                 url_host,
                 url_port,
@@ -102,17 +105,18 @@ def run_process(client: str, url: str):
 
 def run_subprocess(client: str, command: list) -> float:
     output = subprocess.run(
-        ['time'] + command,
+        command,
         capture_output=True
     )
 
     if client.count('h3') > 0:
         return get_time_from_qlog() / 1000
 
-    output = output.stderr.decode().split('\n')[-2]
-    output = output.split()
+    output = output.stdout.decode().split('\n')
+    dns = float(output[0].split(':')[1])
+    total = float(output[-1].split(':')[1])
 
-    return float(output[0])
+    return total - dns
 
 
 def get_time_from_qlog() -> float:

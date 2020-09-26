@@ -25,17 +25,20 @@ const chromeArgs = (urlString) => {
         '--log-net-log=/tmp/netlog/chrome.json',
         '--enable-quic',
         '--quic-version=h3-29',
+        '--allow-insecure-localhost',
         '--ignore-certificate-errors',
         '--ignore-urlfetcher-cert-requests',
+        '--allow-insecure-localhosts',
     ];
 
 
     const urlObject = url.parse(urlString);
+    const host = urlObject.host.split(':')[0];
     let { port } = urlObject;
     if (port === null) {
         port = 443;
     }
-    args.push(`--origin-to-force-quic-on=${urlObject.host}:${port}`);
+    args.push(`--origin-to-force-quic-on=${host}:${port}`);
 
     return args;
 };

@@ -3,6 +3,7 @@
 HOST=$1
 WEBPATH=$2
 
+rm -rf /tmp/chrome-profile
 mkdir -p /tmp/netlog
 
 /Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary \
@@ -13,7 +14,8 @@ mkdir -p /tmp/netlog
 --disk-cache-size=1 \
 --aggressive-cache-discard \
 --ignore-certificate-errors \
---ignore-urlfetcher-cert-requests \
+--allow-insecure-localhost \
+--disable_certificate_verification \
 --headless \
 --log-net-log=/tmp/netlog/chrome.json \
 --origin-to-force-quic-on=$HOST:443 \

@@ -15,6 +15,7 @@ sudo docker rm mvfst
 sudo docker run \
 -d \
 -v /tmp/proxygen/logs:/logs \
+-v /certs:/certs \
 -p ${HOST}:${PORT}:${PORT}/udp \
 --name=mvfst \
 --entrypoint=/proxygen/proxygen/_build/proxygen/httpserver/hq \
@@ -22,11 +23,12 @@ lnicco/mvfst-qns \
 --mode=server \
 --host=0.0.0.0 \
 --port=${PORT} \
---h2port=6667 \
---logdir=/logs \
 --qlogger_path=/logs \
 --congestion=bbr \
 --pacing=true \
+--cert=/certs/leaf_cert.pem \
+--key=/certs/leaf_cert.key \
+--protocol=h3-29 \
 --v=0
 
 sleep 2
