@@ -6,27 +6,27 @@
 /* eslint-disable no-await-in-loop */
 const puppeteer = require('puppeteer-core');
 const PuppeteerHar = require('puppeteer-har');
-
 const argparse = require('argparse');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
 
-const ITERATIONS = 5;
+const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
+const endpoints = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
+
+const CHROME_PATH = config.paths.chrome;
+const ITERATIONS = config.iterations;
+
 const RETRIES = 50;
-// const DOMAINS = ['facebook', 'google', 'cloudflare'];
-// const SIZES = ['100KB', '1MB', '5MB'];
-// const WEBPAGE_SIZES = ['small', 'medium', 'large'];
+const DOMAINS = ['facebook', 'google', 'cloudflare'];
+const SIZES = ['100KB', '1MB', '5MB'];
+const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
-const DOMAINS = ['facebook'];
-const WEBPAGE_SIZES = ['small'];
-const SIZES = ['1MB'];
-
-const paths = JSON.parse(fs.readFileSync('paths.json', 'utf8'));
 fs.mkdirSync('/tmp/netlog', { recursive: true });
 
 const chromeArgs = (urls) => {
     const args = [
+        '--headless',
         '--user-data-dir=/tmp/chrome-profile',
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
@@ -67,18 +67,18 @@ const runChrome = async (urlString, isH3) => {
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
-            executablePath: paths.chrome,
+            executablePath: CHROME_PATH,
             args,
         });
 
         let gotoUrl = urlString;
         if (urlString.includes('scontent')) {
             if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
-                gotoUrl = `file://${paths['100KB']}`;
+                gotoUrl = `file://${config.paths['100KB']}`;
             } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
-                gotoUrl = `file://${paths['1MB']}`;
+                gotoUrl = `file://${config.paths['1MB']}`;
             } else {
-                gotoUrl = `file://${paths['5MB']}`;
+                gotoUrl = `file://${config.paths['5MB']}`;
             }
         }
 
@@ -133,9 +133,6 @@ const runChrome = async (urlString, isH3) => {
 };
 
 const runBenchmark = async (loss, delay, bw, isH3) => {
-    // Read endpoints from endpoints.json
-    const endpoints = JSON.parse(fs.readFileSync('endpoints.json', 'utf8'));
-
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
@@ -157,7 +154,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
                 const result = await runChrome(urls[size], isH3);
 
                 // Concat result times to existing data
-                timings = timings.slice(20).concat(...result);
+                timings = timings.concat(...result);
 
                 // Save data
                 fs.writeFileSync(file, JSON.stringify(timings));
@@ -183,7 +180,7 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
-                executablePath: paths.chrome,
+                executablePath: CHROME_PATH,
                 args,
             });
 
@@ -240,7 +237,7 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
                     timings.push(entries);
 
                     // move netlog
-                    fs.renameSync('/tmp/netlog/chrome.json', `/tmp/netlog/chrome_${isH3 ? 'h3' : 'h2'}_${i}.json`);
+                    fs.renameSync('/tmp/netlog/chrome.json', `/tmp/netlog/chrome_${isH3 ? 'h3' : 'h2'}_${30 + i}.json`);
                 } else {
                     timings.push(time);
                 }
@@ -260,9 +257,6 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
 };
 
 const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
-    // Read endpoints from endpoints.json
-    const endpoints = JSON.parse(fs.readFileSync('endpoints.json', 'utf8'));
-
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
@@ -281,12 +275,6 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
                     console.error(error);
                 }
 
-                if (timings.length >= 80) {
-                    // eslint-disable-next-line no-continue
-                    continue;
-                }
-
-                // Run benchmark
                 const result = await runChromeWeb(urls[size], isH3, isAnalysis);
 
                 if (isAnalysis) {
@@ -294,7 +282,6 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
                 } else {
                     timings.push(...result);
                 }
-                // timings = timings.slice(20).concat(...result);
                 console.log(timings.length);
                 // Save data
                 fs.writeFileSync(file, JSON.stringify(timings));
@@ -315,27 +302,27 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
 
     const { loss, delay, bw } = cliArgs;
 
-    // // H2 - single object
-    // console.log('Chrome: H2 - single object');
-    // await runBenchmark(loss, delay, bw, false);
+    // H2 - single object
+    console.log('Chrome: H2 - single object');
+    await runBenchmark(loss, delay, bw, false);
 
-    // // H3 - single object
-    // console.log('Chrome: H3 - single object');
-    // await runBenchmark(loss, delay, bw, true);
+    // H3 - single object
+    console.log('Chrome: H3 - single object');
+    await runBenchmark(loss, delay, bw, true);
 
-    // // H2 - multi object
-    // console.log('Chrome: H2 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, false, false);
-
-    // // H3 - multi object
-    // console.log('Chrome: H3 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, true, false);
-
-    // H2 - multi object analysis
+    // H2 - multi object
     console.log('Chrome: H2 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, false, true);
+    await runBenchmarkWeb(loss, delay, bw, false, false);
 
-    // H3 - multi object analysis
+    // H3 - multi object
     console.log('Chrome: H3 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, true, true);
+    await runBenchmarkWeb(loss, delay, bw, true, false);
+
+    // // H2 - multi object analysis
+    // console.log('Chrome: H2 - multi object');
+    // await runBenchmarkWeb(loss, delay, bw, false, true);
+
+    // // H3 - multi object analysis
+    // console.log('Chrome: H3 - multi object');
+    // await runBenchmarkWeb(loss, delay, bw, true, true);
 })();

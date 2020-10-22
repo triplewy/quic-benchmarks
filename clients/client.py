@@ -3,24 +3,28 @@ import subprocess
 import time
 import json
 import sys
+import pathlib
 
 from pathlib import Path
 from urllib.parse import urlparse
 
-ITERATIONS = 20
+CONFIG = None
+ENDPOINTS = None
+
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'config.json'), mode='r') as f:
+    CONFIG = json.load(f)
+
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'endpoints.json'), mode='r') as f:
+    ENDPOINTS = json.load(f)
+
+PATHS = CONFIG['paths']
+ITERATIONS = CONFIG['iterations']
 RETRIES = 10
-# DOMAINS = ['facebook', 'cloudflare', 'google']
+DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 script_dir = Path(__file__).parent.absolute()
-
-DOMAINS = ['cloudflare']
-# SIZES = ['1MB']
-
-PATHS = {}
-with open('paths.json') as f:
-    PATHS = json.load(f)
 
 
 def query(client: str, url: str):
@@ -47,7 +51,7 @@ def run_process(client: str, url: str):
         return run_subprocess(
             client,
             [
-                'curl',
+                PATHS['curl'],
                 '--insecure',
                 '-s',
                 '-w', '@{}/curl-format.txt'.format(script_dir),
@@ -62,7 +66,7 @@ def run_process(client: str, url: str):
         return run_subprocess(
             client,
             [
-                '{}'.format(PATHS['ngtcp2']),
+                PATHS['ngtcp2'],
                 '--quiet',
                 '--exit-on-all-streams-close',
                 '--max-data=1073741824',
@@ -85,7 +89,7 @@ def run_process(client: str, url: str):
         return run_subprocess(
             client,
             [
-                '{}'.format(PATHS['proxygen']),
+                PATHS['proxygen'],
                 '--log_response=false',
                 '--mode=client',
                 '--stream_flow_control=1073741824',
@@ -129,18 +133,32 @@ def get_time_from_qlog() -> float:
         else:
             time_units = 'ms'
 
-        start = int(events[0][0])
+        start = None
+        end = None
+
+        for event in events:
+            if not event:
+                continue
+
+            if time_units == 'ms':
+                ts = int(event[0])
+            else:
+                ts = int(event[0]) / 1000
+
+            event_type = event[2]
+            event_data = event[3]
+
+            if event_type.lower() == 'packet_sent' and start is None:
+                start = ts
 
         last = len(events) - 1
         while len(events[last]) == 0:
             last -= 1
 
-        end = int(events[last][0])
+        end = int(events[last][0]) if time_units == 'ms' else int(
+            events[last][0]) / 1000
 
-        if time_units == 'ms':
-            return end - start
-
-        return end / 1000 - start / 1000
+        return end - start
 
 
 def main():
@@ -158,12 +176,8 @@ def main():
     delay = args.delay
     bw = args.bw
 
-    # Read endpoints from endpoints.json
-    with open('endpoints.json', 'r') as f:
-        endpoints = json.load(f)
-
     for domain in DOMAINS:
-        urls = endpoints[domain]
+        urls = ENDPOINTS[domain]
         for size in SIZES:
             dirpath = Path.joinpath(
                 Path.cwd(),
@@ -188,7 +202,8 @@ def main():
 
             result = query(client, urls[size])
 
-            timings = timings[20:] + result
+            # timings += result
+            timings = result
 
             with open(filepath, 'w') as f:
                 json.dump(timings, f)

@@ -14,7 +14,8 @@ BLUE = deque(['#0000FF', '#0000B3', '#0081B3',
               '#14293D', '#A7DFE2', '#8ED9CD'])
 RED = deque(['#FF0000', '#950000', '#FF005A',
              '#A9385A', '#C95DB4', 'orange',
-             '#FF0000', '#950000', ])
+             '#FF0000', '#950000', '#FF005A',
+             '#A9385A', '#C95DB4', 'orange'])
 GREEN = deque(['#00FF00', '#008D00', '#005300',
                '#00FF72', '#76FF00', '#24A547',
                '#00FF00', '#008D00', ])
@@ -24,14 +25,23 @@ PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
 def analyze_pcap(filename: str) -> (dict, str):
-    print(filename)
+    # print(filename)
     with open(filename) as f:
         data = json.load(f)
 
         ack_ts = {}
         received_ts = {}
+        window_updates = {}
+        max_stream_data = {}
+        lost_packets = {}
+
+        prev_ack = 0
+        lost_packet = None
+        lost_time = None
+        num_lost = 0
 
         fin = False
+        prev_seq = -1
 
         # Associate each ACK offset with a timestamp
         for packet in data:
@@ -44,8 +54,15 @@ def analyze_pcap(filename: str) -> (dict, str):
             if srcport == '443':
                 if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
                     fin = True
-                bytes_ack = int(tcp['tcp.seq'])
-                received_ts[time] = bytes_ack / 1024
+                bytes_seq = int(tcp['tcp.seq']) / 1024
+                received_ts[time] = bytes_seq
+
+                if bytes_seq > prev_seq:
+                    prev_seq = bytes_seq
+                else:
+                    num_lost += 1
+                    lost_packets[time] = bytes_seq
+
             # send packet
             else:
                 if fin:
@@ -54,10 +71,29 @@ def analyze_pcap(filename: str) -> (dict, str):
                     fin = True
                     continue
 
-                bytes_ack = int(tcp['tcp.ack'])
-                ack_ts[time] = bytes_ack / 1024
+                bytes_ack = int(tcp['tcp.ack']) / 1024
+                ack_ts[time] = bytes_ack
+                window = int(tcp['tcp.window_size']) / 1024
+                window_updates[time] = window
+                max_stream_data[time] = bytes_ack + window
 
-    return ack_ts, filename
+                if bytes_ack == prev_ack and bytes_ack > 1:
+                    if lost_packet is None:
+                        lost_packet = (bytes_ack, window)
+                        lost_time = time
+                        # print('ack: {}kb, window: {}kb'.format(bytes_ack, window))
+                else:
+                    if lost_time and time - lost_time > 5:
+                        # print('recovery: {}ms, lost_packet: {}'.format(
+                        #     time - lost_time, lost_packet))
+                        pass
+
+                    lost_time = None
+                    lost_packet = None
+                    prev_ack = bytes_ack
+
+    print(filename, "num_lost", num_lost)
+    return {'ack_ts': ack_ts, 'window_updates': window_updates, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
 
 
 def analyze_qlog(filename: str) -> (dict, str):
@@ -76,6 +112,8 @@ def analyze_qlog(filename: str) -> (dict, str):
         ack_ts = {}
         pkts_received = {}
         received_ts = {}
+        max_stream_data = {}
+        lost_packets = {}
 
         prev_pkt = {'pn': 0, 'dl': 0}
         loss_count = 0
@@ -127,6 +165,7 @@ def analyze_qlog(filename: str) -> (dict, str):
                             prev_pkt = {'pn': pkt_num, 'dl': data_length}
                         elif prev_pkt['pn'] < pkt_num:
                             # print('loss detected', prev_pkt, data_length)
+                            lost_packets[ts] = data_length
                             loss_count += 1
                         else:
                             print('out of order packet')
@@ -139,6 +178,9 @@ def analyze_qlog(filename: str) -> (dict, str):
                 local_max_ack = None
                 frames = event_data['frames']
                 for frame in frames:
+                    if frame['frame_type'] == 'max_stream_data':
+                        max_stream_data[ts] = int(frame['maximum']) / 1024
+
                     if 'acked_ranges' not in frame:
                         continue
 
@@ -162,15 +204,16 @@ def analyze_qlog(filename: str) -> (dict, str):
                 if local_max_ack is not None:
                     ack_ts[ts] = local_max_ack
 
-    print(loss_count)
-    return ack_ts, filename
+    print(filename, "num_lost", loss_count)
+    return {'ack_ts': ack_ts, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
 
 
 def plot_ack(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    # plt.ylabel('Total KB ACKed')
-    # plt.xlabel('Time (ms)')
+    plt.ylabel('Total KB ACKed', fontsize=18, labelpad=10)
+    plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
     # plt.title(graph_title)
+    # ax2 = ax.twinx()
 
     legend = [
         mpatches.Patch(color='red', label='Chrome H3'),
@@ -180,7 +223,8 @@ def plot_ack(data, graph_title: str):
         mpatches.Patch(color='yellow', label='Aioquic H3'),
     ]
 
-    for i, (ack_ts, title) in enumerate(data):
+    for i, (obj, title) in enumerate(data):
+        ack_ts = obj['ack_ts']
 
         if title.count('.json') > 0:
             color = RED.popleft()
@@ -188,15 +232,16 @@ def plot_ack(data, graph_title: str):
             color = BLUE.popleft()
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
-            color = 'green'
+            color = 'blue'
         elif title.count('ngtcp2') > 0:
-            color = GREEN.popleft()
+            # color = GREEN.popleft()
+            color = 'green'
         elif title.count('quiche') > 0:
             color = PURPLE.popleft()
         elif title.count('aioquic') > 0:
             color = YELLOW.popleft()
 
-        plt.plot(
+        ax.plot(
             [x[0] for x in ack_ts.items()],
             [x[1] for x in ack_ts.items()],
             color=color,
@@ -205,6 +250,74 @@ def plot_ack(data, graph_title: str):
             linewidth=1,
             markersize=4,
         )
+
+        # # throughput
+        # items = list(sorted(ack_ts.items(), key=lambda x: x[0]))
+        # throughputs = []
+        # for j, (k2, v2) in enumerate(items):
+        #     if j == 0:
+        #         continue
+        #     k1, v1 = items[j - 1]
+        #     throughput = (v2 - v1) / (k2 - k1)
+        #     throughputs.append((k2, throughput))
+
+        # if title.count('ngtcp2') == 0:
+        #     continue
+
+        # ax2.plot(
+        #     [x[0] for x in throughputs],
+        #     [x[1] for x in throughputs],
+        #     color='purple',
+        #     linestyle='-',
+        #     linewidth=1
+        # )
+
+    # for obj, title in data:
+    #     if 'lost_packets' not in obj:
+    #         continue
+    #     for k, v in obj['lost_packets'].items():
+    #         ax.plot(
+    #             k,
+    #             v,
+    #             color='orange' if title.count('ngtcp2') == 0 else 'blue',
+    #             marker='x',
+    #             markersize=4,
+    #             linewidth=0
+    #         )
+
+    # for i, (obj, title) in enumerate(data):
+    #     if 'window_updates' not in obj:
+    #         continue
+    #     updates = obj['window_updates']
+
+    #     ax2.plot(
+    #         [x[0] for x in updates.items()],
+    #         [x[1] for x in updates.items()],
+    #         color='green',
+    #         marker='o',
+    #         linestyle='-',
+    #         linewidth=1,
+    #         markersize=1,
+    #     )
+
+    #     for k, v in updates.items():
+    #         if v == 0:
+    #             ax.axvline(k, color='orange')
+
+    # for i, (obj, title) in enumerate(data):
+    #     if 'max_stream_data' not in obj:
+    #         continue
+    #     updates = obj['max_stream_data']
+
+    #     ax.plot(
+    #         [x[0] for x in updates.items()],
+    #         [x[1] for x in updates.items()],
+    #         color='blue',
+    #         marker='o',
+    #         linestyle='-',
+    #         linewidth=1,
+    #         markersize=1,
+    #     )
 
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
@@ -215,9 +328,9 @@ def plot_ack(data, graph_title: str):
     formatter1 = StrMethodFormatter('{x:,g} ms')
     ax.xaxis.set_major_formatter(formatter1)
 
-    # plt.yticks(np.array([0, 250, 500, 750, 1000]))
+    # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    plt.xticks(np.array([0, 200, 400, 600, 800]))
     fig.tight_layout()
     plt.savefig(
         '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
@@ -237,27 +350,24 @@ def main():
     pcapdir = args.pcapdir
 
     data = []
+    wnd_updates = []
 
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.count('server') > 0:
+        if qlog.split('.')[0][-1] != '3':
             continue
-        if qlog.count('proxygen') == 0:
-            continue
-        # if qlog.split('.')[0][-2:] not in ['n8', '20', '21']:
-        #     continue
 
         data.append(analyze_qlog(qlog))
-        print(qlog, max(data[-1][0].keys()))
 
     if pcapdir is not None:
         files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
         for pcap in files:
-            if pcap.split('.')[0][-1] > '3':
+            if pcap.split('.')[0][-1] != '1':
                 continue
+
             data.append(analyze_pcap(pcap))
-            print(pcap, max(data[-1][0].keys()))
+            # print(pcap, max(data[-1][0].keys()))
 
     plot_ack(data, qlogdir.split('/')[-1])
 

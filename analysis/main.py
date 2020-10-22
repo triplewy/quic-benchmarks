@@ -209,7 +209,7 @@ def h2_vs_h3_v1(timings: object):
                 )
 
                 # accept null hypothesis
-                if ttest.pvalue >= 0.05:
+                if ttest.pvalue >= 0.01:
                     data[i].append(0)
                 # reject null hypothesis
                 else:
@@ -244,6 +244,8 @@ def h2_vs_h3_v2(timings: object, sizes):
             h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
             h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
             h2_vs_h3_col_labels = sizes
+            if domain == 'cloudflare' and sizes == WEBPAGE_SIZES:
+                h2_vs_h3_col_labels = sizes[:2]
             bad_cov = 0
 
             for i, item in enumerate(grouping['items']):
@@ -251,7 +253,14 @@ def h2_vs_h3_v2(timings: object, sizes):
                 data = h2_vs_h3_data[i]
                 network = item['scenario']
 
+                if network == 'loss-0_delay-101_bw-10' and domain != 'facebook':
+                    continue
+
                 for size in sizes:
+
+                    if domain == 'cloudflare' and size == 'large':
+                        continue
+
                     min_h3_mean = math.inf
                     min_h3_client = None
 
@@ -298,7 +307,7 @@ def h2_vs_h3_v2(timings: object, sizes):
                     )
 
                     # accept null hypothesis
-                    if ttest.pvalue >= 0.05:
+                    if ttest.pvalue >= 0.01:
                         data.append(0)
                     # reject null hypothesis
                     else:
@@ -341,6 +350,234 @@ def h2_vs_h3_v2(timings: object, sizes):
             # plt.show()
 
 
+def h2_vs_h3_v3(timings: object, sizes):
+    for domain in ['google', 'facebook', 'cloudflare']:
+
+        h2_vs_h3_data = [[] for _ in range(3)]
+        h2_vs_h3_row_labels = ['> 192 KB', '32 KB', '8 KB']
+        # h2_vs_h3_row_labels = ['> 192 KB', '8 KB']
+
+        h2_vs_h3_col_labels = sizes
+
+        networks = ['loss-1_delay-0_bw-10',
+                    'loss-2_delay-0_bw-10', 'loss-3_delay-0_bw-10']
+        # networks = ['loss-1_delay-0_bw-10', 'loss-3_delay-0_bw-10']
+
+        for i, network in enumerate(networks):
+
+            data = h2_vs_h3_data[i]
+
+            for size in sizes:
+
+                min_h3_mean = math.inf
+                min_h3_client = None
+
+                min_h2_mean = math.inf
+                min_h2_client = None
+
+                if network not in timings:
+                    data.append(0)
+                    continue
+
+                # get min_mean
+                for client, times in timings[network][domain][size].items():
+                    mean = np.mean(times)
+                    std = np.std(times)
+
+                    # h3 client
+                    if client.count('h3') > 0:
+                        min_h3_mean = min(min_h3_mean, mean)
+                        if min_h3_mean == mean:
+                            min_h3_client = client
+                    # h2 client
+                    else:
+                        min_h2_mean = min(min_h2_mean, mean)
+                        if min_h2_mean == mean:
+                            min_h2_client = client
+
+                # do t-test between min h2 and min h3 clients
+                ttest = stats.ttest_ind(
+                    timings[network][domain][size][min_h2_client],
+                    timings[network][domain][size][min_h3_client],
+                    equal_var=False
+                )
+
+                # accept null hypothesis
+                if ttest.pvalue >= 0.01:
+                    data.append(0)
+                # reject null hypothesis
+                else:
+                    diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
+                    data.append(diff)
+
+        fig, ax = plt.subplots()
+        # ax.set_ylabel(grouping['title'], fontsize=18, fontweight='bold')
+        im, cbar = heatmap(
+            np.array(h2_vs_h3_data),
+            h2_vs_h3_row_labels,
+            h2_vs_h3_col_labels,
+            ax=ax,
+            cmap="bwr",
+            # cbarlabel="% Growth in PLT from H2 to H3",
+            vmin=-20,
+            vmax=20,
+            show_cbar=False,
+        )
+        annotate_heatmap(
+            im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
+        fig.tight_layout()
+
+        plt.savefig(
+            '{}/Desktop/graphs/{}_buffer_size'.format(Path.home(), domain.capitalize()), transparent=True)
+        # plt.show()
+
+
+def facebook_patch(timings: object, sizes):
+    domain = 'facebook'
+    before = 'loss-0_delay-100_bw-10'
+    after = 'loss-0_delay-101_bw-10'
+
+    h2_vs_h3_data = [[], []]
+    h2_vs_h3_row_labels = ['before', 'after']
+    h2_vs_h3_col_labels = sizes
+
+    for i, network in enumerate([before, after]):
+        data = h2_vs_h3_data[i]
+
+        for size in sizes:
+
+            min_h3_mean = math.inf
+            min_h3_client = None
+
+            min_h2_mean = math.inf
+            min_h2_client = None
+
+            # get min_mean
+            for client, times in timings[network][domain][size].items():
+                mean = np.mean(times)
+                std = np.std(times)
+
+                # h3 client
+                if client.count('h3') > 0:
+                    min_h3_mean = min(min_h3_mean, mean)
+                    if min_h3_mean == mean:
+                        min_h3_client = client
+                # h2 client
+                else:
+                    min_h2_mean = min(min_h2_mean, mean)
+                    if min_h2_mean == mean:
+                        min_h2_client = client
+
+            # do t-test between min h2 and min h3 clients
+            ttest = stats.ttest_ind(
+                timings[network][domain][size][min_h2_client],
+                timings[network][domain][size][min_h3_client],
+                equal_var=False
+            )
+
+            print(network, size, min_h3_mean)
+            # accept null hypothesis
+            if ttest.pvalue >= 0.01:
+                data.append(0)
+            # reject null hypothesis
+            else:
+                diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
+                data.append(diff)
+
+    fig, ax = plt.subplots()
+    im, cbar = heatmap(
+        np.array(h2_vs_h3_data),
+        h2_vs_h3_row_labels,
+        h2_vs_h3_col_labels,
+        ax=ax,
+        cmap="bwr",
+        # cbarlabel="% Growth in PLT from H2 to H3",
+        vmin=-20,
+        vmax=20,
+        show_cbar=False,
+    )
+    annotate_heatmap(
+        im, valfmt="{x:.1f}%", threshold=5, fontsize=18, fontweight=600)
+    fig.tight_layout()
+
+    multiple = ''
+    if sizes == WEBPAGE_SIZES:
+        multiple = '_multiple'
+
+    plt.savefig(
+        '{}/Desktop/graphs/facebook_patch{}'.format(Path.home(), multiple), transparent=True)
+
+    percent_diffs = []
+
+    data = []
+    row_labels = []
+    col_labels = ['Chrome', 'Proxygen', 'Ngtcp2']
+
+    for i, size in enumerate(SIZES):
+        row_labels.append('{}/{}'.format(domain, size))
+        row_data = []
+
+        min_mean = math.inf
+        min_client = None
+
+        # get min_mean
+        for client, times in timings[network][domain][size].items():
+            if client.count('h2') > 0:
+                continue
+
+            mean = np.mean(times)
+
+            # h3 client
+            min_mean = min(min_mean, mean)
+            if min_mean == mean:
+                min_client = client
+
+        mean_diffs = 0
+
+        # perform t-test on other clients
+        for client in CLIENTS:
+            if client.count('h2') > 0:
+                continue
+
+            times = timings[network][domain][size][client]
+
+            ttest = stats.ttest_ind(
+                timings[network][domain][size][min_client],
+                times,
+                equal_var=False
+            )
+
+            # accept null hypothesis
+            if ttest.pvalue >= 0.01:
+                row_data.append(0)
+            # reject null hypothesis
+            else:
+                mean = np.mean(times)
+                diff = (mean - min_mean) / min_mean * 100
+                print('facebook patch diff: {}', diff)
+                mean_diffs += diff
+                row_data.append(diff)
+
+        data.append(row_data)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    im, cbar = heatmap(
+        np.transpose(data),
+        col_labels,
+        row_labels,
+        ax=ax,
+        cmap="Reds",
+        # cbarlabel="Percent difference",
+        vmin=0,
+        vmax=30,
+        rotation=20,
+        show_cbar=True,
+    )
+    fig.tight_layout()
+    plt.savefig(
+        '{}/Desktop/graphs/H3_facebook_patch'.format(Path.home()), transparent=True)
+
+
 def client_consistency(timings: object):
     percent_diffs = []
 
@@ -376,7 +613,7 @@ def client_consistency(timings: object):
                     if min_mean == mean:
                         min_client = client
 
-                print(title, domain, size, min_mean)
+                # print(title, domain, size, min_mean)
 
                 mean_diffs = 0
 
@@ -398,12 +635,13 @@ def client_consistency(timings: object):
                     )
 
                     # accept null hypothesis
-                    if ttest.pvalue >= 0.05:
+                    if ttest.pvalue >= 0.01:
                         row_data.append(0)
                     # reject null hypothesis
                     else:
                         mean = np.mean(times)
                         diff = (mean - min_mean) / min_mean * 100
+                        print(title, domain, size, client, diff)
                         mean_diffs += diff
                         row_data.append(diff)
 
@@ -420,7 +658,7 @@ def client_consistency(timings: object):
             cmap="Reds",
             # cbarlabel="Percent difference",
             vmin=0,
-            vmax=30,
+            vmax=20,
             rotation=20,
             show_cbar=True,
         )
@@ -430,7 +668,7 @@ def client_consistency(timings: object):
         # plt.show()
 
     percent_diffs.sort(key=lambda x: x[0], reverse=True)
-    print(percent_diffs)
+    # print(percent_diffs)
 
 
 def ngtcp2_graph(timings):
@@ -485,7 +723,7 @@ def ngtcp2_graph(timings):
             )
 
             # accept null hypothesis
-            if ttest.pvalue >= 0.05:
+            if ttest.pvalue >= 0.01:
                 row_data.append((delay, 0))
             # reject null hypothesis
             else:
@@ -550,8 +788,10 @@ def check_data_lengths(timings):
                     if client not in times:
                         continue
 
-                    if len(times[client]) != 40:
-                        print(dirname, domain, size, client)
+                    mean = np.mean(times[client])
+                    std = np.std(times[client])
+
+                    print(std / mean * 100)
 
 
 def heatmap(data, row_labels, col_labels, ax=None, rotation=0, show_cbar=False,
@@ -603,7 +843,8 @@ def heatmap(data, row_labels, col_labels, ax=None, rotation=0, show_cbar=False,
     ax.set_yticklabels(row_labels)
 
     # Let the horizontal axes labeling appear on top.
-    ax.tick_params(labelsize=16)
+    ax.tick_params(axis='y', labelsize=18)
+    ax.tick_params(axis='x', labelsize=16)
     # ax.tick_params(top=False, bottom=True,
     #                labeltop=True, labelbottom=False)
 
@@ -727,9 +968,12 @@ def main():
 
         timings[dirname] = temp
 
+    # h2_vs_h3_v3(timings, SIZES)
+    # facebook_patch(timings, SIZES)
+    # facebook_patch(timings, WEBPAGE_SIZES)
     # check_data_lengths(timings)
-    h2_vs_h3_v2(timings, SIZES)
-    h2_vs_h3_v2(timings, WEBPAGE_SIZES)
+    # h2_vs_h3_v2(timings, SIZES)
+    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
     # ngtcp2_graph(timings)
     client_consistency(timings)
 

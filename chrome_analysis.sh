@@ -11,7 +11,7 @@ mkdir -p /tmp/qlog
 mkdir -p /tmp/netlog
 mkdir -p $DATA_DIR
 
-for i in {1..40}
+for i in {1..3}
 do
     echo $i
     
@@ -41,9 +41,9 @@ do
     # --quiet \
     # --no-quic-dump \
     # --exit-on-all-streams-close \
-    # --max-data=1073741824 \
-    # --max-stream-data-uni=1073741824 \
-    # --max-stream-data-bidi-local=1073741824 \
+    # --max-data=8192 \
+    # --max-stream-data-uni=8192 \
+    # --max-stream-data-bidi-local=8192 \
     # --cc=cubic \
     # --qlog-file=/tmp/qlog/.qlog \
     # $HOST \
@@ -52,7 +52,6 @@ do
     
     # mv /tmp/qlog/.qlog $DATA_DIR/ngtcp2$i.qlog
     
-    # c
 done
 
 # python3 analysis/ack-analysis.py --qlogdir $DATA_DIR --pcapdir $DATA_DIR

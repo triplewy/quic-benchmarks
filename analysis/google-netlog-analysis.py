@@ -451,28 +451,35 @@ def main():
     h2_final_connections = []
     h3_final_connections = []
 
+    h2_start = []
+    h2_end = []
+    h2_duration = []
     h2_connect = []
+
+    h3_start = []
+    h3_end = []
+    h3_duration = []
     h3_connect = []
 
-    h2_facebook = {}
-    h3_facebook = {}
+    h2_lh3 = {'start': [], 'duration': []}
+    h3_lh3 = {'start': [], 'duration': []}
 
-    facebook_urls = [
-        'www.facebook.com/business/marketing-partners',
-        'static.xx.fbcdn.net/rsrc.php/v3/ye/r/Pf68jbJ2zkw.js?_nc_x=Ij3Wp8lg5Kz',
-        'static.xx.fbcdn.net/rsrc.php/v3/ys/r/YgH8JlvpFFf.js?_nc_x=Ij3Wp8lg5Kz',
-        'static.xx.fbcdn.net/rsrc.php/v3i7r74/y4/l/en_US/B2pdwCl4NfK.js?_nc_x=Ij3Wp8lg5Kz',
-        'connect.facebook.net/en_US/fbevents.js',
-        'connect.facebook.net/signals/config/486822841454810?v=2.9.27&r=stable'
+    h2_google = {}
+    h3_google = {}
+
+    google_urls = [
+        'careers.google.com/jobs/dist/js/main.en_US.min.f810219bb28efa8cc0d9.js',
     ]
 
-    for url in facebook_urls:
-        h2_facebook[url] = {'start': [], 'duration': []}
-        h3_facebook[url] = {'start': [], 'duration': []}
+    for url in google_urls:
+        h2_google[url] = {'start': [], 'duration': []}
+        h3_google[url] = {'start': [], 'duration': []}
 
     files = glob('{}/**/*.json'.format(dirname), recursive=True)
     files.sort()
     for i, netlog in enumerate(files):
+        # if not (netlog == 'analysis/data/google_loss-1_multi_medium_v2/chrome_h2_7.json' or netlog == 'analysis/data/google_loss-1_multi_medium_v2/chrome_h3_3.json'):
+        #     continue
 
         res = analyze_netlog(netlog)
         if res is None or res[1] == 0:
@@ -499,44 +506,70 @@ def main():
             h3_final_connections.append(res[1])
 
         for conn in conns:
+            if conn['host'] == 'lh3.googleusercontent.com':
+                if netlog.count('h2') > 0:
+                    h2_lh3['start'].append(conn['start_time'])
+                    h2_lh3['duration'].append(
+                        conn['total_time'])
+                else:
+                    h3_lh3['start'].append(conn['start_time'])
+                    h3_lh3['duration'].append(
+                        conn['total_time'])
+
             for streams in conn['streams'].values():
                 for stream in streams:
-                    if stream['full_path'] in facebook_urls:
+                    if stream['full_path'] in google_urls:
                         if netlog.count('h2') > 0:
-                            facebook_obj = h2_facebook[stream['full_path']]
+                            facebook_obj = h2_google[stream['full_path']]
                         else:
-                            facebook_obj = h3_facebook[stream['full_path']]
+                            facebook_obj = h3_google[stream['full_path']]
 
                         facebook_obj['start'].append(stream['data'][0])
                         facebook_obj['duration'].append(stream['data'][-1])
 
         plot_v2(res[0], 'h2' if netlog.count('h2') else 'h3')
 
-    h2 = h2_connect
-    h3 = h3_connect
+    for thing in ['connect', 'lh3start', 'lh3duration']:
+        if thing == 'connect':
+            h2 = h2_connect
+            h3 = h3_connect
+        elif thing == 'start':
+            h2 = h2_start
+            h3 = h3_start
+        elif thing == 'lh3start':
+            h2 = h2_lh3['start']
+            h3 = h3_lh3['start']
+        elif thing == 'lh3duration':
+            h2 = h2_lh3['duration']
+            h3 = h3_lh3['duration']
+        else:
+            h2 = h2_duration
+            h3 = h3_duration
 
-    print('connect')
-    ttest = stats.ttest_ind(
-        h2,
-        h3,
-        equal_var=False
-    )
+        print(thing)
+        ttest = stats.ttest_ind(
+            h2,
+            h3,
+            equal_var=False
+        )
 
-    if ttest.pvalue >= 0.01:
-        print('No diff')
+        if ttest.pvalue >= 0.01:
+            print('No diff')
 
-    print('mean', np.mean(h2),
-          np.mean(h3))
-    print('std', np.std(h2),
-          np.std(h3))
-    print('median', np.median(h2),
-          np.median(h3))
-    print()
+        h2.sort()
+        h3.sort()
+        print('p50', np.median(h2),
+              np.median(h3))
+        print('p75', h2[int(len(h2) * 0.75)],
+              h3[int(len(h2) * 0.75)])
+        print('p90', h2[int(len(h2) * 0.9)],
+              h3[int(len(h2) * 0.9)])
+        print()
 
-    for url in facebook_urls:
+    for url in google_urls:
         for thing in ['start', 'duration']:
-            h2 = h2_facebook[url][thing]
-            h3 = h3_facebook[url][thing]
+            h2 = h2_google[url][thing]
+            h3 = h3_google[url][thing]
 
             ttest = stats.ttest_ind(
                 h2,
@@ -550,17 +583,12 @@ def main():
 
             h2.sort()
             h3.sort()
-
-            print('mean', np.mean(h2),
-                  np.mean(h3))
-            print('std', np.std(h2),
-                  np.std(h3))
             print('p50', np.median(h2),
-                  np.median(h3))
+                np.median(h3))
             print('p75', h2[int(len(h2) * 0.75)],
-                  h3[int(len(h3) * 0.75)])
+                h3[int(len(h2) * 0.75)])
             print('p90', h2[int(len(h2) * 0.9)],
-                  h3[int(len(h3) * 0.9)])
+                h3[int(len(h2) * 0.9)])
             print()
 
     h2_final_connections.sort()

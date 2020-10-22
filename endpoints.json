@@ -24,10 +24,10 @@
                 "https://www.google.com"
             ],
             "numResources": 37,
-            "size": 1.45
+            "size": 1.10
         },
         "large": {
-            "url": "https://www.facebook.com/business/marketing-partners",
+            "url": "https://www.facebook.com/business/marketing-partners/",
             "domains": [
                 "https://www.facebook.com",
                 "https://static.xx.fbcdn.net",
@@ -39,7 +39,7 @@
                 "https://www.google-analytics.com"
             ],
             "numResources": 84,
-            "size": 2.14
+            "size": 1.82
         }
     },
     "google": {
@@ -60,7 +60,7 @@
             "size": 0.46
         },
         "medium": {
-            "url": "https://careers.google.com/teams",
+            "url": "https://careers.google.com/teams/",
             "domains": [
                 "https://www.googleoptimize.com",
                 "https://fonts.googleapis.com",
@@ -115,7 +115,7 @@
                 "https://www.gstatic.com"
             ],
             "numResources": 98,
-            "size": 1.74
+            "size": 1.72
         }
     },
     "cloudflare": {
@@ -132,7 +132,7 @@
             "size": 0.37
         },
         "medium": {
-            "url": "https://dash.cloudflare.com/sign-up",
+            "url": "https://dash.cloudflare.com/sign-up/",
             "domains": [
                 "https://dash.cloudflare.com",
                 "https://cloudflare.com",
@@ -146,37 +146,7 @@
                 "https://geolocation.onetrust.com"
             ],
             "numResources": 19,
-            "size": 1.68
-        },
-        "large": {
-            "url": "https://www.cloudflare.com/athenian",
-            "domains": [
-                "https://assets.www.cloudflare.com",
-                "https://embed.videodelivery.net",
-                "https://images.ctfassets.net",
-                "https://www.googleoptimize.com",
-                "https://videodelivery.net",
-                "https://info.cloudflare.com",
-                "https://blog.cloudflare.com",
-                "https://cloudflare.com",
-                "https://c.disquscdn.com",
-                "https://blog-cloudflare-com-assets.storage.googleapis.com",
-                "https://www.cloudflare.com",
-                "https://www.googletagmanager.com",
-                "https://embed.cloudflarestream.com",
-                "https://cdn.bizible.com",
-                "https://static.cloudflareinsights.com",
-                "https://geolocation.onetrust.com",
-                "https://app-ab13.marketo.com",
-                "https://cdnjs.cloudflare.com",
-                "https://www.google-analytics.com",
-                "https://stats.g.doubleclick.net",
-                "https://www.google.com",
-                "https://support.cloudflare.com",
-                "https://developers.cloudflare.com"
-            ],
-            "numResources": 72,
-            "size": 0.56
+            "size": 1.54
         }
     }
 }

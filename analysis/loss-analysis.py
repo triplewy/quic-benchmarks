@@ -74,7 +74,7 @@ def analyze_qlog(filename: str) -> (dict, str):
                     {'pn': event_data['largest_lost_packet_num'], 'dl': 0, 'of': 0})
 
             elif event_type.lower() == 'packet_received':
-                if ts >= end_time + 31 and event_data['packet_type'] != '1RTT' and event_data['header']['packet_number'] != 0:
+                if ts >= end_time + 50 and event_data['packet_type'] != '1RTT' and event_data['header']['packet_number'] != 0:
                     print('loss detected', filename, event_data)
                     losses.append(
                         {'pn': event_data['header']['packet_number'], 'dl': 0, 'of': 0})
@@ -121,7 +121,7 @@ def analyze_qlog(filename: str) -> (dict, str):
 def plot(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.ylabel('PLT', fontsize=18, labelpad=15)
-    plt.xlabel('Data offset of first detected lost packet',
+    plt.xlabel('Data offset of first lost packet',
                fontsize=18, labelpad=15)
     # plt.title(graph_title)
 
@@ -145,11 +145,11 @@ def plot(data, graph_title: str):
                 # markersize=8,
                 )
 
-    m, b = np.polyfit(x, y, 1)
+    # m, b = np.polyfit(x, y, 1)
     # plt.plot(x, m*x + b)
 
-    cb = plt.colorbar(ticks=[5, 10, 20, 30, 40, 50, 90])
-    cb.ax.set_yticklabels(['5', '10', '20', '30', '40', '50', '90'])
+    cb = plt.colorbar(ticks=[5, 10, 20, 30, 40, 50, 90, 180])
+    cb.ax.set_yticklabels(['5', '10', '20', '30', '40', '50', '90', '180'])
     cb.ax.tick_params(labelsize=16)
     cb.set_label(label='# of lost packets', size=18)
 
