@@ -1,5 +1,5 @@
 {
-    "iterations": 20,
+    "iterations": 1,
     "paths": {
         "chrome": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
         "proxygen": "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq",
@@ -8,5 +8,6 @@
         "100KB": "/Users/alexyu/quic-benchmarks/clients/html/100kb.html",
         "1MB": "/Users/alexyu/quic-benchmarks/clients/html/1mb.html",
         "5MB": "/Users/alexyu/quic-benchmarks/clients/html/5mb.html"
-    }
+    },
+    "clients": {}
 }

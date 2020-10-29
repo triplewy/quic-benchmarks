@@ -1,4 +1,4 @@
-!/usr/bin/env bash
+#!/usr/bin/env bash
 
 HOST=$1
 WEBPATH=$2
@@ -14,6 +14,7 @@ mkdir -p /tmp/netlog
 --disk-cache-size=1 \
 --aggressive-cache-discard \
 --headless \
+--net-log-capture-mode=Everything \
 --log-net-log=/tmp/netlog/chrome.json \
 --origin-to-force-quic-on=$HOST:443 \
 https://$HOST/$WEBPATH

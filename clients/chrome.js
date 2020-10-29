@@ -1,3 +1,4 @@
+/* eslint-disable no-continue */
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable no-loop-func */
 /* eslint-disable no-prototype-builtins */
@@ -10,10 +11,28 @@ const argparse = require('argparse');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
+const Analyze = require('./wprofx/analyze');
+
+const wprofx = new Analyze();
 
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
 const endpoints = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
 
+const TRACE_CATEGORIES = [
+    '-*',
+    'toplevel',
+    'blink.console',
+    'disabled-by-default-devtools.timeline',
+    'devtools.timeline',
+    'disabled-by-default-devtools.timeline.frame',
+    'devtools.timeline.frame',
+    'disabled-by-default-devtools.timeline.stack',
+    'disabled-by-default-v8.cpu_profile',
+    'disabled-by-default-blink.feature_usage',
+    'blink.user_timing',
+    'v8.execute',
+    'netlog',
+];
 const CHROME_PATH = config.paths.chrome;
 const ITERATIONS = config.iterations;
 
@@ -71,14 +90,16 @@ const runChrome = async (urlString, isH3) => {
             args,
         });
 
-        let gotoUrl = urlString;
+        let gotoUrl;
         if (urlString.includes('scontent')) {
             if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
                 gotoUrl = `file://${config.paths['100KB']}`;
             } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
                 gotoUrl = `file://${config.paths['1MB']}`;
-            } else {
+            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-5MB') {
                 gotoUrl = `file://${config.paths['5MB']}`;
+            } else {
+                gotoUrl = urlString;
             }
         }
 
@@ -138,7 +159,7 @@ const runBenchmark = async (loss, delay, bw, isH3) => {
             const urls = endpoints[domain];
             for (const size of SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+                const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists
@@ -215,7 +236,6 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
                     continue;
                 }
 
-
                 if (payloadMb < size) {
                     console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
                     if (j === RETRIES - 1) {
@@ -256,14 +276,100 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
     return timings;
 };
 
-const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
+const runChromeTracing = async (obj, isH3) => {
+    const {
+        domains, size, url: urlString,
+    } = obj;
+
+    const timings = [];
+
+    // Repeat test ITERATIONS times
+    for (let i = 0; i < ITERATIONS; i += 1) {
+        console.log(`${urlString} Iteration: ${i} `);
+
+        for (let j = 0; j < RETRIES; j += 1) {
+            // Restart browser for each iteration to make things fair...
+            fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+            const args = chromeArgs(isH3 ? domains : null);
+            const browser = await puppeteer.launch({
+                headless: true,
+                executablePath: CHROME_PATH,
+                args,
+            });
+
+            try {
+                const page = await browser.newPage();
+                const har = await new PuppeteerHar(page);
+
+                const cdp = await page.target().createCDPSession();
+                await cdp.send('Page.enable');
+                await cdp.send('Network.enable');
+
+                await har.start();
+                await page.tracing.start({ categories: TRACE_CATEGORIES });
+
+                await page.goto(urlString, {
+                    timeout: 120000,
+                });
+
+                await page.close();
+
+                const harResult = await har.stop();
+                const tracing = await page.tracing.stop();
+
+                const { entries } = harResult.log;
+
+                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
+                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
+                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
+                const payloadMb = (payloadBytes / 1048576).toFixed(2);
+
+                console.log(`Size: ${payloadMb} mb`);
+
+                if (isH3 && numH2 > 0) {
+                    console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
+                    if (j === RETRIES - 1) {
+                        throw Error('Exceeded retries');
+                    }
+                    continue;
+                }
+
+                if (payloadMb < size) {
+                    console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
+                    if (j === RETRIES - 1) {
+                        throw Error('Exceeded retries');
+                    }
+                    continue;
+                }
+
+                const data = JSON.parse(tracing.toString());
+                const res = await wprofx.analyzeTrace(data.traceEvents);
+
+                timings.push(res);
+                break;
+            } catch (error) {
+                if (j === RETRIES - 1) {
+                    console.error('Exceeded retries');
+                    throw error;
+                }
+            } finally {
+                await browser.close();
+            }
+        }
+    }
+
+    return timings;
+};
+
+const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     for (const domain of DOMAINS) {
         if (endpoints.hasOwnProperty(domain)) {
             const urls = endpoints[domain];
 
             for (const size of WEBPAGE_SIZES) {
                 // Create directory
-                const dir = path.join('har', `loss-${loss}_delay-${delay}_bw-${bw}${isAnalysis ? '_analysis' : ''}`, domain, size);
+                const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
                 fs.mkdirSync(dir, { recursive: true });
 
                 // Read from file if exists
@@ -275,14 +381,10 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
                     console.error(error);
                 }
 
-                const result = await runChromeWeb(urls[size], isH3, isAnalysis);
+                const result = await runChromeTracing(urls[size], isH3);
 
-                if (isAnalysis) {
-                    timings = result;
-                } else {
-                    timings.push(...result);
-                }
-                console.log(timings.length);
+                timings.push(...result);
+
                 // Save data
                 fs.writeFileSync(file, JSON.stringify(timings));
             }
@@ -302,27 +404,19 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3, isAnalysis) => {
 
     const { loss, delay, bw } = cliArgs;
 
-    // H2 - single object
-    console.log('Chrome: H2 - single object');
-    await runBenchmark(loss, delay, bw, false);
+    // // H2 - single object
+    // console.log('Chrome: H2 - single object');
+    // await runBenchmark(loss, delay, bw, false);
 
-    // H3 - single object
-    console.log('Chrome: H3 - single object');
-    await runBenchmark(loss, delay, bw, true);
+    // // H3 - single object
+    // console.log('Chrome: H3 - single object');
+    // await runBenchmark(loss, delay, bw, true);
 
-    // H2 - multi object
-    console.log('Chrome: H2 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, false, false);
-
-    // H3 - multi object
-    console.log('Chrome: H3 - multi object');
-    await runBenchmarkWeb(loss, delay, bw, true, false);
-
-    // // H2 - multi object analysis
+    // // H2 - multi object
     // console.log('Chrome: H2 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, false, true);
+    // await runBenchmarkWeb(loss, delay, bw, false, false);
 
-    // // H3 - multi object analysis
+    // // H3 - multi object
     // console.log('Chrome: H3 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, true, true);
+    // await runBenchmarkWeb(loss, delay, bw, true, false);
 })();
