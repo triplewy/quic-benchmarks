@@ -102,11 +102,11 @@ const runChrome = async (urlString, isH3) => {
 
         let gotoUrl;
         if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
-            gotoUrl = `file://${config.paths['100KB']}`;
+            gotoUrl = `file://${Path.join(__dirname, 'html', '100kb.html')}`;
         } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
-            gotoUrl = `file://${config.paths['1MB']}`;
+            gotoUrl = `file://${Path.join(__dirname, 'html', '1mb.html')}`;
         } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-5MB') {
-            gotoUrl = `file://${config.paths['5MB']}`;
+            gotoUrl = `file://${Path.join(__dirname, 'html', '5mb.html')}`;
         } else {
             gotoUrl = urlString;
         }
@@ -188,7 +188,7 @@ const runBenchmark = async (urlString, dir, isH3) => {
     }
 };
 
-const runChromeWeb = async (obj, isH3, isAnalysis) => {
+const runChromeWeb = async (obj, isH3) => {
     const {
         domains, size, url: urlString,
     } = obj;
@@ -235,7 +235,6 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
                     if (j === RETRIES - 1) {
                         throw Error('Exceeded retries');
                     }
-                    // eslint-disable-next-line no-continue
                     continue;
                 }
 
@@ -244,7 +243,6 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
                     if (j === RETRIES - 1) {
                         throw Error('Exceeded retries');
                     }
-                    // eslint-disable-next-line no-continue
                     continue;
                 }
 
@@ -256,14 +254,7 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
 
                 console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
-                if (isAnalysis) {
-                    timings.push(entries);
-
-                    // move netlog
-                    fs.renameSync('/tmp/netlog/chrome.json', `/tmp/netlog/chrome_${isH3 ? 'h3' : 'h2'}_${30 + i}.json`);
-                } else {
-                    timings.push(time);
-                }
+                timings.push(time);
                 break;
             } catch (error) {
                 if (j === RETRIES - 1) {
@@ -292,7 +283,7 @@ const runChromeTracing = async (obj, isH3) => {
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Restart browser for each iteration to make things fair...
-            fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+            deleteFolderRecursive('/tmp/chrome-profile', { recursive: true });
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
@@ -364,27 +355,30 @@ const runChromeTracing = async (obj, isH3) => {
     return timings;
 };
 
-const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
-    // Create directory
-    const dir = Path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
-    fs.mkdirSync(dir, { recursive: true });
+const runBenchmarkWeb = async (urlString, dir, isH3) => {
+    const result = await runChromeTracing(urlString, isH3);
 
-    // Read from file if exists
-    const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-    let timings = [];
-    try {
-        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch (error) {
-        console.error(error);
+    if (dir !== undefined) {
+        let timings = [];
+
+        const dirpath = Path.join(dir, 'chrome');
+        fs.mkdirSync(dirpath, { recursive: true });
+
+        // Read from file if exists
+        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        try {
+            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch (error) {
+            console.error(error);
+        }
+
+        // Concat result times to existing data
+        timings.push(...result);
+
+        // Save data
+        fs.writeFileSync(file, JSON.stringify(timings));
     }
-
-    const result = await runChromeTracing(urls[size], isH3);
-
-    timings.push(...result);
-
-    // Save data
-    fs.writeFileSync(file, JSON.stringify(timings));
-};
+ };
 
 (async () => {
     const parser = new argparse.ArgumentParser();
