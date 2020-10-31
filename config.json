@@ -1,5 +1,5 @@
 {
-    "iterations": 1,
+    "iterations": 10,
     "paths": {
         "chrome": "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
         "proxygen": "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq",

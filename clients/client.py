@@ -4,12 +4,23 @@ import time
 import json
 import sys
 import pathlib
+import docker
+import os
+import random
+import numpy as np
 
 from pathlib import Path
 from urllib.parse import urlparse
+from docker.types import LogConfig
 
-CONFIG = None
-ENDPOINTS = None
+DOCKER_CLIENT = docker.from_env()
+
+DOCKER_CONFIG = {}
+CONFIG = {}
+ENDPOINTS = {}
+
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'docker.json'), mode='r') as f:
+    DOCKER_CONFIG = json.load(f)
 
 with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'config.json'), mode='r') as f:
     CONFIG = json.load(f)
@@ -17,94 +28,26 @@ with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'config.
 with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'endpoints.json'), mode='r') as f:
     ENDPOINTS = json.load(f)
 
-PATHS = CONFIG['paths']
 ITERATIONS = CONFIG['iterations']
 RETRIES = 10
-DOMAINS = ['facebook', 'cloudflare', 'google']
-SIZES = ['100KB', '1MB', '5MB']
+CLIENTS = ['curl', 'proxygen', 'ngtcp2']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
-script_dir = Path(__file__).parent.absolute()
 
 
-def query(client: str, url: str):
+def query(client: str, url: str, dirpath: str):
     timings = []
 
     for i in range(ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
-        elapsed = run_process(client, url) * 1000
+        elapsed = run_docker(client, url, Path.joinpath(
+            dirpath, '{}_{}.qlog'.format(client, i))) * 1000
 
         timings.append(elapsed)
         print(client, elapsed)
 
     return timings
-
-
-def run_process(client: str, url: str):
-    url_obj = urlparse(url)
-    url_host = url_obj.netloc
-    url_path = url_obj.path[1:]
-    url_port = '443'
-
-    if client == 'curl_h2':
-        return run_subprocess(
-            client,
-            [
-                PATHS['curl'],
-                '--insecure',
-                '-s',
-                '-w', '@{}/curl-format.txt'.format(script_dir),
-                '--output', '/dev/null',
-                '--connect-timeout', '5',
-                '--max-time', '120',
-                '--http2', url
-            ]
-        )
-
-    elif client == 'ngtcp2_h3':
-        return run_subprocess(
-            client,
-            [
-                PATHS['ngtcp2'],
-                '--quiet',
-                '--exit-on-all-streams-close',
-                '--max-data=1073741824',
-                '--max-stream-data-uni=1073741824',
-                '--max-stream-data-bidi-local=1073741824',
-                '--group=X25519',
-                '--qlog-file=/tmp/qlog/.qlog',
-                url_host,
-                url_port,
-                url
-            ]
-        )
-    elif client == 'proxygen_h3':
-        if url_host.count(':') > 0:
-            [host, port] = url_host.split(':')
-        else:
-            host = url_host
-            port = 443
-
-        return run_subprocess(
-            client,
-            [
-                PATHS['proxygen'],
-                '--log_response=false',
-                '--mode=client',
-                '--stream_flow_control=1073741824',
-                '--conn_flow_control=1073741824',
-                '--use_draft=true',
-                '--draft-version=29',
-                '--qlogger_path=/tmp/qlog',
-                '--host={}'.format(host),
-                '--port={}'.format(port),
-                '--path=/{}'.format(url_path),
-                '--v=0',
-            ]
-        )
-    else:
-        raise 'Invalid client'
 
 
 def run_subprocess(client: str, command: list) -> float:
@@ -123,8 +66,86 @@ def run_subprocess(client: str, command: list) -> float:
     return total - dns
 
 
-def get_time_from_qlog() -> float:
-    with open('/tmp/qlog/.qlog', mode='r') as f:
+def run_docker(client: str, url: str, filepath: str) -> float:
+    # Parse URL object
+    url_obj = urlparse(url)
+    url_host = url_obj.netloc
+    url_path = url_obj.path
+    if url_host.count(':') > 0:
+        [url_host, url_port] = url_host.split(':')
+    else:
+        url_port = '443'
+
+    docker_config = DOCKER_CONFIG.get(client)
+
+    if docker_config is None:
+        raise Exception('client {} is not valid'.format(client))
+
+    image = docker_config['image']
+
+    # Check if image exists
+    try:
+        DOCKER_CLIENT.images.get(image)
+    except docker.errors.ImageNotFound:
+        print('Pulling docker image: {}'.format(image))
+        DOCKER_CLIENT.images.pull(image)
+    except Exception as e:
+        raise e
+
+    # Modify commands
+    commands = []
+    for command in docker_config['commands']:
+        command = command.replace('{url}', url)
+        command = command.replace('{host}', url_host)
+        command = command.replace('{path}', url_path)
+        command = command.replace('{port}', url_port)
+        commands.append(command)
+
+    args = {
+        'detach': True,
+        'auto_remove': False,
+        'volumes': {
+            '/tmp/qlog': {
+                'bind': '/logs',
+                'mode': 'rw',
+            }
+        },
+        'log_config': LogConfig(type=LogConfig.types.JSON, config={'max-size': '1g'}),
+        'command': commands
+    }
+
+    if 'entrypoint' in docker_config:
+        args['entrypoint'] = docker_config['entrypoint']
+
+    container = DOCKER_CLIENT.containers.run(
+        image,
+        **args
+    )
+    container.wait()
+    out = container.logs()
+    out = out.decode('utf-8')
+
+    if client == 'curl':
+        out_arr = out.split('\n')[:-1]
+        dns_time = float(out_arr[0].split(':')[1])
+        total_time = float(out_arr[1].split(':')[1])
+        return total_time - dns_time
+
+    if len(os.listdir('/tmp/qlog')) == 0:
+        raise 'no qlog created'
+
+    logpath = Path.joinpath(
+        Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
+
+    time = get_time_from_qlog(logpath)
+
+    os.rename(logpath, filepath)
+
+    return time
+
+
+def get_time_from_qlog(qlog: str) -> float:
+    with open(qlog, mode='r') as f:
         data = json.load(f)
         traces = data['traces'][0]
         events = traces['events']
@@ -134,7 +155,7 @@ def get_time_from_qlog() -> float:
             time_units = 'ms'
 
         start = None
-        end = None
+        end = 0
 
         for event in events:
             if not event:
@@ -142,6 +163,8 @@ def get_time_from_qlog() -> float:
 
             if time_units == 'ms':
                 ts = int(event[0])
+            elif time_units == 'us':
+                ts = int(event[0]) / 1000
             else:
                 ts = int(event[0]) / 1000
 
@@ -151,62 +174,32 @@ def get_time_from_qlog() -> float:
             if event_type.lower() == 'packet_sent' and start is None:
                 start = ts
 
-        last = len(events) - 1
-        while len(events[last]) == 0:
-            last -= 1
+            if event_type.lower() == 'packet_received':
+                end = max(end, ts)
 
-        end = int(events[last][0]) if time_units == 'ms' else int(
-            events[last][0]) / 1000
-
-        return end - start
+        return (end - start) / 1000
 
 
 def main():
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('client')
-    parser.add_argument('loss')
-    parser.add_argument('delay')
-    parser.add_argument('bw')
+    parser.add_argument('url')
+    parser.add_argument('dir')
 
     args = parser.parse_args()
 
-    client = args.client
-    loss = args.loss
-    delay = args.delay
-    bw = args.bw
+    dirpath = Path(args.dir)
+    url = args.url
 
-    for domain in DOMAINS:
-        urls = ENDPOINTS[domain]
-        for size in SIZES:
-            dirpath = Path.joinpath(
-                Path.cwd(),
-                'har',
-                'loss-{}_delay-{}_bw-{}'.format(loss, delay, bw),
-                domain,
-                size,
-            )
-            Path(dirpath).mkdir(parents=True, exist_ok=True)
+    random.shuffle(CLIENTS)
 
-            filepath = Path.joinpath(
-                dirpath,
-                "{}.json".format(client)
-            )
+    for client in CLIENTS:
 
-            timings = []
-            try:
-                with open(filepath, 'r') as f:
-                    timings = json.load(f)
-            except:
-                pass
+        Path.joinpath(dirpath, client).mkdir(parents=True, exist_ok=True)
 
-            result = query(client, urls[size])
+        timings = query(client, url, Path.joinpath(dirpath, client))
 
-            # timings += result
-            timings = result
-
-            with open(filepath, 'w') as f:
-                json.dump(timings, f)
+        print('mean: {}, std: {}'.format(np.mean(timings), np.std(timings)))
 
 
 if __name__ == "__main__":
