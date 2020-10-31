@@ -8,15 +8,15 @@
 const puppeteer = require('puppeteer');
 const PuppeteerHar = require('puppeteer-har');
 const argparse = require('argparse');
-const path = require('path');
+const Path = require('path');
 const fs = require('fs');
 const url = require('url');
 const Analyze = require('./wprofx/analyze');
 
 const wprofx = new Analyze();
 
-const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
-const endpoints = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
+const config = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'config.json'), 'utf8'));
+const endpoints = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
 
 const TRACE_CATEGORIES = [
     '-*',
@@ -33,12 +33,25 @@ const TRACE_CATEGORIES = [
     'v8.execute',
     'netlog',
 ];
-const CHROME_PATH = config.paths.chrome;
-const ITERATIONS = config.iterations;
 
+const ITERATIONS = config.iterations;
 const RETRIES = 50;
 
 fs.mkdirSync('/tmp/netlog', { recursive: true });
+
+const deleteFolderRecursive = (path) => {
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach((file) => {
+            const curPath = Path.join(path, file);
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                deleteFolderRecursive(curPath);
+            } else { // delete file
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(path);
+    }
+};
 
 const chromeArgs = (urls) => {
     const args = [
@@ -81,23 +94,21 @@ const runChrome = async (urlString, isH3) => {
         console.log(`${urlString} Iteration: ${i}`);
 
         // Restart browser for each iteration to make things fair...
-        fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+        deleteFolderRecursive('/tmp/chrome-profile');
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             args,
         });
 
         let gotoUrl;
-        if (urlString.includes('scontent')) {
-            if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
-                gotoUrl = `file://${config.paths['100KB']}`;
-            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
-                gotoUrl = `file://${config.paths['1MB']}`;
-            } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-5MB') {
-                gotoUrl = `file://${config.paths['5MB']}`;
-            } else {
-                gotoUrl = urlString;
-            }
+        if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
+            gotoUrl = `file://${config.paths['100KB']}`;
+        } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
+            gotoUrl = `file://${config.paths['1MB']}`;
+        } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-5MB') {
+            gotoUrl = `file://${config.paths['5MB']}`;
+        } else {
+            gotoUrl = urlString;
         }
 
         for (let j = 0; j < RETRIES; j += 1) {
@@ -151,27 +162,30 @@ const runChrome = async (urlString, isH3) => {
 };
 
 const runBenchmark = async (urlString, dir, isH3) => {
-    // Create directory
-    const dirpath = path.join(dir, 'chrome');
-    fs.mkdirSync(dirpath, { recursive: true });
-
-    // Read from file if exists
-    const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-    let timings = [];
-    try {
-        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch (error) {
-        console.error(error);
-    }
-
     // Run benchmark
     const result = await runChrome(urlString, isH3);
 
-    // Concat result times to existing data
-    timings = timings.concat(...result);
+    // Create directory
+    if (dir !== undefined) {
+        let timings = [];
 
-    // Save data
-    fs.writeFileSync(file, JSON.stringify(timings));
+        const dirpath = Path.join(dir, 'chrome');
+        fs.mkdirSync(dirpath, { recursive: true });
+
+        // Read from file if exists
+        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        try {
+            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch (error) {
+            console.error(error);
+        }
+
+        // Concat result times to existing data
+        timings = timings.concat(...result);
+
+        // Save data
+        fs.writeFileSync(file, JSON.stringify(timings));
+    }
 };
 
 const runChromeWeb = async (obj, isH3, isAnalysis) => {
@@ -187,7 +201,7 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Restart browser for each iteration to make things fair...
-            fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
+            deleteFolderRecursive('/tmp/chrome-profile');
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
@@ -352,11 +366,11 @@ const runChromeTracing = async (obj, isH3) => {
 
 const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     // Create directory
-    const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+    const dir = Path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
     fs.mkdirSync(dir, { recursive: true });
 
     // Read from file if exists
-    const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     let timings = [];
     try {
         timings = JSON.parse(fs.readFileSync(file, 'utf8'));
