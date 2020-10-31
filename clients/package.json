@@ -15,6 +15,7 @@
     "chrome-launcher": "^0.13.4",
     "lighthouse": "^6.4.1",
     "mathjs": "^7.2.0",
+    "puppeteer": "^5.4.1",
     "puppeteer-core": "^3.3.0",
     "puppeteer-har": "^1.1.2",
     "selenium-webdriver": "^4.0.0-alpha.7"

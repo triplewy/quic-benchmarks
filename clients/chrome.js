@@ -5,7 +5,7 @@
 /* eslint-disable indent */
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable no-await-in-loop */
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const PuppeteerHar = require('puppeteer-har');
 const argparse = require('argparse');
 const path = require('path');
@@ -37,15 +37,14 @@ const CHROME_PATH = config.paths.chrome;
 const ITERATIONS = config.iterations;
 
 const RETRIES = 50;
-const DOMAINS = ['facebook', 'google', 'cloudflare'];
-const SIZES = ['100KB', '1MB', '5MB'];
-const WEBPAGE_SIZES = ['small', 'medium', 'large'];
 
 fs.mkdirSync('/tmp/netlog', { recursive: true });
 
 const chromeArgs = (urls) => {
     const args = [
         '--headless',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
         '--user-data-dir=/tmp/chrome-profile',
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
@@ -86,7 +85,6 @@ const runChrome = async (urlString, isH3) => {
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
             headless: true,
-            executablePath: CHROME_PATH,
             args,
         });
 
@@ -153,35 +151,28 @@ const runChrome = async (urlString, isH3) => {
     return timings;
 };
 
-const runBenchmark = async (loss, delay, bw, isH3) => {
-    for (const domain of DOMAINS) {
-        if (endpoints.hasOwnProperty(domain)) {
-            const urls = endpoints[domain];
-            for (const size of SIZES) {
-                // Create directory
-                const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
-                fs.mkdirSync(dir, { recursive: true });
+const runBenchmark = async (urlString, dir, isH3) => {
+    // Create directory
+    const dirpath = path.join(dir, 'chrome', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+    fs.mkdirSync(dir, { recursive: true });
 
-                // Read from file if exists
-                const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-                let timings = [];
-                try {
-                    timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-                } catch (error) {
-                    console.error(error);
-                }
-
-                // Run benchmark
-                const result = await runChrome(urls[size], isH3);
-
-                // Concat result times to existing data
-                timings = timings.concat(...result);
-
-                // Save data
-                fs.writeFileSync(file, JSON.stringify(timings));
-            }
-        }
+    // Read from file if exists
+    const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    let timings = [];
+    try {
+        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+        console.error(error);
     }
+
+    // Run benchmark
+    const result = await runChrome(urlString, isH3);
+
+    // Concat result times to existing data
+    timings = timings.concat(...result);
+
+    // Save data
+    fs.writeFileSync(file, JSON.stringify(timings));
 };
 
 const runChromeWeb = async (obj, isH3, isAnalysis) => {
@@ -201,7 +192,6 @@ const runChromeWeb = async (obj, isH3, isAnalysis) => {
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
-                executablePath: CHROME_PATH,
                 args,
             });
 
@@ -293,7 +283,6 @@ const runChromeTracing = async (obj, isH3) => {
             const args = chromeArgs(isH3 ? domains : null);
             const browser = await puppeteer.launch({
                 headless: true,
-                executablePath: CHROME_PATH,
                 args,
             });
 
@@ -363,60 +352,53 @@ const runChromeTracing = async (obj, isH3) => {
 };
 
 const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
-    for (const domain of DOMAINS) {
-        if (endpoints.hasOwnProperty(domain)) {
-            const urls = endpoints[domain];
+    // Create directory
+    const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
+    fs.mkdirSync(dir, { recursive: true });
 
-            for (const size of WEBPAGE_SIZES) {
-                // Create directory
-                const dir = path.join(__dirname, 'har', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
-                fs.mkdirSync(dir, { recursive: true });
-
-                // Read from file if exists
-                const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-                let timings = [];
-                try {
-                    timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-                } catch (error) {
-                    console.error(error);
-                }
-
-                const result = await runChromeTracing(urls[size], isH3);
-
-                timings.push(...result);
-
-                // Save data
-                fs.writeFileSync(file, JSON.stringify(timings));
-            }
-        }
+    // Read from file if exists
+    const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    let timings = [];
+    try {
+        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+        console.error(error);
     }
+
+    const result = await runChromeTracing(urls[size], isH3);
+
+    timings.push(...result);
+
+    // Save data
+    fs.writeFileSync(file, JSON.stringify(timings));
 };
 
 (async () => {
-    // Get network scenario from command line arguments
     const parser = new argparse.ArgumentParser();
 
-    parser.add_argument('loss');
-    parser.add_argument('delay');
-    parser.add_argument('bw');
+    parser.add_argument('url');
+    parser.add_argument('dir');
+    parser.add_argument('single');
 
     const cliArgs = parser.parse_args();
 
-    const { loss, delay, bw } = cliArgs;
+    const { urlString, dir, single } = cliArgs;
 
-    // // H2 - single object
-    // console.log('Chrome: H2 - single object');
-    // await runBenchmark(loss, delay, bw, false);
+    if (single) {
+        // H2 - single object
+        console.log('Chrome: H2 - single object');
+        await runBenchmark(urlString, dir, false);
 
-    // // H3 - single object
-    // console.log('Chrome: H3 - single object');
-    // await runBenchmark(loss, delay, bw, true);
+        // H3 - single object
+        console.log('Chrome: H3 - single object');
+        await runBenchmark(urlString, dir, true);
+    } else {
+        // H2 - multi object
+        console.log('Chrome: H2 - multi object');
+        await runBenchmarkWeb(urlString, dir, false);
 
-    // // H2 - multi object
-    // console.log('Chrome: H2 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, false, false);
-
-    // // H3 - multi object
-    // console.log('Chrome: H3 - multi object');
-    // await runBenchmarkWeb(loss, delay, bw, true, false);
+        // H3 - multi object
+        console.log('Chrome: H3 - multi object');
+        await runBenchmarkWeb(urlString, dir, false);
+    }
 })();
