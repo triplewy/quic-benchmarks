@@ -84,7 +84,6 @@ const runChrome = async (urlString, isH3) => {
         fs.rmdirSync('/tmp/chrome-profile', { recursive: true });
         const args = chromeArgs(isH3 ? [urlString] : null);
         const browser = await puppeteer.launch({
-            headless: true,
             args,
         });
 
@@ -153,8 +152,8 @@ const runChrome = async (urlString, isH3) => {
 
 const runBenchmark = async (urlString, dir, isH3) => {
     // Create directory
-    const dirpath = path.join(dir, 'chrome', `loss-${loss}_delay-${delay}_bw-${bw}`, domain, size);
-    fs.mkdirSync(dir, { recursive: true });
+    const dirpath = path.join(dir, 'chrome');
+    fs.mkdirSync(dirpath, { recursive: true });
 
     // Read from file if exists
     const file = path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
@@ -377,12 +376,12 @@ const runBenchmarkWeb = async (loss, delay, bw, isH3) => {
     const parser = new argparse.ArgumentParser();
 
     parser.add_argument('url');
-    parser.add_argument('dir');
-    parser.add_argument('single');
+    parser.add_argument('--dir');
+    parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)' });
 
     const cliArgs = parser.parse_args();
 
-    const { urlString, dir, single } = cliArgs;
+    const { url: urlString, dir, single } = cliArgs;
 
     if (single) {
         // H2 - single object
