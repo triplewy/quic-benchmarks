@@ -3,19 +3,35 @@
 URL=$1
 DIRPATH=$2
 
-mkdir -p $DIRPATH
-
-if [[ $* == *--single* ]]
+if [ -z "$DIRPATH" ]
 then
-    # Chrome
-    node clients/chrome.js $URL --dir $DIRPATH --single
-    
-    # CLI Clients
-    python3 clients/client.py $URL $DIRPATH
+    if [[ $* == *--single* ]]
+    then
+        # Chrome
+        node clients/chrome.js $URL --single
+        
+        # CLI Clients
+        python3 clients/client.py $URL
+    else
+        # Chrome
+        node clients/chrome.js $URL --no-single
+    fi
 else
-    # Chrome
-    node clients/chrome.js $URL $DIRPATH false
+    mkdir -p $DIRPATH
+    
+    if [[ $* == *--single* ]]
+    then
+        # Chrome
+        node clients/chrome.js $URL --dir $DIRPATH --single
+        
+        # CLI Clients
+        python3 clients/client.py $URL --dir $DIRPATH
+    else
+        # Chrome
+        node clients/chrome.js $URL --dir $DIRPATH --no-single
+    fi
 fi
+
 
 
 

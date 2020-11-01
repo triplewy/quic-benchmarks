@@ -138,7 +138,8 @@ def run_docker(client: str, url: str, filepath: str) -> float:
 
     time = get_time_from_qlog(logpath)
 
-    os.rename(logpath, filepath)
+    os.remove(logpath)
+    # os.rename(logpath, filepath)
 
     return time
 
@@ -188,15 +189,19 @@ def main():
     args = parser.parse_args()
 
     url = args.url
-    dirpath = Path(args.dir)
 
-    clients = DOCKER_CONFIG.keys()
+    if args.dir is not None:
+        dirpath = Path(args.dir)
+    else:
+        dirpath = None
+
+    clients = list(DOCKER_CONFIG.keys())
     random.shuffle(clients)
 
     for client in clients:
         res = query(client, url, Path.joinpath(dirpath, client))
 
-        print('mean: {}, std: {}'.format(np.mean(timings), np.std(timings)))
+        print('mean: {}, std: {}'.format(np.mean(res), np.std(res)))
 
         if dirpath is not None:
             filepath = Path.joinpath(dirpath, client)
