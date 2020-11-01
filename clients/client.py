@@ -30,7 +30,6 @@ with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'endpoin
 
 ITERATIONS = CONFIG['iterations']
 RETRIES = 10
-CLIENTS = ['curl', 'proxygen', 'ngtcp2']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
@@ -184,22 +183,34 @@ def main():
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
-    parser.add_argument('dir')
+    parser.add_argument('--dir')
 
     args = parser.parse_args()
 
-    dirpath = Path(args.dir)
     url = args.url
+    dirpath = Path(args.dir)
 
-    random.shuffle(CLIENTS)
+    clients = DOCKER_CONFIG.keys()
+    random.shuffle(clients)
 
-    for client in CLIENTS:
-
-        Path.joinpath(dirpath, client).mkdir(parents=True, exist_ok=True)
-
-        timings = query(client, url, Path.joinpath(dirpath, client))
+    for client in clients:
+        res = query(client, url, Path.joinpath(dirpath, client))
 
         print('mean: {}, std: {}'.format(np.mean(timings), np.std(timings)))
+
+        if dirpath is not None:
+            filepath = Path.joinpath(dirpath, client)
+            timings = []
+            try:
+                with open(filepath, 'r') as f:
+                    timings = json.load(f)
+            except:
+                pass
+
+            timings += res
+
+            with open(filepath, 'w') as f:
+                json.dump(timings, f)
 
 
 if __name__ == "__main__":

@@ -169,9 +169,6 @@ const runBenchmark = async (urlString, dir, isH3) => {
     if (dir !== undefined) {
         let timings = [];
 
-        const dirpath = Path.join(dir, 'chrome');
-        fs.mkdirSync(dirpath, { recursive: true });
-
         // Read from file if exists
         const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
         try {
@@ -181,7 +178,7 @@ const runBenchmark = async (urlString, dir, isH3) => {
         }
 
         // Concat result times to existing data
-        timings = timings.concat(...result);
+        timings.push(...result);
 
         // Save data
         fs.writeFileSync(file, JSON.stringify(timings));
