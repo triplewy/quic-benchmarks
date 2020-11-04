@@ -1564,6 +1564,7 @@ class Analyze {
             }
             catch (e) {
               console.log('In Scripting catch')
+              console.log(_network_nodeData);
               console.log(_network_nodeId);
               console.log(_network_nodeData);
               reject(e);

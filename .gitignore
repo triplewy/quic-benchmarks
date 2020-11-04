@@ -3,3 +3,5 @@ wireshark
 qlog
 certs
 paths.json
+node_modules/
+har/

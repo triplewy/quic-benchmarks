@@ -1,0 +1,129 @@
+{
+    "https://www.instagram.com/about/jobs/": {
+        "domains": [
+            "https://www.instagram.com"
+        ],
+        "numResources": 20,
+        "size": 0.62
+    },
+    "https://www.facebook.com/": {
+        "domains": [
+            "https://www.facebook.com",
+            "https://facebook.com",
+            "https://static.xx.fbcdn.net",
+            "https://connect.facebook.net",
+            "https://www.google-analytics.com",
+            "https://googleads.g.doubleclick.net",
+            "https://cx.atdmt.com",
+            "https://www.google.com"
+        ],
+        "numResources": 37,
+        "size": 1.02
+    },
+    "https://www.facebook.com/business/marketing-partners/": {
+        "domains": [
+            "https://www.facebook.com",
+            "https://static.xx.fbcdn.net",
+            "https://scontent-bos3-1.xx.fbcdn.net",
+            "https://external-bos3-1.xx.fbcdn.net",
+            "https://cx.atdmt.com",
+            "https://connect.facebook.net",
+            "https://scontent.xx.fbcdn.net",
+            "https://www.google-analytics.com"
+        ],
+        "numResources": 84,
+        "size": 1.82
+    },
+    "https://www.google.com/": {
+        "domains": [
+            "https://www.google.com",
+            "https://fonts.gstatic.com",
+            "https://ssl.gstatic.com",
+            "https://www.gstatic.com",
+            "https://apis.google.com",
+            "https://ogs.google.com"
+        ],
+        "numResources": 14,
+        "size": 0.46
+    },
+    "https://careers.google.com/teams/": {
+        "domains": [
+            "https://www.googleoptimize.com",
+            "https://fonts.googleapis.com",
+            "https://www.gstatic.com",
+            "https://lh3.googleusercontent.com",
+            "https://storage.googleapis.com",
+            "https://careers.google.com",
+            "https://fonts.gstatic.com",
+            "https://www.google.com",
+            "https://www.google-analytics.com",
+            "https://survey.g.doubleclick.net",
+            "https://www.googleadservices.com",
+            "https://www.googletagmanager.com",
+            "https://googleads.g.doubleclick.net",
+            "https://adservice.google.com",
+            "https://stats.g.doubleclick.net",
+            "https://ajax.googleapis.com",
+            "https://kstatic.googleusercontent.com",
+            "https://maps.google.com",
+            "https://bid.g.doubleclick.net"
+        ],
+        "numResources": 33,
+        "size": 1.39
+    },
+    "https://store.google.com/us/category/phones?hl=en-US/": {
+        "domains": [
+            "https://www.googleoptimize.com",
+            "https://fonts.googleapis.com",
+            "https://maps.google.com",
+            "https://lh3.googleusercontent.com",
+            "https://storage.googleapis.com",
+            "https://ajax.googleapis.com",
+            "https://fonts.gstatic.com",
+            "https://www.google.com",
+            "https://www.google-analytics.com",
+            "https://survey.g.doubleclick.net",
+            "https://www.googleadservices.com",
+            "https://www.googletagmanager.com",
+            "https://googleads.g.doubleclick.net",
+            "https://adservice.google.com",
+            "https://stats.g.doubleclick.net",
+            "https://store.google.com",
+            "https://mannequin.storage.googleapis.com",
+            "https://www.youtube.com",
+            "https://2542116.fls.doubleclick.net",
+            "https://payments.google.com",
+            "https://s.ytimg.com",
+            "https://apis.google.com",
+            "https://scone-pa.clients6.google.com",
+            "https://bid.g.doubleclick.net",
+            "https://www.gstatic.com"
+        ],
+        "numResources": 98,
+        "size": 1.72
+    },
+    "https://cloudflare-quic.com/": {
+        "domains": [
+            "https://cloudflare-quic.com",
+            "https://www.cloudflare.com"
+        ],
+        "numResources": 10,
+        "size": 0.37
+    },
+    "https://dash.cloudflare.com/sign-up/": {
+        "domains": [
+            "https://dash.cloudflare.com",
+            "https://cloudflare.com",
+            "https://c.disquscdn.com",
+            "https://blog-cloudflare-com-assets.storage.googleapis.com",
+            "https://www.cloudflare.com",
+            "https://assets.www.cloudflare.com",
+            "https://info.cloudflare.com",
+            "https://www.googleoptimize.com",
+            "https://static.cloudflareinsights.com",
+            "https://geolocation.onetrust.com"
+        ],
+        "numResources": 19,
+        "size": 1.54
+    }
+}

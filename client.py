@@ -16,19 +16,10 @@ from docker.types import LogConfig
 DOCKER_CLIENT = docker.from_env()
 
 DOCKER_CONFIG = {}
-CONFIG = {}
-ENDPOINTS = {}
 
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'docker.json'), mode='r') as f:
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
     DOCKER_CONFIG = json.load(f)
 
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'config.json'), mode='r') as f:
-    CONFIG = json.load(f)
-
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), '..', 'endpoints.json'), mode='r') as f:
-    ENDPOINTS = json.load(f)
-
-ITERATIONS = CONFIG['iterations']
 RETRIES = 10
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
@@ -181,19 +172,26 @@ def get_time_from_qlog(qlog: str) -> float:
 
 
 def main():
+    global ITERATIONS
+
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
     parser.add_argument('--dir')
+    parser.add_argument(
+        '-n', type=int, help='number of iterations', default=10)
 
     args = parser.parse_args()
-
     url = args.url
 
     if args.dir is not None:
         dirpath = Path(args.dir)
     else:
         dirpath = None
+
+    ITERATIONS = args.n
+
+    print(ITERATIONS)
 
     clients = list(DOCKER_CONFIG.keys())
     random.shuffle(clients)
@@ -204,7 +202,7 @@ def main():
         print('mean: {}, std: {}'.format(np.mean(res), np.std(res)))
 
         if dirpath is not None:
-            filepath = Path.joinpath(dirpath, client)
+            filepath = Path.joinpath(dirpath, '{}.json'.format(client))
             timings = []
             try:
                 with open(filepath, 'r') as f:

@@ -48,5 +48,53 @@
             "--http2",
             "{url}"
         ]
+    },
+    "chrome_h2_single": {
+        "image": "chrome",
+        "entrypoint": "",
+        "commands": [
+            "node", 
+            "/usr/src/app/docker.js", 
+            "{url}", 
+            "--single",
+            "--h2",
+            "--dir=/logs"
+        ]
+    },
+    "chrome_h2_multiple": {
+        "image": "chrome",
+        "entrypoint": "",
+        "commands": [
+            "node", 
+            "/usr/src/app/docker.js", 
+            "{url}", 
+            "--no-single",
+            "--h2",
+            "--dir=/logs"
+        ]
+    },    
+    "chrome_h3_single": {
+        "image": "chrome",
+        "entrypoint": "",
+        "commands": [
+            "node", 
+            "/usr/src/app/docker.js", 
+            "{url}", 
+            "--single",
+            "--h3",
+            "--dir=/logs"
+        ]
+    },
+    "chrome_h3_multiple": {
+        "image": "chrome",
+        "entrypoint": "",
+        "commands": [
+            "node", 
+            "/usr/src/app/docker.js", 
+            "{url}", 
+            "--no-single",
+            "--h3",
+            "--dir=/logs"
+        ]
     }
 }
