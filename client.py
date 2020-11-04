@@ -137,9 +137,9 @@ def run_docker(client: str, url: str, filepath: str) -> float:
         with open(logpath, mode='r') as f:
             out = json.load(f)
             if client.count('multiple') == 0:
-                time = out[0]
+                time = out[0] / 1000
             else:
-                time = out[0]['other']['networkingTimeCp']
+                time = out[0]['other']['networkingTimeCp'] / 1000
     else:
         time = get_time_from_qlog(logpath)
 
