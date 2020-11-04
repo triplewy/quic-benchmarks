@@ -21,6 +21,7 @@ with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'docker.json')
     DOCKER_CONFIG = json.load(f)
 
 RETRIES = 10
+ITERATIONS = 20
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
@@ -107,6 +108,9 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     if 'entrypoint' in docker_config:
         args['entrypoint'] = docker_config['entrypoint']
 
+    if 'cap_add' in docker_config:
+        args['cap_add'] = docker_config['cap_add']
+
     container = DOCKER_CLIENT.containers.run(
         image,
         **args
@@ -126,6 +130,9 @@ def run_docker(client: str, url: str, filepath: str) -> float:
 
     logpath = Path.joinpath(
         Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
+
+    if client.count('chrome') > 0:
+        return 0
 
     time = get_time_from_qlog(logpath)
 
@@ -178,6 +185,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
     parser.add_argument('--dir')
+    parser.add_argument('--single', action=argparse.BooleanOptionalAction)
     parser.add_argument(
         '-n', type=int, help='number of iterations', default=10)
 
@@ -193,8 +201,13 @@ def main():
 
     print(ITERATIONS)
 
-    clients = list(DOCKER_CONFIG.keys())
-    random.shuffle(clients)
+    doc_clients = list(DOCKER_CONFIG.keys())
+    random.shuffle(doc_clients)
+
+    if args.single:
+        clients = [x for x in doc_clients if x.count('multiple') == 0]
+    else:
+        clients = [x for x in doc_clients if x.count('multiple') > 0]
 
     for client in clients:
         res = query(client, url, Path.joinpath(dirpath, client))

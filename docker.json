@@ -52,6 +52,7 @@
     "chrome_h2_single": {
         "image": "chrome",
         "entrypoint": "",
+        "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
             "/usr/src/app/docker.js", 
@@ -64,6 +65,7 @@
     "chrome_h2_multiple": {
         "image": "chrome",
         "entrypoint": "",
+        "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
             "/usr/src/app/docker.js", 
@@ -76,6 +78,7 @@
     "chrome_h3_single": {
         "image": "chrome",
         "entrypoint": "",
+        "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
             "/usr/src/app/docker.js", 
@@ -88,6 +91,7 @@
     "chrome_h3_multiple": {
         "image": "chrome",
         "entrypoint": "",
+        "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
             "/usr/src/app/docker.js", 
