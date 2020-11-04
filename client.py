@@ -131,18 +131,17 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     logpath = Path.joinpath(
         Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
 
+    time = None
+
     if client.count('chrome') > 0:
         with open(logpath, mode='r') as f:
             out = json.load(f)
-            print(out)
             if client.count('multiple') == 0:
                 time = out[0]
             else:
                 time = out[0]['other']['networkingTimeCp']
-
-            return time
-
-    time = get_time_from_qlog(logpath)
+    else:
+        time = get_time_from_qlog(logpath)
 
     os.remove(logpath)
     # os.rename(logpath, filepath)

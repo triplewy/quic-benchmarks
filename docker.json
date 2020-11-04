@@ -55,7 +55,7 @@
         "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
-            "/usr/src/app/docker.js", 
+            "/usr/src/app/chrome.js", 
             "{url}", 
             "--single",
             "--h2",
@@ -68,7 +68,7 @@
         "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
-            "/usr/src/app/docker.js", 
+            "/usr/src/app/chrome.js", 
             "{url}", 
             "--no-single",
             "--h2",
@@ -81,7 +81,7 @@
         "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
-            "/usr/src/app/docker.js", 
+            "/usr/src/app/chrome.js", 
             "{url}", 
             "--single",
             "--h3",
@@ -94,7 +94,7 @@
         "cap_add": ["SYS_ADMIN"],
         "commands": [
             "node", 
-            "/usr/src/app/docker.js", 
+            "/usr/src/app/chrome.js", 
             "{url}", 
             "--no-single",
             "--h3",
