@@ -7,33 +7,17 @@ if [ -z "$DIRPATH" ]
 then
     if [[ $* == *--single* ]]
     then
-        # Chrome
-        node clients/chrome.js $URL --single
-        
-        # CLI Clients
-        python3 clients/client.py $URL
+        python3 client.py $URL --single
     else
-        # Chrome
-        node clients/chrome.js $URL --no-single
+        python3 client.py $URL
     fi
 else
     mkdir -p $DIRPATH
     
     if [[ $* == *--single* ]]
     then
-        # Chrome
-        node clients/chrome.js $URL --dir $DIRPATH --single
-        
-        # CLI Clients
-        python3 clients/client.py $URL --dir $DIRPATH
+        python3 client.py $URL --dir $DIRPATH --single
     else
-        # Chrome
-        node clients/chrome.js $URL --dir $DIRPATH --no-single
+        python3 client.py $URL --dir $DIRPATH
     fi
 fi
-
-
-
-
-
-
