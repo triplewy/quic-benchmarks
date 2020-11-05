@@ -118,6 +118,8 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     container.wait()
     out = container.logs()
     out = out.decode('utf-8')
+    print(out)
+    container.remove()
 
     if client == 'curl':
         out_arr = out.split('\n')[:-1]

@@ -13,6 +13,7 @@ then
     fi
 else
     mkdir -p $DIRPATH
+    chmod 0777 $DIRPATH
     
     if [[ $* == *--single* ]]
     then
