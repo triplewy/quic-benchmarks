@@ -111,6 +111,9 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     if 'cap_add' in docker_config:
         args['cap_add'] = docker_config['cap_add']
 
+    if 'security_opt' in docker_config:
+        args['security_opt'] = docker_config['security_opt']
+
     container = DOCKER_CLIENT.containers.run(
         image,
         **args

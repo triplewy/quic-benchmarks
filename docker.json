@@ -53,6 +53,7 @@
         "image": "chrome",
         "entrypoint": "",
         "cap_add": ["SYS_ADMIN"],
+        "security_opt": ["seccomp=seccomp.json"],
         "commands": [
             "node", 
             "/usr/src/app/chrome.js", 
@@ -66,6 +67,7 @@
         "image": "chrome",
         "entrypoint": "",
         "cap_add": ["SYS_ADMIN"],
+        "security_opt": ["seccomp=seccomp.json"],
         "commands": [
             "node", 
             "/usr/src/app/chrome.js", 
@@ -79,6 +81,7 @@
         "image": "chrome",
         "entrypoint": "",
         "cap_add": ["SYS_ADMIN"],
+        "security_opt": ["seccomp=seccomp.json"],
         "commands": [
             "node", 
             "/usr/src/app/chrome.js", 
@@ -92,6 +95,7 @@
         "image": "chrome",
         "entrypoint": "",
         "cap_add": ["SYS_ADMIN"],
+        "security_opt": ["seccomp=seccomp.json"],
         "commands": [
             "node", 
             "/usr/src/app/chrome.js", 
