@@ -1,5 +1,7 @@
 #!/bin/bash
 
+BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 URL=$1
 DIRPATH=$2
 ITERATIONS=10
@@ -9,8 +11,6 @@ then
     if [[ $* == *--single* ]]
     then
         python3 client.py $URL --single -n $ITERATIONS
-    else
-        python3 client.py $URL -n $ITERATIONS
     fi
 else
     mkdir -p $DIRPATH
@@ -18,13 +18,10 @@ else
     if [[ $* == *--single* ]]
     then
         python3 client.py $URL --dir $DIRPATH --single -n $ITERATIONS
-    else
-        python3 client.py $URL --dir $DIRPATH -n $ITERATIONS
     fi
 fi
 
 # Gave up on calling the chrome container via python...
-
 SINGLE="--single"
 if [[ $* == *--single* ]]
 then
@@ -33,13 +30,14 @@ else
     SINGLE="--no-single"
 fi
 
-for _ in {0..$ITERATIONS}
+i=1
+while [ "$i" -le "$ITERATIONS" ]
 do
     #h2
     docker run \
     --rm \
     -v /tmp/results:/logs \
-    --security-opt seccomp=seccomp.json \
+    --security-opt seccomp="$BASEDIR"/seccomp.json \
     --entrypoint "" \
     chrome \
     node \
@@ -49,18 +47,25 @@ do
     --no-h3 \
     --dir=/logs
     
+    i=$(($i + 1))
+done
+
+i=1
+while [ "$i" -le "$ITERATIONS" ]
+do
     #h3
     docker run \
     --rm \
     -v /tmp/results:/logs \
-    --security-opt seccomp=seccomp.json \
+    --security-opt seccomp="$BASEDIR"/seccomp.json \
     --entrypoint "" \
     chrome \
     node \
     /usr/src/app/chrome.js \
     $URL \
     $SINGLE \
-    h3 \
+    --h3 \
     --dir=/logs
     
+    i=$(($i + 1))
 done

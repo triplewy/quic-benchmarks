@@ -170,7 +170,7 @@ const runBenchmark = async (urlString, dir, isH3) => {
         }
 
         // Read from file if exists
-        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}_single.json`);
         try {
             timings = JSON.parse(fs.readFileSync(file, 'utf8'));
         } catch (error) {
@@ -344,7 +344,7 @@ const runBenchmarkWeb = async (urlString, dir, isH3) => {
         }
 
         // Read from file if exists
-        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}_multiple.json`);
         try {
             timings = JSON.parse(fs.readFileSync(file, 'utf8'));
         } catch (error) {
