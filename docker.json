@@ -58,7 +58,7 @@
             "/usr/src/app/chrome.js", 
             "{url}", 
             "--single",
-            "--h2",
+            "--no-h3",
             "--dir=/logs"
         ]
     },
@@ -71,7 +71,7 @@
             "/usr/src/app/chrome.js", 
             "{url}", 
             "--no-single",
-            "--h2",
+            "--no-h3",
             "--dir=/logs"
         ]
     },    
