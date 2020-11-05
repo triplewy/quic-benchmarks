@@ -215,11 +215,12 @@ def main():
 
     doc_clients = list(DOCKER_CONFIG.keys())
     random.shuffle(doc_clients)
+    clients = [x for x in doc_clients if x.count('chrome') == 0]
 
-    if args.single:
-        clients = [x for x in doc_clients if x.count('multiple') == 0]
-    else:
-        clients = [x for x in doc_clients if x.count('multiple') > 0]
+    # if args.single:
+    #     clients = [x for x in doc_clients if x.count('multiple') == 0]
+    # else:
+    #     clients = [x for x in doc_clients if x.count('multiple') > 0]
 
     for client in clients:
         res = query(client, url, Path.joinpath(dirpath, client))
