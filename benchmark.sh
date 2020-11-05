@@ -39,7 +39,7 @@ do
     -v /tmp/results:/logs \
     --security-opt seccomp="$BASEDIR"/seccomp.json \
     --entrypoint "" \
-    chrome \
+    yushuf/chrome:latest \
     node \
     /usr/src/app/chrome.js \
     $URL \
@@ -59,7 +59,7 @@ do
     -v /tmp/results:/logs \
     --security-opt seccomp="$BASEDIR"/seccomp.json \
     --entrypoint "" \
-    chrome \
+    yushuf/chrome:latest \
     node \
     /usr/src/app/chrome.js \
     $URL \
