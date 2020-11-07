@@ -197,7 +197,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
     parser.add_argument('--dir')
-    parser.add_argument('--single', default=False, action='store_true')
     parser.add_argument(
         '-n', type=int, help='number of iterations', default=10)
 
