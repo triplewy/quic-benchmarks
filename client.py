@@ -32,8 +32,12 @@ def query(client: str, url: str, dirpath: str):
     for i in range(ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
-        elapsed = run_docker(client, url, Path.joinpath(
-            dirpath, '{}_{}.qlog'.format(client, i))) * 1000
+        if dirpath is None:
+            qlog_path = None
+        else:
+            qlog_path = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+
+        elapsed = run_docker(client, url, qlog_path) * 1000
 
         timings.append(elapsed)
         print(client, elapsed)
