@@ -22,7 +22,7 @@ shift 1
 while getopts ":sd:n:" o; do
     case "${o}" in
         d)
-            RESULTS_DIR=${OPTARG}
+            DIRPATH=${OPTARG}
         ;;
         n)
             ITERATIONS=${OPTARG}
@@ -34,6 +34,11 @@ while getopts ":sd:n:" o; do
         ;;
     esac
 done
+
+echo "url: $URL"
+echo "results_dir: $DIRPATH"
+echo "iterations: $ITERATIONS"
+echo "single: $SINGLE"
 
 if [[ -z $URL ]]; then
     usage
