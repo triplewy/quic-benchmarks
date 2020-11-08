@@ -25,6 +25,10 @@ while getopts ":sd:n:" o; do
             DIRPATH=${OPTARG}
         ;;
         n)
+            re='^[0-9]+$'
+            if ! [[ ${OPTARG} =~ $re ]] ; then
+                echo "error: Not a number" >&2; exit 1
+            fi
             ITERATIONS=${OPTARG}
         ;;
         s)

@@ -314,9 +314,18 @@ const runChromeTracing = async (urlString, isH3) => {
                 continue;
             }
 
+            entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
+
+            const start = entries[0]._requestTime * 1000;
+            const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
+            const time = end - start;
+
             const data = JSON.parse(tracing.toString());
             const res = await wprofx.analyzeTrace(data.traceEvents);
+            res.other['time'] = time;
+
             console.log(res.other);
+
             timings.push(res);
             break;
         } catch (error) {

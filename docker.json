@@ -1,5 +1,5 @@
 {
-    "proxygen": {
+    "proxygen_h3": {
         "image": "lnicco/mvfst-qns:latest",
         "entrypoint": "/proxygen/proxygen/_build/proxygen/httpserver/hq",
         "commands": [
@@ -16,7 +16,7 @@
             "--v=0"
         ]
     },
-    "ngtcp2": {
+    "ngtcp2_h3": {
         "image": "ghcr.io/ngtcp2/ngtcp2-interop:latest",
         "entrypoint": "/usr/local/bin/client",
         "commands": [
@@ -32,7 +32,7 @@
             "{url}"
         ]
     },
-    "curl": {
+    "curl_h2": {
         "image": "curlimages/curl:latest",
         "commands": [
             "--insecure",

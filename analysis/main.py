@@ -1,6 +1,7 @@
 import os
 import json
 import math
+import argparse
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -12,6 +13,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from pathlib import Path
 from pprint import pprint
 from scipy import stats
+from glob import glob
 
 DOMAINS = ['facebook', 'cloudflare', 'google']
 SIZES = ['100KB', '1MB', '5MB']

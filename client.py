@@ -128,7 +128,7 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     print(out)
     container.remove()
 
-    if client == 'curl':
+    if client == 'curl_h2':
         out_arr = out.split('\n')[:-1]
         dns_time = float(out_arr[0].split(':')[1])
         total_time = float(out_arr[1].split(':')[1])
@@ -214,10 +214,9 @@ def main():
 
     ITERATIONS = args.n
 
-    print(ITERATIONS)
-
     doc_clients = list(DOCKER_CONFIG.keys())
     random.shuffle(doc_clients)
+    # Not using chrome via python script for now
     clients = [x for x in doc_clients if x.count('chrome') == 0]
 
     for client in clients:
