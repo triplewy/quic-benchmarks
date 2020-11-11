@@ -12,6 +12,7 @@ const Path = require('path');
 const fs = require('fs');
 const url = require('url');
 const Analyze = require('./wprofx/analyze');
+const short = require('short-uuid');
 
 const wprofx = new Analyze();
 
@@ -265,11 +266,15 @@ const runChromeWeb = async (obj, isH3) => {
     return timings;
 };
 
-const runChromeTracing = async (urlString, isH3) => {
+const runChromeTracing = async (urlString, isH3, dir) => {
     let domains = [urlString];
     const timings = [];
 
     console.log(`${urlString}`);
+
+    if (dir !== undefined) {
+        fs.mkdirSync(Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`))
+    }
 
     for (let j = 0; j < RETRIES; j += 1) {
         // Restart browser for each iteration to make things fair...
@@ -325,7 +330,11 @@ const runChromeTracing = async (urlString, isH3) => {
             res.other['time'] = time;
 
             console.log(res.other);
-
+            
+            if (dir !== undefined) {
+                fs.writeFileSync(Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`, `${short.generate()}.json`), JSON.stringify(res));                
+            }
+            
             timings.push(res);
             break;
         } catch (error) {
@@ -343,14 +352,14 @@ const runChromeTracing = async (urlString, isH3) => {
 };
 
 const runBenchmarkWeb = async (urlString, dir, isH3) => {
-    const result = await runChromeTracing(urlString, isH3);
+    if (dir !== undefined && !fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+
+    const result = await runChromeTracing(urlString, isH3, dir);
 
     if (dir !== undefined) {
         let timings = [];
-
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir);
-        }
 
         // Read from file if exists
         const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}_multiple.json`);

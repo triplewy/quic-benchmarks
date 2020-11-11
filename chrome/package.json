@@ -11,7 +11,8 @@
   "dependencies": {
     "argparse": "^2.0.0",
     "puppeteer": "^5.4.1",
-    "puppeteer-har": "^1.1.2"
+    "puppeteer-har": "^1.1.2",
+    "short-uuid": "^4.1.0"
   },
   "devDependencies": {
     "eslint": "^6.8.0",
