@@ -32,12 +32,7 @@ def query(client: str, url: str, dirpath: str):
     for i in range(ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
-        if dirpath is None:
-            qlog_path = None
-        else:
-            qlog_path = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
-
-        elapsed = run_docker(client, url, qlog_path) * 1000
+        elapsed = run_docker(client, url, dirpath, i) * 1000
 
         timings.append(elapsed)
         print(client, elapsed)
@@ -61,7 +56,7 @@ def run_subprocess(client: str, command: list) -> float:
     return total - dns
 
 
-def run_docker(client: str, url: str, filepath: str) -> float:
+def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
     # Parse URL object
     url_obj = urlparse(url)
     url_host = url_obj.netloc
@@ -152,8 +147,14 @@ def run_docker(client: str, url: str, filepath: str) -> float:
     else:
         time = get_time_from_qlog(logpath)
 
-    os.remove(logpath)
-    # os.rename(logpath, filepath)
+    if dirpath is None:
+        os.remove(logpath)
+    elif client.count('chrome') > 0:
+        filepath = Path.joinpath(dirpath, '{}_{}.json'.format(client, i))
+        os.rename(logpath, filepath)
+    else:
+        filepath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+        os.rename(logpath, filepath)
 
     return time
 

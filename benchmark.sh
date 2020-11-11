@@ -4,9 +4,10 @@ BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 usage() {
 cat << EOF
-Usage: benchmark.sh [url] -d [results_dir] -n [iterations] -s
+Usage: benchmark.sh [url] -d [results_dir] -n [iterations] -l [logs_dir] -s
     [url]            - The URL to benchmark
     -d [results_dir] - The directory path to store results
+    -l [logs_dir]    - The directory path to store logs for further analysis
     -n [iterations]  - The amount of iterations to run
     -s               - Signifies url is a single-object web resource
 EOF
@@ -49,15 +50,15 @@ if [[ -z $URL ]]; then
     exit 1
 fi
 
+ARGS="-n $ITERATIONS"
+
+if [[ -n "$DIRPATH" ]]; then
+    mkdir -p $DIRPATH
+    ARGS += " --dir $DIRPATH"
+fi
+
 if [[ -n $SINGLE ]]; then
-    if [ -z "$DIRPATH" ]
-    then
-        python3 client.py $URL -n $ITERATIONS
-    else
-        mkdir -p $DIRPATH
-        
-        python3 client.py $URL --dir $DIRPATH -n $ITERATIONS
-    fi
+    python3 client.py $URL $ARGS
 fi
 
 # Gave up on calling the chrome container via python...
