@@ -32,6 +32,9 @@ def query(client: str, url: str, dirpath: str):
     for i in range(ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
+        if dirpath is not None:
+            Path(dirpath).mkdir(parents=True, exist_ok=True)
+
         elapsed = run_docker(client, url, dirpath, i) * 1000
 
         timings.append(elapsed)
