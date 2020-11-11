@@ -272,9 +272,16 @@ const runChromeTracing = async (urlString, isH3, dir) => {
 
     console.log(`${urlString}`);
 
+    let chromeDir = undefined;
+
     if (dir !== undefined) {
-        fs.mkdirSync(Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`))
+        chromeDir = Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`)
     }
+
+    if (chromeDir !== undefined && !fs.existsSync(chromeDir)){
+        fs.mkdirSync(chromeDir);
+    }
+
 
     for (let j = 0; j < RETRIES; j += 1) {
         // Restart browser for each iteration to make things fair...
@@ -331,8 +338,8 @@ const runChromeTracing = async (urlString, isH3, dir) => {
 
             console.log(res.other);
             
-            if (dir !== undefined) {
-                fs.writeFileSync(Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`, `${short.generate()}.json`), JSON.stringify(res));                
+            if (chromeDir !== undefined) {
+                fs.writeFileSync(Path.join(chromeDir, `${short.generate()}.json`), JSON.stringify(res));                
             }
             
             timings.push(res);
