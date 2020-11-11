@@ -54,7 +54,7 @@ ARGS="-n $ITERATIONS"
 
 if [[ -n "$DIRPATH" ]]; then
     mkdir -p $DIRPATH
-    ARGS += " --dir $DIRPATH"
+    ARGS+=" --dir $DIRPATH"
 fi
 
 if [[ -n $SINGLE ]]; then
