@@ -9,44 +9,36 @@ Red = Better H2 Performance
 
 TTLB = Time To Last Byte
 
-Percentage = (H3 TTLB - H2 TTLB) / H2 TTLB
+Percentage in heatmap cells = (H3 TTLB - H2 TTLB) / H2 TTLB
 
 #### Extra Loss
-Y-axis
-- 0% Loss
-- 0.1% Loss
-- 1% Loss
-
-X-axis
-- 100kb object
-- 1mb object
-- 5mb object
 
 Google | Facebook | Cloudflare
 :-: | :-: | :-:
 ![google_extra_loss](./static/Google_Extra_Loss.png) | ![facebook_extra_loss](./static/Facebook_Extra_Loss.png) | ![cloudflare_extra_loss](./static/Cloudflare_Extra_Loss.png)
 
 #### Extra Delay
-Y-axis
-- 0ms extra delay
-- 50ms extra delay
-- 100ms extra delay
-
-X-axis
-- 100kb object
-- 1mb object
-- 5mb object
-
 
 Google | Facebook | Cloudflare
 :-: | :-: | :-:
 ![google_extra_delay](./static/Google_Extra_Delay.png) | ![facebook_extra_delay](./static/Facebook_Extra_Delay.png) | ![cloudflare_extra_delay](./static/Cloudflare_Extra_Delay.png)
 
-### ACK Analysis
+### QUIC Client Comparison
 
+Lighter = Better performance
 
+Darker  = Worse Performance
 
-**Usage:**
+#### 1% Extra Loss
+
+![h3_extra_loss](./static/H3_1_Loss.png)
+
+#### 100ms Extra Delay
+
+![h3_extra_loss](./static/H3_100_Delay.png)
+
+## Usage
+
 ```
  ./benchmark.sh [url] -d [results dir] -n [iterations] [-s]
 
