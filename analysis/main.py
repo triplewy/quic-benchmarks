@@ -321,10 +321,8 @@ def h2_vs_h3_v2(timings: object, sizes):
             print('{} - {}'.format(domain.capitalize(), grouping['title']))
             fig, ax = plt.subplots()
             # ax.set_title()
-            ax.set_ylabel(grouping['title'], fontsize=18,
-                          fontweight='bold', labelpad=20)
-            ax.set_xlabel('Object sizes', fontsize=18,
-                          fontweight='bold', labelpad=20)
+            ax.set_ylabel(grouping['title'], fontsize=18, labelpad=20)
+            ax.set_xlabel('Object sizes', fontsize=18, labelpad=20)
 
             im, cbar = heatmap(
                 np.array(h2_vs_h3_data),
