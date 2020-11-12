@@ -321,7 +321,11 @@ def h2_vs_h3_v2(timings: object, sizes):
             print('{} - {}'.format(domain.capitalize(), grouping['title']))
             fig, ax = plt.subplots()
             # ax.set_title()
-            # ax.set_ylabel(grouping['title'], fontsize=18, fontweight='bold')
+            ax.set_ylabel(grouping['title'], fontsize=18,
+                          fontweight='bold', labelpad=20)
+            ax.set_xlabel('Object sizes', fontsize=18,
+                          fontweight='bold', labelpad=20)
+
             im, cbar = heatmap(
                 np.array(h2_vs_h3_data),
                 h2_vs_h3_row_labels,
@@ -938,7 +942,6 @@ def main():
     path = Path.joinpath(
         Path(os.path.dirname(os.path.abspath(__file__))),
         '..',
-        'clients',
         'har'
     )
 
@@ -974,10 +977,10 @@ def main():
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
     # check_data_lengths(timings)
-    # h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v2(timings, SIZES)
     # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
     # ngtcp2_graph(timings)
-    client_consistency(timings)
+    # client_consistency(timings)
 
 
 if __name__ == "__main__":

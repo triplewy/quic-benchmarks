@@ -7,7 +7,6 @@ cat << EOF
 Usage: benchmark.sh [url] -d [results_dir] -n [iterations] -l [logs_dir] -s
     [url]            - The URL to benchmark
     -d [results_dir] - The directory path to store results
-    -l [logs_dir]    - The directory path to store logs for further analysis
     -n [iterations]  - The amount of iterations to run
     -s               - Signifies url is a single-object web resource
 EOF
