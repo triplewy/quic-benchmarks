@@ -215,12 +215,18 @@ def plot_ack(data, graph_title: str):
     # plt.title(graph_title)
     # ax2 = ax.twinx()
 
+    # legend = [
+    #     mpatches.Patch(color='red', label='Chrome H3'),
+    #     mpatches.Patch(color='blue', label='Proxygen H3'),
+    #     mpatches.Patch(color='green', label='Ngtcp2 H3'),
+    #     mpatches.Patch(color='orange', label='Quiche H3'),
+    #     mpatches.Patch(color='yellow', label='Aioquic H3'),
+    # ]
+
     legend = [
         mpatches.Patch(color='red', label='Chrome H3'),
         mpatches.Patch(color='blue', label='Proxygen H3'),
         mpatches.Patch(color='green', label='Ngtcp2 H3'),
-        mpatches.Patch(color='orange', label='Quiche H3'),
-        mpatches.Patch(color='yellow', label='Aioquic H3'),
     ]
 
     for i, (obj, title) in enumerate(data):
@@ -229,7 +235,8 @@ def plot_ack(data, graph_title: str):
         if title.count('.json') > 0:
             color = RED.popleft()
         elif title.count('chrome') > 0:
-            color = BLUE.popleft()
+            color = RED.popleft()
+            # color = BLUE.popleft()
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
             color = 'blue'
@@ -330,11 +337,12 @@ def plot_ack(data, graph_title: str):
 
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    plt.xticks(np.array([0, 200, 400, 600, 800]))
+    plt.xticks(np.array([0, 300, 600, 900, 1200]))
     fig.tight_layout()
+    plt.rcParams["legend.fontsize"] = 16
+    plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
-    # plt.legend(handles=legend)
     plt.show()
     plt.close(fig=fig)
 
@@ -355,7 +363,7 @@ def main():
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.split('.')[0][-1] != '3':
+        if qlog.split('.')[0][-1] != '2':
             continue
 
         data.append(analyze_qlog(qlog))

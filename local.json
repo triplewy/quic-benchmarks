@@ -1,0 +1,44 @@
+{
+    "proxygen_h3": [
+        "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq",
+        "--log_response=false",
+        "--mode=client",
+        "--stream_flow_control=1073741824",
+        "--conn_flow_control=1073741824",
+        "--use_draft=true",
+        "--draft-version=29",
+        "--qlogger_path=/logs",
+        "--host={host}",
+        "--port={port}",
+        "--path={path}",
+        "--v=0"
+    ],
+    "ngtcp2_h3": [
+        "/Users/alexyu/ngtcp2/examples/client",
+        "--quiet",
+        "--exit-on-all-streams-close",
+        "--max-data=1073741824",
+        "--max-stream-data-uni=1073741824",
+        "--max-stream-data-bidi-local=1073741824",
+        "--group=X25519",
+        "--qlog-dir=/logs",
+        "{host}",
+        "{port}",
+        "{url}"
+    ],
+    "curl_h2": [
+        "curl",
+        "--insecure",
+        "-s",
+        "-w",
+        "time_namelookup:%{time_namelookup}\ntime_total:%{time_total}\n",
+        "-o",
+        "/dev/null",
+        "--connect-timeout",
+        "5",
+        "--max-time",
+        "120",
+        "--http2",
+        "{url}"
+    ]
+}

@@ -2057,59 +2057,113 @@ class Analyze {
       }
       this.output.push({ 'id': _url_group, 'objs': _tmp_list });
     }
-    var _tmp_r_list = [];
-    var _length3 = this.renderingList.length;
-    for (var k = 0; k < _length3; k++) {
-      let _tmp_dict = {};
-      let _value = this.renderingList[k];
-      let _nodeId = _value[0];
-      _tmp_dict['activityId'] = _nodeId;
-      let _nodeData = _value[1];
-      let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
-      _tmp_r_list.push(_tmp_merged_dict);
-    }
-    var _tmp_p_list = [];
-    var _length4 = this.paintingList.length;
-    for (var l = 0; l < _length4; l++) {
-      let _tmp_dict = {};
-      let _value = this.paintingList[l];
-      let _nodeId = _value[0];
-      _tmp_dict['activityId'] = _nodeId;
-      let _nodeData = _value[1];
-      let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
-      _tmp_p_list.push(_tmp_merged_dict);
-    }
-    var _tmp_n_list = [];
-    var _length5 = this.networkList.length;
-    for (var l = 0; l < _length5; l++) {
-      let _tmp_dict = {};
-      let _value = this.networkList[l];
-      let _nodeId = _value[0];
-      _tmp_dict['activityId'] = _nodeId;
-      let _nodeData = _value[1];
-      let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
-      _tmp_n_list.push(_tmp_merged_dict);
-    }
-    var _tmp_rendering = { 'id': 'Rendering', 'objs': _tmp_r_list };
-    var _tmp_painting = { 'id': 'Painting', 'objs': _tmp_p_list };
-    var _tmp_networking = { 'id': 'Networking', 'objs': _tmp_n_list };
-    var _tmp_deps = { 'id': 'Deps', 'objs': this.deps };
+    
+    const lists = {
+      networking: this.networkList,
+      loading: this.loadingList,
+      scripting: this.scriptList,
+      rendering: this.renderingList,
+      painting: this.paintingList
+    };
 
-    // if len(self.netlog_trace_events) > 1:
-    //     _tmp_netlog = {'id': 'Netlog', 'dns': self.netlog['dns'], 'sockets': self.netlog['sockets'],
-    //                'dnsTime': self.netlog['dnsTime'], 'sockets_bytes_in': self.netlog['bytes_in'],
-    //                'sockets_bytes_out': self.netlog['bytes_out'],
-    //                'ssl_sockets_bytes_out': self.netlog['ssl_bytes_out'],
-    //                'ssl_sockets_bytes_in': self.netlog['ssl_bytes_in']}
-    // else:
-    //     _tmp_netlog = {}
-    // var _tmp_critical_path = {'criticalPath': self.critical_path, 'networkingTime': self.networkingTime,
-    //                       'computationTime': self.computationTime, 'firstMeaningfulPaint': self.firstMeaningfulPaint
-    //                       , 'firstContentfulPaint': self.firstContentfulPaint, 'firstPaint': self.firstPaint,
-    //                       'loadEventEnd': self.loadEventEnd, 'domContentLoadedEventEnd': self.domContentLoadedEventEnd
-    //                       }
-    var _tmp_critical_path = {
-      'criticalPath': this.criticalPath,
+    const dicts = {
+      networking: {},
+      loading: {},
+      scripting: {},
+      rendering: {},
+      painting: {}
+    };
+
+    Object.entries(lists).map(([key, value]) => {
+      for (var i = 0; i < value.length; i++) {
+        const _tmp_dict = {};
+        const _value = value[i];
+        const _nodeId = _value[0];
+        _tmp_dict['activityId'] = _nodeId;
+        const _nodeData = _value[1];
+        const _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
+        dicts[key][_nodeId] = _tmp_merged_dict;
+      }
+    });
+
+    // var _tmp_r_list = [];
+    // var _tmp_r_dict = {};
+    // for (var k = 0; k < this.renderingList.length; k++) {
+    //   let _tmp_dict = {};
+    //   let _value = this.renderingList[k];
+    //   let _nodeId = _value[0];
+    //   _tmp_dict['activityId'] = _nodeId;
+    //   let _nodeData = _value[1];
+    //   let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
+    //   _tmp_r_list.push(_tmp_merged_dict);
+    //   _tmp_r_dict[_nodeId] = _tmp_merged_dict;
+    // }
+    // var _tmp_p_list = [];
+    // var _tmp_p_dict = {};
+    // for (var l = 0; l < this.paintingList.length; l++) {
+    //   let _tmp_dict = {};
+    //   let _value = this.paintingList[l];
+    //   let _nodeId = _value[0];
+    //   _tmp_dict['activityId'] = _nodeId;
+    //   let _nodeData = _value[1];
+    //   let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
+    //   _tmp_p_list.push(_tmp_merged_dict);
+    //   _tmp_p_dict[_nodeId] = _tmp_merged_dict;
+    // }
+    // var _tmp_n_list = [];
+    // var _tmp_n_dict = {};
+    // for (var l = 0; l < this.networkList.length; l++) {
+    //   let _tmp_dict = {};
+    //   let _value = this.networkList[l];
+    //   let _nodeId = _value[0];
+    //   _tmp_dict['activityId'] = _nodeId;
+    //   let _nodeData = _value[1];
+    //   let _tmp_merged_dict = Object.assign(_tmp_dict, _nodeData);
+    //   _tmp_n_list.push(_tmp_merged_dict);
+    //   _tmp_n_dict[_nodeId] = _tmp_merged_dict;
+    // }
+    // var _tmp_rendering = { 'id': 'Rendering', 'objs': _tmp_r_list };
+    // var _tmp_painting = { 'id': 'Painting', 'objs': _tmp_p_list };
+    // var _tmp_networking = { 'id': 'Networking', 'objs': _tmp_n_list };
+    // var _tmp_deps = { 'id': 'Deps', 'objs': this.deps };
+
+    // var _tmp_critical_path = {
+    //   'networkingTimeCp': this.networkingCp,
+    //   'loadingTimeCp': this.loadingCp,
+    //   'scriptingTimeCp': this.scriptingCp,
+    //   'firstMeaningfulPaint': this.firstMeaningfulPaint,
+    //   'firstContentfulPaint': this.firstContentfulPaint,
+    //   'firstPaint': this.firstPaint,
+    //   'loadEventEnd': this.loadEventEnd,
+    //   'domContentLoadedEventEnd': this.domContentLoadedEventEnd,
+    //   'timeToInteractive': this.timeToInteractive
+    // };
+    // this.output.push(_tmp_rendering);
+    // this.output.push(_tmp_painting);
+    // this.output.push(_tmp_networking);
+    // this.output.push(_tmp_deps);
+    // this.output.push(_tmp_critical_path);
+    // this.output2['wprofx'] = this.output;
+
+    const critical_path = this.criticalPath.map((activity) => {
+      console.log(activity);
+      if (activity.includes('Networking')) {
+        return dicts['networking'][activity];
+      }
+      if (activity.includes('Loading')) {
+        return dicts['loading'][activity];
+      }
+      if (activity.includes('Scripting')) {
+        return dicts['scripting'][activity];
+      }
+      if (activity.includes('Rendering')) {
+        return dicts['rendering'][activity];
+      }
+      return dicts['painting'][activity];
+    });
+
+    const output = {
+      'criticalPath': critical_path,
       'networkingTimeCp': this.networkingCp,
       'loadingTimeCp': this.loadingCp,
       'scriptingTimeCp': this.scriptingCp,
@@ -2118,53 +2172,51 @@ class Analyze {
       'firstPaint': this.firstPaint,
       'loadEventEnd': this.loadEventEnd,
       'domContentLoadedEventEnd': this.domContentLoadedEventEnd,
-      'timeToInteractive': this.timeToInteractive
+      'timeToInteractive': this.timeToInteractive,
+      'networking': dicts['networking'],
+      'loading': dicts['loading'],
+      'rendering': dicts['rendering'],
+      'painting': dicts['painting']
     };
-    this.output.push(_tmp_rendering);
-    this.output.push(_tmp_painting);
-    this.output.push(_tmp_networking);
-    this.output.push(_tmp_deps);
-    this.output.push(_tmp_critical_path);
-    this.output2['wprofx'] = this.output;
 
-    const urls = {}
+    // const urls = {}
 
-    for (const item of ['network', 'script', 'loading']) {
-      let lookupUrl;
-      let lookupId;
-      switch (item) {
-        case 'network':
-          lookupUrl = this.networkLookupUrl;
-          lookupId = this.networkLookupId;
-          break;
-        case 'script':
-          lookupUrl = this.scriptLookupUrl;
-          lookupId = this.scriptLookupId;
-          break;
-        default:
-          lookupUrl = this.loadingLookupUrl;
-          lookupId = this.loadingLookupId;
-          break;
-      }
+    // for (const item of ['network', 'script', 'loading']) {
+    //   let lookupUrl;
+    //   let lookupId;
+    //   switch (item) {
+    //     case 'network':
+    //       lookupUrl = this.networkLookupUrl;
+    //       lookupId = this.networkLookupId;
+    //       break;
+    //     case 'script':
+    //       lookupUrl = this.scriptLookupUrl;
+    //       lookupId = this.scriptLookupId;
+    //       break;
+    //     default:
+    //       lookupUrl = this.loadingLookupUrl;
+    //       lookupId = this.loadingLookupId;
+    //       break;
+    //   }
 
-      Object.entries(lookupUrl).forEach(([key, value]) => {
-        if (!urls.hasOwnProperty(key)) {
-          urls[key] = {}
-        }
+    //   Object.entries(lookupUrl).forEach(([key, value]) => {
+    //     if (!urls.hasOwnProperty(key)) {
+    //       urls[key] = {}
+    //     }
 
-        if (item == 'network' && value.length === 1) {
-          urls[key][item] = lookupId[value[0]];
-        } else {
-          const events = [];
-          value.forEach((id) => {
-            events.push(lookupId[id]);
-          })
-          urls[key][item] = events;
-        }
-      });
-    }
+    //     if (item == 'network' && value.length === 1) {
+    //       urls[key][item] = lookupId[value[0]];
+    //     } else {
+    //       const events = [];
+    //       value.forEach((id) => {
+    //         events.push(lookupId[id]);
+    //       })
+    //       urls[key][item] = events;
+    //     }
+    //   });
+    // }
 
-    return { urls, 'other': _tmp_critical_path };
+    return output;
   }
 
 

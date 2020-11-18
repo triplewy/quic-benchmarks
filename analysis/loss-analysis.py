@@ -120,7 +120,7 @@ def analyze_qlog(filename: str) -> (dict, str):
 
 def plot(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.ylabel('PLT', fontsize=18, labelpad=15)
+    plt.ylabel('TTLB', fontsize=18, labelpad=15)
     plt.xlabel('Data offset of first lost packet',
                fontsize=18, labelpad=15)
     # plt.title(graph_title)

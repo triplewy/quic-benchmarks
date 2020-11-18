@@ -11,8 +11,8 @@ const argparse = require('argparse');
 const Path = require('path');
 const fs = require('fs');
 const url = require('url');
-const Analyze = require('./wprofx/analyze');
 const short = require('short-uuid');
+const Analyze = require('./wprofx/analyze');
 
 const wprofx = new Analyze();
 
@@ -51,6 +51,11 @@ const deleteFolderRecursive = (path) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toFixedNumber = (num, digits) => {
+    const pow = 10 ** digits;
+    return Math.round(num * pow) / pow;
+};
 
 const chromeArgs = (urls) => {
     const args = [
@@ -267,18 +272,17 @@ const runChromeWeb = async (obj, isH3) => {
 };
 
 const runChromeTracing = async (urlString, isH3, dir) => {
-    let domains = [urlString];
-    const timings = [];
+    const domains = [urlString];
 
     console.log(`${urlString}`);
 
-    let chromeDir = undefined;
+    let chromeDir;
 
     if (dir !== undefined) {
-        chromeDir = Path.join(dir, `chrome_${isH3 ? 'h3': 'h2'}`)
+        chromeDir = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}`);
     }
 
-    if (chromeDir !== undefined && !fs.existsSync(chromeDir)){
+    if (chromeDir !== undefined && !fs.existsSync(chromeDir)) {
         fs.mkdirSync(chromeDir);
     }
 
@@ -313,7 +317,7 @@ const runChromeTracing = async (urlString, isH3, dir) => {
             const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
             const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
             const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
-            const payloadMb = (payloadBytes / 1048576).toFixed(2);
+            const payloadMb = toFixedNumber((payloadBytes / 1048576), 2);
 
             console.log(`Size: ${payloadMb} mb`);
 
@@ -334,16 +338,14 @@ const runChromeTracing = async (urlString, isH3, dir) => {
 
             const data = JSON.parse(tracing.toString());
             const res = await wprofx.analyzeTrace(data.traceEvents);
-            res.other['time'] = time;
 
-            console.log(res.other);
-            
+            res.size = payloadMb;
+
             if (chromeDir !== undefined) {
-                fs.writeFileSync(Path.join(chromeDir, `${short.generate()}.json`), JSON.stringify(res));                
+                fs.writeFileSync(Path.join(chromeDir, `${short.generate()}.json`), JSON.stringify(res));
             }
-            
-            timings.push(res);
-            break;
+
+            return res;
         } catch (error) {
             console.error(error);
             if (j === RETRIES - 1) {
@@ -354,8 +356,6 @@ const runChromeTracing = async (urlString, isH3, dir) => {
             await browser.close();
         }
     }
-
-    return timings;
 };
 
 const runBenchmarkWeb = async (urlString, dir, isH3) => {
@@ -363,10 +363,22 @@ const runBenchmarkWeb = async (urlString, dir, isH3) => {
         fs.mkdirSync(dir);
     }
 
-    const result = await runChromeTracing(urlString, isH3, dir);
+    const fields = [
+        'networkingTimeCp',
+        'loadingTimeCp',
+        'scriptingTimeCp',
+        'firstMeaningfulPaint',
+        'firstContentfulPaint',
+        'firstPaint',
+        'loadEventEnd',
+        'domContentLoadedEventEnd',
+        'size',
+    ];
+
+    const res = await runChromeTracing(urlString, isH3, dir);
 
     if (dir !== undefined) {
-        let timings = [];
+        let timings = {};
 
         // Read from file if exists
         const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}_multiple.json`);
@@ -376,8 +388,12 @@ const runBenchmarkWeb = async (urlString, dir, isH3) => {
             //
         }
 
-        // Concat result times to existing data
-        timings.push(...result);
+        fields.forEach((field) => {
+            if (!timings.hasOwnProperty(field)) {
+                timings[field] = [];
+            }
+            timings[field].push(res[field]);
+        });
 
         // Save data
         fs.writeFileSync(file, JSON.stringify(timings));

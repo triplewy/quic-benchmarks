@@ -20,8 +20,13 @@ DOCKER_CONFIG = {}
 with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
     DOCKER_CONFIG = json.load(f)
 
+LOCAL_CONFIG = {}
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'local.json'), mode='r') as f:
+    LOCAL_CONFIG = json.load(f)
+
 RETRIES = 10
 ITERATIONS = 20
+LOCAL = False
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
@@ -35,28 +40,65 @@ def query(client: str, url: str, dirpath: str):
         if dirpath is not None:
             Path(dirpath).mkdir(parents=True, exist_ok=True)
 
-        elapsed = run_docker(client, url, dirpath, i) * 1000
+        if LOCAL:
+            elapsed = run_subprocess(client, url, dirpath, i)
+        else:
+            elapsed = run_docker(client, url, dirpath, i)
 
-        timings.append(elapsed)
+        timings.append(elapsed * 1000)
         print(client, elapsed)
 
     return timings
 
 
-def run_subprocess(client: str, command: list) -> float:
+def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
+    # Parse URL object
+    url_obj = urlparse(url)
+    url_host = url_obj.netloc
+    url_path = url_obj.path
+    if url_host.count(':') > 0:
+        [url_host, url_port] = url_host.split(':')
+    else:
+        url_port = '443'
+
+    if client not in LOCAL_CONFIG:
+        raise Exception('client {} is not valid'.format(client))
+
+    # Modify commands
+    commands = []
+    for command in LOCAL_CONFIG[client]:
+        command = command.replace('{url}', url)
+        command = command.replace('{host}', url_host)
+        command = command.replace('{path}', url_path)
+        command = command.replace('{port}', url_port)
+        commands.append(command)
+
     output = subprocess.run(
-        command,
+        commands,
         capture_output=True
     )
 
-    if client.count('h3') > 0:
-        return get_time_from_qlog() / 1000
+    if client == 'curl_h2':
+        out_arr = output.stdout.decode().split('\n')[:-1]
+        dns_time = float(out_arr[0].split(':')[1])
+        total_time = float(out_arr[1].split(':')[1])
+        return total_time - dns_time
 
-    output = output.stdout.decode().split('\n')
-    dns = float(output[0].split(':')[1])
-    total = float(output[-1].split(':')[1])
+    if len(os.listdir('/tmp/qlog')) == 0:
+        raise 'no qlog created'
 
-    return total - dns
+    logpath = Path.joinpath(
+        Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
+
+    res = get_time_from_qlog(logpath) / 1000
+
+    if dirpath is None:
+        os.remove(logpath)
+    else:
+        filepath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+        os.rename(logpath, filepath)
+
+    return res
 
 
 def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
@@ -200,11 +242,13 @@ def get_time_from_qlog(qlog: str) -> float:
 
 def main():
     global ITERATIONS
+    global LOCAL
 
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('url')
     parser.add_argument('--dir')
+    parser.add_argument('--local', action='store_true')
     parser.add_argument(
         '-n', type=int, help='number of iterations', default=10)
 
@@ -215,6 +259,9 @@ def main():
         dirpath = Path(args.dir)
     else:
         dirpath = None
+
+    if args.local is not None:
+        LOCAL = True
 
     ITERATIONS = args.n
 

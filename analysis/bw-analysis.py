@@ -11,10 +11,11 @@ from collections import deque
 from pathlib import Path
 from glob import glob
 
-BLUE = deque(['#7CDCED', '#0000FF', '#0000B3', '#0081B3',
+BLUE = deque(['blue', '#7CDCED', '#0000FF', '#0000B3', '#0081B3',
               '#14293D', '#A7DFE2', '#8ED9CD'])
-RED = deque(['#FF0000', '#950000', '#FF005A', '#A9385A', '#C95DB4', 'orange'])
-GREEN = deque(['#00FF00', '#008D00', '#005300',
+RED = deque(['red', '#FF0000', '#950000', '#FF005A',
+             '#A9385A', '#C95DB4', 'orange'])
+GREEN = deque(['green', '#00FF00', '#008D00', '#005300',
                '#00FF72', '#76FF00', '#24A547'])
 ORANGE = deque(['#FF8100', '#FFA700', '#FF6D26'])
 YELLOW = deque(['#FFFF00', '#DCFF20', '#DCC05A'])
@@ -151,7 +152,8 @@ def plot_ack(data, title):
 
         if name.count('Chrome') > 0:
             color = RED.popleft()
-            name = 'Chrome (Loss)'
+            # name = 'Chrome (PTO)'
+            name = 'Chrome H3'
         elif name.count('Proxygen (bad)') > 0:
             if found_proxygen_bad:
                 continue
@@ -161,13 +163,16 @@ def plot_ack(data, title):
             else:
                 color = RED.popleft()
             color = BLUE.popleft()
-            name = 'Proxygen (Loss)'
+            # name = 'Proxygen (PTO)'
+            name = 'Proxygen H3'
         elif name.count('Proxygen (good)') > 0:
+            continue
             color = BLUE.popleft()
-            name = 'Proxygen (No Loss)'
+            name = 'Proxygen (No PTO)'
         else:
             color = GREEN.popleft()
-            name = 'Ngtcp2 (Loss)'
+            # name = 'Ngtcp2 (PTO)'
+            name = 'Ngtcp2 H3'
 
         legend.append(mpatches.Patch(color=color, label=name))
 
