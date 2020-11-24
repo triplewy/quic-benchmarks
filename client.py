@@ -45,7 +45,8 @@ def query(client: str, url: str, dirpath: str):
         else:
             elapsed = run_docker(client, url, dirpath, i)
 
-        timings.append(elapsed * 1000)
+        elapsed *= 1000
+        timings.append(elapsed)
         print(client, elapsed)
 
     return timings
@@ -90,7 +91,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     logpath = Path.joinpath(
         Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
 
-    res = get_time_from_qlog(logpath) / 1000
+    res = get_time_from_qlog(logpath)
 
     if dirpath is None:
         os.remove(logpath)
@@ -260,9 +261,7 @@ def main():
     else:
         dirpath = None
 
-    if args.local is not None:
-        LOCAL = True
-
+    LOCAL = args.local
     ITERATIONS = args.n
 
     doc_clients = list(DOCKER_CONFIG.keys())

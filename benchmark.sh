@@ -21,7 +21,7 @@ LOCAL=""
 
 shift 1
 
-while getopts ":sd:n:" o; do
+while getopts ":sld:n:" o; do
     case "${o}" in
         d)
             DIRPATH=${OPTARG}

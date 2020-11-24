@@ -356,6 +356,8 @@ const runChromeTracing = async (urlString, isH3, dir) => {
             await browser.close();
         }
     }
+
+    return null;
 };
 
 const runBenchmarkWeb = async (urlString, dir, isH3) => {
