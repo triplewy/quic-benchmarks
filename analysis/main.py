@@ -44,68 +44,21 @@ NETWORK = [
     },
 ]
 
-NGTCP2_SCENARIOS = [
+SI_GROUPINGS = [
     {
-        'dirname': 'loss-0_delay-0_bw-10',
-        'title': '0ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-50_bw-10',
-        'title': '50ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-60_bw-10',
-        'title': '60ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-70_bw-10',
-        'title': '70ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-80_bw-10',
-        'title': '80ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-90_bw-10',
-        'title': '90ms RTT Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-100_bw-10',
-        'title': '100ms RTT Delay'
-    },
-]
-
-GROUPINGS_V0 = [
-    {
-        'title': 'Extra Loss (1MB Bandwidth)',
+        'title': 'Extra Loss SI',
         'items': [
-            {'scenario': 'loss-0_delay-0_bw-1', 'title': '0%'},
-            {'scenario': 'loss-1_delay-0_bw-1', 'title': '1%'},
-            {'scenario': 'loss-5_delay-0_bw-1', 'title': '5%'},
+            {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0%'},
+            {'scenario': 'revised_loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
+            {'scenario': 'revised_loss-1_delay-0_bw-10', 'title': '1%'},
         ]
     },
     {
-        'title': 'Extra RTT Delay (1MB Bandwidth)',
+        'title': 'Extra Delay SI',
         'items': [
-            {'scenario': 'loss-0_delay-0_bw-1', 'title': '0ms'},
-            {'scenario': 'loss-0_delay-50_bw-1', 'title': '50ms'},
-            {'scenario': 'loss-0_delay-200_bw-1', 'title': '200ms'},
-        ]
-    },
-    {
-        'title': 'Extra Loss (10MB Bandwidth)',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0%'},
-            {'scenario': 'loss-1_delay-0_bw-10', 'title': '1%'},
-            {'scenario': 'loss-5_delay-0_bw-10', 'title': '5%'},
-        ]
-    },
-    {
-        'title': 'Extra RTT Delay (10MB Bandwidth)',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0ms'},
-            {'scenario': 'loss-0_delay-50_bw-10', 'title': '50ms'},
-            {'scenario': 'loss-0_delay-200_bw-10', 'title': '200ms'},
+            {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0ms'},
+            {'scenario': 'revised_loss-0_delay-50_bw-10', 'title': '50ms'},
+            {'scenario': 'revised_loss-0_delay-100_bw-10', 'title': '100ms'},
         ]
     }
 ]
@@ -114,127 +67,20 @@ GROUPINGS_V1 = [
     {
         'title': 'Extra Loss',
         'items': [
-            # {'scenario': 'loss-0_delay-0_bw-1', 'title': '0% (1mb bw)'},
-            # {'scenario': 'loss-1_delay-0_bw-1', 'title': '1% (1mb bw)'},
-            # {'scenario': 'loss-5_delay-0_bw-1', 'title': '5% (1mb bw)'},
             {'scenario': 'loss-0_delay-0_bw-10', 'title': '0%'},
             {'scenario': 'loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
             {'scenario': 'loss-1_delay-0_bw-10', 'title': '1%'},
-            # {'scenario': 'loss-2dot5_delay-0_bw-10', 'title': '2.5%'},
         ]
     },
     {
         'title': 'Extra RTT Delay',
         'items': [
-            # {'scenario': 'loss-0_delay-0_bw-1', 'title': '0ms (1mb bw)'},
-            # {'scenario': 'loss-0_delay-50_bw-1', 'title': '50ms (1mb bw)'},
-            # {'scenario': 'loss-0_delay-200_bw-1', 'title': '200ms (1mb bw)'},
             {'scenario': 'loss-0_delay-0_bw-10', 'title': '0ms'},
             {'scenario': 'loss-0_delay-50_bw-10', 'title': '50ms'},
             {'scenario': 'loss-0_delay-100_bw-10', 'title': '100ms'},
-            # {'scenario': 'loss-0_delay-250_bw-10', 'title': '250ms'},
         ]
-    },
+    }
 ]
-
-GROUPINGS_V2 = [
-    {
-        'title': 'Extra Loss',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-1', 'title': '0% (1mb bw)'},
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0% (10mb bw)'},
-            {'scenario': 'loss-1_delay-0_bw-1', 'title': '1% (1mb bw)'},
-            {'scenario': 'loss-1_delay-0_bw-10', 'title': '1% (10mb bw)'},
-            {'scenario': 'loss-5_delay-0_bw-1', 'title': '5% (1mb bw)'},
-            {'scenario': 'loss-5_delay-0_bw-10', 'title': '5% (10mb bw)'},
-        ]
-    },
-    {
-        'title': 'Extra RTT Delay',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-1', 'title': '0ms (1mb bw)'},
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0ms(10mb bw)'},
-            {'scenario': 'loss-0_delay-50_bw-1', 'title': '50ms (1mb bw)'},
-            {'scenario': 'loss-0_delay-50_bw-10', 'title': '50ms (10mb bw)'},
-            {'scenario': 'loss-0_delay-200_bw-1', 'title': '200ms (1mb bw)'},
-            {'scenario': 'loss-0_delay-200_bw-10', 'title': '200ms (10mb bw)'},
-        ]
-    },
-]
-
-
-def h2_vs_h3_v1(timings: object):
-    h2_vs_h3_data = {}
-    h2_vs_h3_row_labels = SIZES
-    h2_vs_h3_col_labels = NETWORK
-
-    for domain in DOMAINS:
-        data = [[] for _ in range(len(SIZES))]
-
-        for dirname in NETWORK:
-
-            for i, size in enumerate(SIZES):
-                min_h3_mean = math.inf
-                min_h3_client = None
-
-                min_h2_mean = math.inf
-                min_h2_client = None
-
-                if dirname not in timings:
-                    data[i].append(0)
-                    continue
-
-                # get min_mean
-                for client, times in timings[dirname][domain][size].items():
-                    # skip firefox for now...
-                    if client.count('firefox') > 0:
-                        continue
-
-                    mean = np.mean(times)
-
-                    # h3 client
-                    if client.count('h3') > 0:
-                        min_h3_mean = min(min_h3_mean, mean)
-                        if min_h3_mean == mean:
-                            min_h3_client = client
-                    # h2 client
-                    else:
-                        min_h2_mean = min(min_h2_mean, mean)
-                        if min_h2_mean == mean:
-                            min_h2_client = client
-
-                # do t-test between min h2 and min h3 clients
-                ttest = stats.ttest_ind(
-                    timings[dirname][domain][size][min_h2_client],
-                    timings[dirname][domain][size][min_h3_client],
-                    equal_var=False
-                )
-
-                # accept null hypothesis
-                if ttest.pvalue >= 0.01:
-                    data[i].append(0)
-                # reject null hypothesis
-                else:
-                    diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
-                    data[i].append(diff)
-
-        h2_vs_h3_data[domain] = data
-
-    for domain in DOMAINS:
-        fig, ax = plt.subplots()
-        ax.set_title(domain.upper())
-        im, cbar = heatmap(
-            np.array(h2_vs_h3_data[domain]),
-            h2_vs_h3_row_labels,
-            h2_vs_h3_col_labels,
-            ax=ax,
-            cmap="bwr",
-            cbarlabel="H3 compared to H2 PLT (%)",
-            vmin=-20,
-            vmax=20
-        )
-        fig.tight_layout()
-        plt.show()
 
 
 def h2_vs_h3_v2(timings: object, sizes):
@@ -263,9 +109,11 @@ def h2_vs_h3_v2(timings: object, sizes):
                     if domain == 'cloudflare' and size == 'large':
                         continue
 
+                    min_h3_median = math.inf
                     min_h3_mean = math.inf
                     min_h3_client = None
 
+                    min_h2_median = math.inf
                     min_h2_mean = math.inf
                     min_h2_client = None
 
@@ -275,31 +123,29 @@ def h2_vs_h3_v2(timings: object, sizes):
 
                     # get min_mean
                     for client, times in timings[network][domain][size].items():
-                        # skip firefox for now...
-                        if client.count('firefox') > 0:
-                            continue
-
                         if len(times) != 40:
                             print(network, size, client, len(times))
 
+                        median = np.median(times)
                         mean = np.mean(times)
                         std = np.std(times)
                         cov = std / mean * 100
 
                         if cov > 10:
                             bad_cov += 1
-                            # print(cov, network, size, client)
 
                         # h3 client
                         if client.count('h3') > 0:
                             min_h3_mean = min(min_h3_mean, mean)
                             if min_h3_mean == mean:
                                 min_h3_client = client
+                            min_h3_median = min(min_h3_median, median)
                         # h2 client
                         else:
                             min_h2_mean = min(min_h2_mean, mean)
                             if min_h2_mean == mean:
                                 min_h2_client = client
+                            min_h2_median = min(min_h2_median, median)
 
                     # do t-test between min h2 and min h3 clients
                     ttest = stats.ttest_ind(
@@ -308,13 +154,18 @@ def h2_vs_h3_v2(timings: object, sizes):
                         equal_var=False
                     )
 
+                    pvalue = ttest.pvalue
+
                     # accept null hypothesis
-                    if ttest.pvalue >= 0.01:
+                    if pvalue >= 0.01:
                         data.append(0)
                     # reject null hypothesis
                     else:
                         diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
                         data.append(diff)
+
+                        # diff = (min_h3_median - min_h2_median) / min_h2_median * 100
+                        # data.append(diff)
 
             # print(bad_cov)
 
@@ -354,86 +205,107 @@ def h2_vs_h3_v2(timings: object, sizes):
             # plt.show()
 
 
-def h2_vs_h3_v3(timings: object, sizes):
-    for domain in ['google', 'facebook', 'cloudflare']:
+def h2_vs_h3_v4(timings: object, groupings, sizes):
 
-        h2_vs_h3_data = [[] for _ in range(3)]
-        h2_vs_h3_row_labels = ['> 192 KB', '32 KB', '8 KB']
-        # h2_vs_h3_row_labels = ['> 192 KB', '8 KB']
+    for domain in DOMAINS:
 
-        h2_vs_h3_col_labels = sizes
+        for grouping in groupings:
 
-        networks = ['loss-1_delay-0_bw-10',
-                    'loss-2_delay-0_bw-10', 'loss-3_delay-0_bw-10']
-        # networks = ['loss-1_delay-0_bw-10', 'loss-3_delay-0_bw-10']
+            h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
+            h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
+            h2_vs_h3_col_labels = sizes
+            if domain == 'cloudflare' and sizes == WEBPAGE_SIZES:
+                h2_vs_h3_col_labels = sizes[:2]
 
-        for i, network in enumerate(networks):
+            for i, item in enumerate(grouping['items']):
 
-            data = h2_vs_h3_data[i]
+                data = h2_vs_h3_data[i]
+                network = item['scenario']
 
-            for size in sizes:
+                for size in sizes:
 
-                min_h3_mean = math.inf
-                min_h3_client = None
+                    if domain == 'cloudflare' and size == 'large':
+                        continue
 
-                min_h2_mean = math.inf
-                min_h2_client = None
+                    min_h3_median = math.inf
+                    min_h3_client = None
 
-                if network not in timings:
-                    data.append(0)
-                    continue
+                    min_h2_median = math.inf
+                    min_h2_client = None
 
-                # get min_mean
-                for client, times in timings[network][domain][size].items():
-                    mean = np.mean(times)
-                    std = np.std(times)
+                    if network not in timings:
+                        data.append(0)
+                        continue
 
-                    # h3 client
-                    if client.count('h3') > 0:
-                        min_h3_mean = min(min_h3_mean, mean)
-                        if min_h3_mean == mean:
-                            min_h3_client = client
-                    # h2 client
+                    # get min_median
+                    for client, times in timings[network][domain][size].items():
+                        times = times['speed-index']
+
+                        median = np.median(times)
+
+                        # h3 client
+                        if client.count('h3') > 0:
+                            min_h3_median = min(min_h3_median, median)
+                            if min_h3_median == median:
+                                min_h3_client = client
+                        # h2 client
+                        else:
+                            min_h2_median = min(min_h2_median, median)
+                            if min_h2_median == median:
+                                min_h2_client = client
+
+                    # do t-test between min h2 and min h3 clients
+                    ttest = stats.ttest_ind(
+                        timings[network][domain][size][min_h2_client]['speed-index'],
+                        timings[network][domain][size][min_h3_client]['speed-index'],
+                        equal_var=False
+                    )
+
+                    pvalue = ttest.pvalue
+                    pvalue = 0
+
+                    # accept null hypothesis
+                    if pvalue >= 0.01:
+                        data.append(0)
+                    # reject null hypothesis
                     else:
-                        min_h2_mean = min(min_h2_mean, mean)
-                        if min_h2_mean == mean:
-                            min_h2_client = client
+                        diff = (min_h3_median - min_h2_median) / \
+                            min_h2_median * 100
+                        data.append(diff)
 
-                # do t-test between min h2 and min h3 clients
-                ttest = stats.ttest_ind(
-                    timings[network][domain][size][min_h2_client],
-                    timings[network][domain][size][min_h3_client],
-                    equal_var=False
-                )
+            print('{} - {}'.format(domain.capitalize(), grouping['title']))
+            fig, ax = plt.subplots()
+            # ax.set_title()
+            ax.set_ylabel(grouping['title'], fontsize=18, labelpad=20)
+            ax.set_xlabel('Object sizes', fontsize=18, labelpad=20)
 
-                # accept null hypothesis
-                if ttest.pvalue >= 0.01:
-                    data.append(0)
-                # reject null hypothesis
-                else:
-                    diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
-                    data.append(diff)
+            im, cbar = heatmap(
+                np.array(h2_vs_h3_data),
+                h2_vs_h3_row_labels,
+                h2_vs_h3_col_labels,
+                ax=ax,
+                cmap="bwr",
+                vmin=-20,
+                vmax=20,
+                show_cbar=False,
+            )
+            annotate_heatmap(
+                im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
+            fig.tight_layout()
 
-        fig, ax = plt.subplots()
-        # ax.set_ylabel(grouping['title'], fontsize=18, fontweight='bold')
-        im, cbar = heatmap(
-            np.array(h2_vs_h3_data),
-            h2_vs_h3_row_labels,
-            h2_vs_h3_col_labels,
-            ax=ax,
-            cmap="bwr",
-            # cbarlabel="% Growth in PLT from H2 to H3",
-            vmin=-20,
-            vmax=20,
-            show_cbar=False,
-        )
-        annotate_heatmap(
-            im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
-        fig.tight_layout()
+            condition = None
+            if grouping['title'].count('Loss') > 0:
+                condition = 'Loss'
+            else:
+                condition = 'Delay'
 
-        plt.savefig(
-            '{}/Desktop/graphs/{}_buffer_size'.format(Path.home(), domain.capitalize()), transparent=True)
-        # plt.show()
+            multiple = ''
+            if sizes == WEBPAGE_SIZES:
+                multiple = '_Multiple'
+
+            plt.savefig(
+                '{}/Desktop/graphs/revised_{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
+            # plt.show()
 
 
 def facebook_patch(timings: object, sizes):
@@ -675,111 +547,6 @@ def client_consistency(timings: object):
     # print(percent_diffs)
 
 
-def ngtcp2_graph(timings):
-
-    data = []
-    line_labels = []
-
-    for domain in DOMAINS:
-
-        line_labels.append(domain)
-        row_data = []
-
-        for obj in NGTCP2_SCENARIOS:
-            dirname = obj['dirname']
-            size = '1MB'
-            delay = int(dirname.split('_')[1].split('-')[1])
-
-            min_mean = math.inf
-            min_client = None
-
-            # get min_mean of other clients
-            for client, times in timings[dirname][domain][size].items():
-                # skip firefox for now...
-                if client.count('firefox') > 0:
-                    continue
-
-                if client.count('h2') > 0:
-                    continue
-
-                if client.count('ngtcp2_h3') > 0:
-                    continue
-
-                mean = np.mean(times)
-
-                # h3 min mean
-                min_mean = min(min_mean, mean)
-                if min_mean == mean:
-                    min_client = client
-
-            # perform t-test on ngtcp2
-            client = 'ngtcp2_h3'
-
-            if client not in timings[dirname][domain][size]:
-                continue
-
-            times = timings[dirname][domain][size][client]
-
-            ttest = stats.ttest_ind(
-                timings[dirname][domain][size][min_client],
-                times,
-                equal_var=False
-            )
-
-            # accept null hypothesis
-            if ttest.pvalue >= 0.01:
-                row_data.append((delay, 0))
-            # reject null hypothesis
-            else:
-                mean = np.mean(times)
-                diff = (mean - min_mean) / min_mean * 100
-                row_data.append((delay, diff))
-
-        data.append(row_data)
-
-    fig, ax = plt.subplots(figsize=(12, 9))
-    # plt.ylabel('Total KB ACKed')
-    plt.xlabel('RTT Delay (ms)', fontsize=20)
-
-    legend = [
-        mpatches.Patch(color='green', label='Facebook'),
-        mpatches.Patch(color='red', label='Cloudflare'),
-        mpatches.Patch(color='blue', label='Google'),
-    ]
-
-    for i in range(len(data)):
-        if i == 0:
-            color = 'green'
-        elif i == 1:
-            color = 'red'
-        else:
-            color = 'blue'
-
-        row_data = data[i]
-
-        plt.plot(
-            [x[0] for x in row_data],
-            [x[1] for x in row_data],
-            color=color,
-            marker='o',
-            linestyle='-',
-            linewidth=1,
-            markersize=8,
-        )
-
-    ax.tick_params(axis='both', which='major', labelsize=18)
-    ax.tick_params(axis='both', which='minor', labelsize=18)
-
-    formatter0 = StrMethodFormatter('{x:,g} %')
-    ax.yaxis.set_major_formatter(formatter0)
-
-    plt.xticks(np.array([0, 50, 60, 70, 80, 90, 100]))
-    plt.grid(axis='x')
-    plt.legend(handles=legend)
-    plt.show()
-    plt.close(fig=fig)
-
-
 def check_data_lengths(timings):
     for obj in NETWORK:
         dirname = obj['dirname']
@@ -971,13 +738,11 @@ def main():
 
         timings[dirname] = temp
 
-    # h2_vs_h3_v3(timings, SIZES)
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
     # check_data_lengths(timings)
-    h2_vs_h3_v2(timings, SIZES)
-    # h2_vs_h3_v2(timings, WEBPAGE_SIZES)
-    # ngtcp2_graph(timings)
+    # h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES)
     # client_consistency(timings)
 
 

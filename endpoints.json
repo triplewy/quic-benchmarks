@@ -4,42 +4,19 @@
         "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
         "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
         "small": {
-            "url": "https://www.instagram.com/about/jobs/",
-            "domains": [
-                "https://www.instagram.com"
-            ],
-            "numResources": 20,
-            "size": 0.62
+            "url": "https://www.facebook.com/",
+            "numResources": 30,
+            "size": 0.31
         },
         "medium": {
-            "url": "https://www.facebook.com/",
-            "domains": [
-                "https://www.facebook.com",
-                "https://facebook.com",
-                "https://static.xx.fbcdn.net",
-                "https://connect.facebook.net",
-                "https://www.google-analytics.com",
-                "https://googleads.g.doubleclick.net",
-                "https://cx.atdmt.com",
-                "https://www.google.com"
-            ],
-            "numResources": 37,
-            "size": 1.10
+            "url": "https://www.instagram.com/about/jobs/",
+            "numResources": 25,
+            "size": 1.30
         },
         "large": {
             "url": "https://www.facebook.com/business/marketing-partners/",
-            "domains": [
-                "https://www.facebook.com",
-                "https://static.xx.fbcdn.net",
-                "https://scontent-bos3-1.xx.fbcdn.net",
-                "https://external-bos3-1.xx.fbcdn.net",
-                "https://cx.atdmt.com",
-                "https://connect.facebook.net",
-                "https://scontent.xx.fbcdn.net",
-                "https://www.google-analytics.com"
-            ],
-            "numResources": 84,
-            "size": 1.82
+            "numResources": 99,
+            "size": 1.75
         }
     },
     "google": {
@@ -48,74 +25,18 @@
         "5MB": "https://storage.googleapis.com/gweb-uniblog-publish-prod/images/Google-cafe.max-2800x2800.jpg",
         "small": {
             "url": "https://www.google.com",
-            "domains": [
-                "https://www.google.com",
-                "https://fonts.gstatic.com",
-                "https://ssl.gstatic.com",
-                "https://www.gstatic.com",
-                "https://apis.google.com",
-                "https://ogs.google.com"
-            ],
-            "numResources": 14,
-            "size": 0.46
+            "numResources": 27,
+            "size": 0.40
         },
         "medium": {
             "url": "https://careers.google.com/teams/",
-            "domains": [
-                "https://www.googleoptimize.com",
-                "https://fonts.googleapis.com",
-                "https://www.gstatic.com",
-                "https://lh3.googleusercontent.com",
-                "https://storage.googleapis.com",
-                "https://careers.google.com",
-                "https://fonts.gstatic.com",
-                "https://www.google.com",
-                "https://www.google-analytics.com",
-                "https://survey.g.doubleclick.net",
-                "https://www.googleadservices.com",
-                "https://www.googletagmanager.com",
-                "https://googleads.g.doubleclick.net",
-                "https://adservice.google.com",
-                "https://stats.g.doubleclick.net",
-                "https://ajax.googleapis.com",
-                "https://kstatic.googleusercontent.com",
-                "https://maps.google.com",
-                "https://bid.g.doubleclick.net"
-            ],
             "numResources": 33,
             "size": 1.39
         },
         "large": {
             "url": "https://store.google.com/us/category/phones?hl=en-US",
-            "domains": [
-                "https://www.googleoptimize.com",
-                "https://fonts.googleapis.com",
-                "https://maps.google.com",
-                "https://lh3.googleusercontent.com",
-                "https://storage.googleapis.com",
-                "https://ajax.googleapis.com",
-                "https://fonts.gstatic.com",
-                "https://www.google.com",
-                "https://www.google-analytics.com",
-                "https://survey.g.doubleclick.net",
-                "https://www.googleadservices.com",
-                "https://www.googletagmanager.com",
-                "https://googleads.g.doubleclick.net",
-                "https://adservice.google.com",
-                "https://stats.g.doubleclick.net",
-                "https://store.google.com",
-                "https://mannequin.storage.googleapis.com",
-                "https://www.youtube.com",
-                "https://2542116.fls.doubleclick.net",
-                "https://payments.google.com",
-                "https://s.ytimg.com",
-                "https://apis.google.com",
-                "https://scone-pa.clients6.google.com",
-                "https://bid.g.doubleclick.net",
-                "https://www.gstatic.com"
-            ],
             "numResources": 98,
-            "size": 1.72
+            "size": 1.86
         }
     },
     "cloudflare": {
@@ -124,29 +45,13 @@
         "5MB": "https://cloudflare-quic.com/5MB.png",
         "small": {
             "url": "https://cloudflare-quic.com",
-            "domains": [
-                "https://cloudflare-quic.com",
-                "https://www.cloudflare.com"
-            ],
             "numResources": 10,
-            "size": 0.37
+            "size": 0.50
         },
         "medium": {
-            "url": "https://dash.cloudflare.com/sign-up/",
-            "domains": [
-                "https://dash.cloudflare.com",
-                "https://cloudflare.com",
-                "https://c.disquscdn.com",
-                "https://blog-cloudflare-com-assets.storage.googleapis.com",
-                "https://www.cloudflare.com",
-                "https://assets.www.cloudflare.com",
-                "https://info.cloudflare.com",
-                "https://www.googleoptimize.com",
-                "https://static.cloudflareinsights.com",
-                "https://geolocation.onetrust.com"
-            ],
+            "url": "https://dash.cloudflare.com/login/",
             "numResources": 19,
-            "size": 1.54
+            "size": 1.72
         }
     }
 }

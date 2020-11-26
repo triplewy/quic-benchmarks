@@ -1,3 +1,19 @@
+/* eslint-disable no-continue */
+/* eslint-disable no-lonely-if */
+/* eslint-disable no-prototype-builtins */
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable radix */
+/* eslint-disable no-restricted-properties */
+/* eslint-disable operator-linebreak */
+/* eslint-disable prefer-destructuring */
+/* eslint-disable prefer-template */
+/* eslint-disable no-param-reassign */
+/* eslint-disable brace-style */
+/* eslint-disable dot-notation */
+/* eslint-disable camelcase */
+/* eslint-disable no-plusplus */
+/* eslint-disable no-underscore-dangle */
+/* eslint-disable consistent-return */
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -10,12 +26,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-var fs = require('fs');
-var common = require('./common');
+const common = require('./common');
 
 class Analyze {
   constructor() {
-    //this.url = url;
     this.traceEvents = [];
     this.loadingTraceEvents = [];
     this.renderingTraceEvents = [];
@@ -23,7 +37,7 @@ class Analyze {
     this.networkTraceEvents = [];
     this.netlogTraceEvents = [];
     this.frameEvents = [];
-    this.cpu = { 'main_thread': null };
+    this.cpu = { main_thread: null };
     this.network = {};
     this.loading = {};
     this.rendering = {};
@@ -52,7 +66,7 @@ class Analyze {
     this.scriptLookupId = {};
     this.renderingList = [];
     this.paintingList = [];
-    this.netlog = { 'bytes_in': 0, 'bytes_out': 0, 'next_request_id': 1000000 };
+    this.netlog = { bytes_in: 0, bytes_out: 0, next_request_id: 1000000 };
     this.netlogRequests = null;
     this.all = [];
     this.parse0Id = null;
@@ -69,7 +83,7 @@ class Analyze {
     this.interactiveEnd = null;
     this.interactive = [];
     this.depsParent = {};
-    this.depsNext = {}
+    this.depsNext = {};
     this.firstMeaningfulPaintDict = {};
     this.firstMeaningfulPaintCandidatesDict = {};
     this.firstContentfulPaintDict = {};
@@ -115,11 +129,12 @@ class Analyze {
       await this.findCriticalPath(this.lastActivity[0][0]);
       await this.criticalPath.reverse();
 
-      if (this.criticalPath[0] == null) {
+      if (this.criticalPath[0] === null) {
         this.criticalPath.splice(0, 1);
       }
       await this.timeSummary();
       await this.orderLayout();
+
       return this.writeOutputlog();
     } catch (error) {
       console.error(error);
@@ -127,16 +142,14 @@ class Analyze {
   }
 
   processTrace(traceEvents) {
-    var _this = this;
+    const _this = this;
     return new Promise((resolve, reject) => {
-      var arrayLength = traceEvents.length;
-      for (var i = 0; i < arrayLength; i++) {
-        var _traceEvent = traceEvents[i];
+      for (let i = 0; i < traceEvents.length; i++) {
+        const _traceEvent = traceEvents[i];
         try {
           _this.filterTraceEvents(_traceEvent);
-        }
-        catch (err) {
-          //reject(err);
+        } catch (err) {
+          // reject(err);
           console.log(err);
         }
       }
@@ -146,9 +159,8 @@ class Analyze {
   }
 
   filterTraceEvents(trace_event) {
-    var cat = trace_event['cat'];
-    var name = trace_event['name'];
-    if (cat == 'toplevel' || cat == 'ipc,toplevel') {
+    const { cat, name } = trace_event;
+    if (cat === 'toplevel' || cat === 'ipc,toplevel') {
       return;
     }
 
@@ -159,24 +171,29 @@ class Analyze {
         }
       }
     }
-    if (name == 'TracingStartedInPage' && ('args' in trace_event) &&
-      ('data' in trace_event['args']) && ('page' in trace_event['args']['data'])) {
+
+    if (name === 'TracingStartedInPage'
+      && ('args' in trace_event)
+      && ('data' in trace_event['args'])
+      && ('page' in trace_event['args']['data'])) {
       this.mainFrameId = trace_event['args']['data']['page'];
     }
-
-    else if (name == 'TracingStartedInBrowser' &&
-      ('args' in trace_event) && ('data' in trace_event['args']) && ('frames' in trace_event['args']['data'])) {
+    else if (name === 'TracingStartedInBrowser'
+      && ('args' in trace_event)
+      && ('data' in trace_event['args'])
+      && ('frames' in trace_event['args']['data'])) {
       this.mainFrameId = trace_event['args']['data']['frames'][0]['frame'];
     }
     /*
-    If there was no firstMeaningfulPaint event found in the trace In this case, we'll use the last firstMeaningfulPaintCandidate we can find.
+    If there was no firstMeaningfulPaint event found in the trace In this case,
+    we'll use the last firstMeaningfulPaintCandidate we can find.
     firstContentfulPaint
     firstPaint
     loadEventEnd (for this frameId ) use last
     domContentLoadedEventEnd (for this frameId) use last
     */
-    if (name == 'firstMeaningfulPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    if (name === 'firstMeaningfulPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.firstMeaningfulPaintDict)) {
         this.firstMeaningfulPaintDict[_frameId] = [trace_event['ts']];
       }
@@ -185,8 +202,8 @@ class Analyze {
       }
     }
 
-    if (name == 'firstMeaningfulPaintCandidate' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    if (name === 'firstMeaningfulPaintCandidate' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.firstMeaningfulPaintCandidatesDict)) {
         this.firstMeaningfulPaintCandidatesDict[_frameId] = [trace_event['ts']];
       }
@@ -195,8 +212,8 @@ class Analyze {
       }
     }
 
-    else if (name == 'firstContentfulPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    else if (name === 'firstContentfulPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.firstContentfulPaintDict)) {
         this.firstContentfulPaintDict[_frameId] = [trace_event['ts']];
       }
@@ -205,8 +222,8 @@ class Analyze {
       }
     }
 
-    if (name == 'firstPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    if (name === 'firstPaint' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.firstPaintDict)) {
         this.firstPaintDict[_frameId] = [trace_event['ts']];
       }
@@ -215,8 +232,8 @@ class Analyze {
       }
     }
 
-    if (name == 'loadEventEnd' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    if (name === 'loadEventEnd' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.loadEventEndDict)) {
         this.loadEventEndDict[_frameId] = [trace_event['ts']];
       }
@@ -225,8 +242,8 @@ class Analyze {
       }
     }
 
-    if (name == 'domContentLoadedEventEnd' && 'args' in trace_event && 'frame' in trace_event['args']) {
-      var _frameId = trace_event['args']['frame'];
+    if (name === 'domContentLoadedEventEnd' && 'args' in trace_event && 'frame' in trace_event['args']) {
+      const _frameId = trace_event['args']['frame'];
       if (!(_frameId in this.domContentLoadedEventEndDict)) {
         this.domContentLoadedEventEndDict[_frameId] = [trace_event['ts']];
       }
@@ -234,28 +251,27 @@ class Analyze {
         this.domContentLoadedEventEndDict[_frameId].push(trace_event['ts']);
       }
     }
-    trace_event = this.cleanArchiveURLTrace(trace_event);
-    if (cat == 'devtools.timeline' ||
-      cat.indexOf('devtools.timeline') != -1 ||
-      cat.indexOf('blink.feature_usage') != -1 ||
-      cat.indexOf('blink.user_timing') != -1) {
+    if (cat === 'devtools.timeline'
+      || cat.indexOf('devtools.timeline') !== -1
+      || cat.indexOf('blink.feature_usage') !== -1
+      || cat.indexOf('blink.user_timing') !== -1) {
       this.processXtraScriptEvents(trace_event);
       this.traceEvents.push(trace_event);
     }
-    if ((cat == 'devtools.timeline' && name == 'ParseHTML') || (
-      cat == 'blink,devtools.timeline' && name == 'ParseAuthorStyleSheet')) {
+    if ((cat === 'devtools.timeline' && name === 'ParseHTML') || (
+      cat === 'blink,devtools.timeline' && name === 'ParseAuthorStyleSheet')) {
       this.loadingTraceEvents.push(trace_event);
     }
-    if ((cat == 'disabled-by-default-devtools.timeline' ||
-      cat.indexOf('devtools.timeline') != -1)
+    if ((cat === 'disabled-by-default-devtools.timeline'
+      || cat.indexOf('devtools.timeline') !== -1)
       && (['CompositeLayers', 'Paint'].includes(name))) {
       this.paintingTraceEvents.push(trace_event);
     }
-    if ((cat == 'devtools.timeline' || cat.indexOf('devtools.timeline') != -1)
+    if ((cat === 'devtools.timeline' || cat.indexOf('devtools.timeline') !== -1)
       && (['Layout', 'UpdateLayerTree', 'HitTest', 'RecalculateStyles'].includes(name))) {
       this.renderingTraceEvents.push(trace_event);
     }
-    if (cat == 'devtools.timeline' && (['ResourceSendRequest',
+    if (cat === 'devtools.timeline' && (['ResourceSendRequest',
       'ResourceReceiveResponse', 'ResourceReceivedData', 'ResourceFinish'].includes(name))) {
       this.networkTraceEvents.push(trace_event);
     }
@@ -265,48 +281,19 @@ class Analyze {
     }
   }
 
-  cleanArchiveURLTrace(trace_event) {
-    if ('args' in trace_event && 'data' in trace_event['args']) {
-      if ('url' in trace_event['args']['data']) {
-        if (trace_event['args']['data']['url'].startsWith('http://web.archive.org/') &&
-          (trace_event['args']['data']['url'].split('http').length - 1) >= 2) {
-          trace_event['args']['data']['url'] = 'http' + trace_event['args']['data']['url'].split('http')[2];
-          if (trace_event['args']['data']['url'].endsWith('//')) {
-            trace_event['args']['data']['url'] = trace_event['args']['data']['url'].slice(0, -1);
-          }
-
-        }
-      }
-    }
-    return trace_event;
-  }
-
-  cleanArchiveURL(url) {
-    if (url.startsWith('http://web.archive.org/') &&
-      (url.split('http').length - 1) >= 2) {
-      url = 'http' + url.split('http')[2];
-      if (url.endsWith('//')) {
-        url = url.slice(0, -1);
-      }
-    }
-    return url;
-  }
   processXtraScriptEvents(trace_event) {
-    var name = trace_event['name'];
-    if (name == 'EvaluateScript' && ('ph' in trace_event && trace_event['ph'] == 'X')) {
-      if ('args' in trace_event && 'data' in trace_event['args'] &&
-        'url' in trace_event['args']['data']) {
-        //Web archive cleaning
-        trace_event = this.cleanArchiveURLTrace(trace_event);
-        ///
-        var _id = trace_event['args']['data']['url'].split('#')[0];
+    const { name } = trace_event;
+    if (name === 'EvaluateScript' && ('ph' in trace_event && trace_event['ph'] === 'X')) {
+      if ('args' in trace_event && 'data' in trace_event['args']
+        && 'url' in trace_event['args']['data']) {
+        const _id = trace_event['args']['data']['url'].split('#')[0];
         if (_id.length > 0) {
-          var _threadX = trace_event['pid'] + ':' + trace_event['tid'];
+          const _threadX = trace_event['pid'] + ':' + trace_event['tid'];
           if (!(_threadX in this.scriptXtra)) {
             this.scriptXtra[_threadX] = {};
           }
-          var _dur = trace_event['dur'];
-          var _ts = trace_event['ts'];
+          const _dur = trace_event['dur'];
+          const _ts = trace_event['ts'];
           if (!(_id in this.scriptXtra[_threadX])) {
             this.scriptXtra[_threadX][_id] = {};
             this.scriptXtra[_threadX][_id]['EvaluateScript'] = [[_dur, _ts]];
@@ -322,12 +309,9 @@ class Analyze {
   processTraceEvents() {
     // sort the raw trace events by timestamp && then process them
     if (this.traceEvents.length >= 1) {
-      this.traceEvents.sort(function (a, b) {
-        return a['ts'] - b['ts'];
-      });
+      this.traceEvents.sort((a, b) => a['ts'] - b['ts']);
 
-      var arrayLength = this.traceEvents.length;
-      for (var i = 0; i < arrayLength; i++) {
+      for (let i = 0; i < this.traceEvents.length; i++) {
         this.processTraceEvent(this.traceEvents[i]);
       }
       this.traceEvents = [];
@@ -337,32 +321,27 @@ class Analyze {
   }
 
   processTraceEvent(trace_event) {
-    var cat = trace_event['cat'];
-    if (cat == 'devtools.timeline' || cat.indexOf('devtools.timeline') != -1) {
+    const { cat } = trace_event;
+    if (cat === 'devtools.timeline' || cat.indexOf('devtools.timeline') !== -1) {
       this.processTimelineTraceEvent(trace_event);
     }
-    else if (cat.indexOf('blink.user_timing') != -1) {
+    else if (cat.indexOf('blink.user_timing') !== -1) {
       this.userTiming.push(trace_event);
     }
   }
 
 
   processTimelineTraceEvent(trace_event) {
-    var thread = trace_event['pid'] + ':' + trace_event['tid'];
+    const thread = trace_event['pid'] + ':' + trace_event['tid'];
     // Keep track of the main thread
-    if (this.cpu['main_thread'] == null && trace_event['name'] ==
-      'ResourceSendRequest') {
+    if (this.cpu['main_thread'] === null && trace_event['name'] === 'ResourceSendRequest') {
       if ('args' in trace_event && 'data' in trace_event['args']) {
-        if ('url' in trace_event['args']['data'] &&
-          trace_event['args']['data']['url'].startsWith('http')) {
-          trace_event = this.cleanArchiveURLTrace(trace_event);
-          //       this.ignoreThreads[thread] = true;
-          //   }
-          /*else* ('mimeType' in trace_event['args']['data'] && trace_event['args']['data']['mimeType'] == 'text/html'){*/
+        if ('url' in trace_event['args']['data']
+          && trace_event['args']['data']['url'].startsWith('http')) {
           if (!(thread in this.threads)) {
             this.threads[thread] = {};
           }
-          if ((this.startTime == null) || trace_event['ts'] < this.startTime) {
+          if ((this.startTime === null) || trace_event['ts'] < this.startTime) {
             this.startTime = trace_event['ts'];
           }
           this.cpu['main_thread'] = thread;
@@ -373,57 +352,56 @@ class Analyze {
       }
     }
     // Make sure each thread has a numerical ID
-    if ((this.cpu['main_thread'] != null) && !(thread in this.threads) &&
-      !(thread in this.ignoreThreads) && trace_event['name'] != 'Program') {
+    if ((this.cpu['main_thread'] !== null) && !(thread in this.threads) &&
+      !(thread in this.ignoreThreads) && trace_event['name'] !== 'Program') {
       this.threads[thread] = {};
     }
     // Build timeline events on a stack. 'B' begins an event, 'E' ends an event
-    if ((thread in this.threads) && ('dur' in trace_event ||
-      trace_event['ph'] == 'B' || trace_event['ph'] == 'E')) {
+    if ((thread in this.threads) && ('dur' in trace_event
+      || trace_event['ph'] === 'B' || trace_event['ph'] === 'E')) {
       trace_event['thread'] = this.threads[thread];
       if (!(thread in this.threadStack)) {
         this.threadStack[thread] = [];
       }
       if (!(trace_event['name'] in this.eventNames)) {
-        //this.eventNames[trace_event['name']] = this.eventNames.length; :(
         this.eventNames[trace_event['name']] = Object.keys(this.eventNames).length;
-        this.eventNameLookup[this.eventNames[trace_event['name']]] =
-          trace_event['name'];
+        this.eventNameLookup[this.eventNames[trace_event['name']]] = trace_event['name'];
       }
       if (!(trace_event['name'] in this.threads[thread])) {
-        this.threads[thread][trace_event['name']] =
-          this.eventNames[trace_event['name']];
+        this.threads[thread][trace_event['name']] = this.eventNames[trace_event['name']];
       }
-      var e = null;
-      if (trace_event['ph'] == 'E') {
+      let e = null;
+      if (trace_event['ph'] === 'E') {
         if (this.threadStack[thread].length > 0) {
           e = this.threadStack[thread].pop();
-          if (e['n'] == this.eventNames[trace_event['name']]) {
+          if (e['n'] === this.eventNames[trace_event['name']]) {
             e['e'] = trace_event['ts'];
           }
         }
       }
       else {
         e = {
-          't': thread, 'n': this.eventNames[trace_event['name']],
-          's': trace_event['ts']
+          t: thread,
+          n: this.eventNames[trace_event['name']],
+          s: trace_event['ts'],
         };
-        if (((trace_event['name'] == 'EvaluateScript') || (trace_event['name']
-          == 'v8.compile') || (trace_event[
-            'name'] == 'v8.parseOnBackground')) && ('args' in trace_event &&
-              'data' in trace_event['args'] && 'url' in trace_event['args'][
-              'data'] && trace_event['args']['data']['url'].startsWith('http'))) {
-          trace_event = this.cleanArchiveURLTrace(trace_event);
+        if (((trace_event['name'] === 'EvaluateScript')
+          || (trace_event['name'] === 'v8.compile')
+          || (trace_event['name'] === 'v8.parseOnBackground'))
+          && ('args' in trace_event
+          && 'data' in trace_event['args']
+          && 'url' in trace_event['args']['data']
+          && trace_event['args']['data']['url'].startsWith('http'))) {
           e['js'] = trace_event['args']['data']['url'].split('#')[0];
         }
-        if (trace_event['name'] == 'FunctionCall' && 'args' in trace_event &&
+        if (trace_event['name'] === 'FunctionCall' && 'args' in trace_event &&
           'data' in trace_event['args'] &&
           'scriptName' in trace_event['args']['data'] &&
           trace_event['args']['data'][
             'scriptName'].startsWith('http')) {
           e['js'] = trace_event['args']['data']['scriptName'];
         }
-        if (trace_event['ph'] == 'B') {
+        if (trace_event['ph'] === 'B') {
           this.threadStack[thread].push(e);
           e = null;
         }
@@ -431,13 +409,13 @@ class Analyze {
           e['e'] = e['s'] + trace_event['dur'];
         }
       }
-      if (e != null && 'e' in e && e['s'] >= this.startTime && e['e'] >= e['s']) {
-        if (this.endTime == null || e['e'] > this.endTime) {
+      if (e !== null && 'e' in e && e['s'] >= this.startTime && e['e'] >= e['s']) {
+        if (this.endTime === null || e['e'] > this.endTime) {
           this.endTime = e['e'];
         }
         // attach it to a parent event if there is one
         if (this.threadStack[thread].length > 0) {
-          var parent = this.threadStack[thread].pop();
+          const parent = this.threadStack[thread].pop();
           if (!('c' in parent)) {
             parent['c'] = [];
           }
@@ -454,10 +432,10 @@ class Analyze {
   processTimelineEvents() {
     if (this.timelineEvents.length >= 1 && this.endTime > this.startTime) {
       // Figure out how big each slice should be in usecs.
-      //Size it to a power of 10 where we have at least 2000 slices
-      var exp = 0;
-      var last_exp = 0;
-      var slice_count = this.endTime - this.startTime;
+      // Size it to a power of 10 where we have at least 2000 slices
+      let exp = 0;
+      let last_exp = 0;
+      let slice_count = this.endTime - this.startTime;
       while (slice_count > 2000) {
         last_exp = exp;
         exp += 1;
@@ -470,10 +448,10 @@ class Analyze {
         this.startTime) / parseFloat(this.cpu['slice_usecs'])));
       // Create the empty time slices for all of the threads
       this.cpu['slices'] = {};
-      for (var thread in this.threads) {
+      for (const thread in this.threads) {
         if (this.threads.hasOwnProperty(thread)) {
-          this.cpu['slices'][thread] = { 'total': Array(slice_count).fill(0.0) };
-          for (var name in this.threads[thread]) {
+          this.cpu['slices'][thread] = { total: Array(slice_count).fill(0.0) };
+          for (const name in this.threads[thread]) {
             if (this.threads[thread].hasOwnProperty(name)) {
               this.cpu['slices'][thread][name] = Array(slice_count).fill(0.0);
             }
@@ -483,17 +461,17 @@ class Analyze {
       // Go through all of the timeline events recursively and
       // account for the time they consumed
       var arrayLength2 = this.timelineEvents.length;
-      for (var i = 0; i < arrayLength2; i++) {
+      for (let i = 0; i < arrayLength2; i++) {
         this.processTimelineEvent({ timeline_event: this.timelineEvents[i], parent: null, stack: null });
       }
-      if (!(this.interactiveEnd == null) && this.interactiveEnd -
+      if (!(this.interactiveEnd === null) && this.interactiveEnd -
         this.interactiveStart > 500000) {
         this.interactive.push([parseInt(Math.ceil(this.interactiveStart / 1000.0)),
         parseInt(Math.floor(this.interactiveEnd / 1000.0))]);
       }
 
       // Go through all of the fractional times and convert the
-      //parseFloat fractional times to parseInteger usecs
+      // parseFloat fractional times to parseInteger usecs
       for (var thread in this.cpu['slices']) {
         if (this.cpu.hasOwnProperty(thread)) {
           delete this.cpu['slices'][thread]['total'];
@@ -517,7 +495,7 @@ class Analyze {
   processTimelineEvent({ timeline_event, parent, stack } = {}) {
     var start = timeline_event['s'] - this.startTime;
     var end = timeline_event['e'] - this.startTime;
-    if (stack == null) {
+    if (stack === null) {
       var stack = {};
     }
     if (end > start) {
@@ -527,7 +505,7 @@ class Analyze {
       //TODO If DOMContentLoadedEnd occurs after the start of the window, report that as TTI.
       // Keep track of periods on the main thread where at least 500ms are
       //available with no tasks longer than 50ms
-      if ('main_thread' in this.cpu && thread == this.cpu['main_thread']) {
+      if ('main_thread' in this.cpu && thread === this.cpu['main_thread']) {
         if (elapsed > 50000) {
           if ((start - this.interactiveStart) > 500000) {
             this.interactive.push(
@@ -545,7 +523,7 @@ class Analyze {
         var script = timeline_event['js'];
         var js_start = start / 1000.0;
         var js_end = end / 1000.0;
-        if (this.script == null) {
+        if (this.script === null) {
           this.script = {};
         }
         if (!('main_thread' in this.script) && ('main_thread' in this.cpu)) {
@@ -614,11 +592,11 @@ class Analyze {
     try {
       // Don't bother adjusting if both the current event and parent are the same category
       // since they would just cancel each other out.
-      if (name != parent) {
+      if (name !== parent) {
         var fraction = Math.min(1.0, (parseFloat(elapsed) / parseFloat(this.cpu['slice_usecs'])));
         this.cpu['slices'][thread][name][slice_number] += fraction;
         this.cpu['slices'][thread]['total'][slice_number] += fraction;
-        if (parent != null && this.cpu['slices'][thread][parent][slice_number] >= fraction) {
+        if (parent !== null && this.cpu['slices'][thread][parent][slice_number] >= fraction) {
           this.cpu['slices'][thread][parent][slice_number] -= fraction;
           this.cpu['slices'][thread]['total'][slice_number] -= fraction;
         }
@@ -630,7 +608,7 @@ class Analyze {
           var available = Math.max(0.0, 1.0 - fraction);
           for (var slice_name in this.cpu['slices'][thread]) {
             if ((this.cpu['slices'][thread]).hasOwnProperty(slice_name)) {
-              if (slice_name != name) {
+              if (slice_name !== name) {
                 this.cpu['slices'][thread][slice_name][slice_number] =
                   Math.min(this.cpu['slices'][thread][slice_name][slice_number], available);
                 available = Math.max(0.0, (available - this.cpu['slices'][thread][slice_name][slice_number]));
@@ -662,7 +640,7 @@ class Analyze {
         else if (ignoreReqId.has(_request_id)) {
           continue;
         }
-        if (net_trace['name'] == 'ResourceSendRequest') {
+        if (net_trace['name'] === 'ResourceSendRequest') {
           var _url = net_trace['args']['data']['url'];
           if (_url.startsWith('chrome')) {
             ignoreReqId.add(_request_id);
@@ -685,7 +663,7 @@ class Analyze {
           }
           this.network[_request_id]['startTime'] = (_startTime - this.startTime) / 1000;
           if ('stackTrace' in net_trace['args']['data']) {
-            var _script_url = this.cleanArchiveURL(net_trace['args']['data']['stackTrace'][0]['url']);
+            var _script_url = net_trace['args']['data']['stackTrace'][0]['url'];
             if (_script_url.includes('#')) {
               _script_url = _script_url.split('#')[0];
             }
@@ -695,7 +673,7 @@ class Analyze {
             this.network[_request_id]['fromScript'] = 'Null';
           }
         }
-        else if (net_trace['name'] == 'ResourceReceiveResponse' && !(ignoreReqId.has(_request_id))) {
+        else if (net_trace['name'] === 'ResourceReceiveResponse' && !(ignoreReqId.has(_request_id))) {
           var _statusCode = net_trace['args']['data']['statusCode'];
           var _mimeType = net_trace['args']['data']['mimeType'];
           var _responseReceivedTime = net_trace['ts'];
@@ -704,13 +682,13 @@ class Analyze {
             (_responseReceivedTime - this.startTime) / 1000;
           this.network[_request_id]['mimeType'] = _mimeType;
         }
-        else if (net_trace['name'] == 'ResourceReceivedData' && !(ignoreReqId.has(_request_id))) {
+        else if (net_trace['name'] === 'ResourceReceivedData' && !(ignoreReqId.has(_request_id))) {
           var _encodedDataLength = net_trace['args']['data']['encodedDataLength'];
-          if (_encodedDataLength != 0 || !('transferSize' in this.network[_request_id])) {
+          if (_encodedDataLength !== 0 || !('transferSize' in this.network[_request_id])) {
             this.network[_request_id]['transferSize'] = _encodedDataLength;
           }
         }
-        else if (net_trace['name'] == 'ResourceFinish' && !(ignoreReqId.has(_request_id))) {
+        else if (net_trace['name'] === 'ResourceFinish' && !(ignoreReqId.has(_request_id))) {
           var _endTime = net_trace['ts'];
           var _didFail = net_trace['args']['data']['didFail'];
           if (!(_didFail)) {
@@ -727,23 +705,22 @@ class Analyze {
       resolve();
     });
   }
+
   //
   // ProcessLoadingEvents
   //
   processLoadingEvents(loading_trace_events) {
     return new Promise((resolve, reject) => {
-      var load_list = [];
-      var tmpStack = [];
-      //var ignoreReqId = new Set([]);
-      var _length = loading_trace_events.length;
-      for (var i = 0; i < _length; i++) {
-        var loading_event = loading_trace_events[i];
+      const load_list = [];
+      let tmpStack = [];
+      const _length = loading_trace_events.length;
+      for (let i = 0; i < _length; i++) {
+        const loading_event = loading_trace_events[i];
         loading_event['ts'] = (loading_event['ts'] - this.startTime) / 1000;
-        if (loading_event['ph'] == 'B' || loading_event['ph'] == 'E') {
-          if (loading_event['ph'] == 'B') {
+        if (loading_event['ph'] === 'B' || loading_event['ph'] === 'E') {
+          if (loading_event['ph'] === 'B') {
             tmpStack.push(loading_event);
-          }
-          else if (loading_event['ph'] == 'E') {
+          } else {
             if (tmpStack.length > 0) {
               tmpStack.push(loading_event);
             }
@@ -758,45 +735,43 @@ class Analyze {
           }
         }
         // ParseAuthorStyleSheet
-        else if (loading_event['ph'] == 'X') {
-          //# The ts parameter indicate star ttime of the 'complete (X)' event.
+        else if (loading_event['ph'] === 'X') {
+          // The ts parameter indicate star ttime of the 'complete (X)' event.
           loading_event['dur'] /= 1000;
           load_list.push([[loading_event]]);
         }
       }
-      var _length2 = load_list.length;
-      for (var i = 0; i < _length2; i++) {
+      const _length2 = load_list.length;
+      for (let i = 0; i < _length2; i++) {
         this.loading['Loading_' + i.toString()] = {};
         this.loading['Loading_' + i.toString()]['fromScript'] = null;
         this.loading['Loading_' + i.toString()]['styleSheetUrl'] = null;
         this.loading['Loading_' + i.toString()]['url'] = null;
-        var _name = load_list[i][0][0]['name'];
+        const _name = load_list[i][0][0]['name'];
         this.loading['Loading_' + i.toString()]['name'] = _name;
-        var _startTime = load_list[i][0][0]['ts'];
+        const _startTime = load_list[i][0][0]['ts'];
         this.loading['Loading_' + i.toString()]['startTime'] = _startTime;
         if (load_list[i][0][0]['args']['beginData'] !== undefined) {
-          var _pageURL = load_list[i][0][0]['args']['beginData']['url'].split('#')[0];
-          _pageURL = this.cleanArchiveURL(_pageURL);
+          const _pageURL = load_list[i][0][0]['args']['beginData']['url'].split('#')[0];
           this.loading['Loading_' + i.toString()]['url'] = _pageURL;
         }
-        if (load_list[i][0][0]['ph'] == 'B') {
-          _endTime = load_list[i][0][1]['ts'];
+        if (load_list[i][0][0]['ph'] === 'B') {
+          const _endTime = load_list[i][0][1]['ts'];
           this.loading['Loading_' + i.toString()]['endTime'] = _endTime;
           if ('stackTrace' in load_list[i][0][0]['args']['beginData']) {
-            var _scriptUrl = this.cleanArchiveURL(load_list[i][0][0]['args']['beginData']['stackTrace'][0]['url']);
+            let _scriptUrl = load_list[i][0][0]['args']['beginData']['stackTrace'][0]['url'];
             if (_scriptUrl.includes('#')) {
               _scriptUrl = _scriptUrl.split('#')[0];
             }
             this.loading['Loading_' + i.toString()]['fromScript'] = _scriptUrl;
           }
         }
-        else if (load_list[i][0][0]['ph'] == 'X') {
-          var _duration = load_list[i][0][0]['dur'];
-          var _endTime = _startTime + _duration;
+        else if (load_list[i][0][0]['ph'] === 'X') {
+          const _duration = load_list[i][0][0]['dur'];
+          const _endTime = _startTime + _duration;
           this.loading['Loading_' + i.toString()]['endTime'] = _endTime;
           if ('data' in load_list[i][0][0]['args']) {
-            var _styleSheetUrl = load_list[i][0][0]['args']['data']['styleSheetUrl'].split('#')[0];
-            _styleSheetUrl = this.cleanArchiveURL(_styleSheetUrl)
+            const _styleSheetUrl = load_list[i][0][0]['args']['data']['styleSheetUrl'].split('#')[0];
             this.loading['Loading_' + i.toString()]['styleSheetUrl'] = _styleSheetUrl;
           }
         }
@@ -807,9 +782,6 @@ class Analyze {
     });
   }
 
-  ///
-  //
-  ///
   processRenderingEvents(rendering_trace_events) {
     return new Promise((resolve, reject) => {
       var render_list = [];
@@ -818,11 +790,11 @@ class Analyze {
       for (var i = 0; i < _length; i++) {
         var render_event = rendering_trace_events[i];
         render_event['ts'] = (render_event['ts'] - this.startTime) / 1000;
-        if (render_event['ph'] == 'B' || render_event['ph'] == 'E') {
-          if (render_event['ph'] == 'B') {
+        if (render_event['ph'] === 'B' || render_event['ph'] === 'E') {
+          if (render_event['ph'] === 'B') {
             tmpStack.push(render_event);
           }
-          else if (render_event['ph'] == 'E') {
+          else if (render_event['ph'] === 'E') {
             if (tmpStack.length > 0) {
               tmpStack.push(render_event);
             }
@@ -836,7 +808,7 @@ class Analyze {
             tmpStack = [];
           }
         }
-        else if (render_event['ph'] == 'X') {
+        else if (render_event['ph'] === 'X') {
           if ('dur' in render_event) {
             render_event['dur'] /= 1000;
             render_list.push([[render_event]]);
@@ -850,11 +822,11 @@ class Analyze {
         this.rendering['Rendering_' + i.toString()]['startTime'] = _startTime;
         var _name = render_list[i][0][0]['name'];
         this.rendering['Rendering_' + i.toString()]['name'] = _name;
-        if (render_list[i][0][0]['ph'] == 'B') {
+        if (render_list[i][0][0]['ph'] === 'B') {
           var _endTime = render_list[i][0][1]['ts'];
           this.rendering['Rendering_' + i.toString()]['endTime'] = _endTime;
         }
-        else if (render_list[i][0][0]['ph'] == 'X') {
+        else if (render_list[i][0][0]['ph'] === 'X') {
           var _duration = render_list[i][0][0]['dur'];
           var _endTime = _startTime + _duration;
           this.rendering['Rendering_' + i.toString()]['endTime'] = _endTime;
@@ -876,11 +848,11 @@ class Analyze {
       for (var i = 0; i < _length; i++) {
         var paint_event = painting_trace_events[i];
         paint_event['ts'] = (paint_event['ts'] - this.startTime) / 1000;
-        if (paint_event['ph'] == 'B' || paint_event['ph'] == 'E') {
-          if (paint_event['ph'] == 'B') {
+        if (paint_event['ph'] === 'B' || paint_event['ph'] === 'E') {
+          if (paint_event['ph'] === 'B') {
             tmpStack.push(paint_event);
           }
-          else if (paint_event['ph'] == 'E') {
+          else if (paint_event['ph'] === 'E') {
             if (tmpStack.length > 0) {
               tmpStack.push(paint_event);
             }
@@ -894,7 +866,7 @@ class Analyze {
             tmpStack = [];
           }
         }
-        else if (paint_event['ph'] == 'X') {
+        else if (paint_event['ph'] === 'X') {
           if ('dur' in paint_event) {
             paint_event['dur'] /= 1000;
           }
@@ -911,7 +883,7 @@ class Analyze {
         this.painting['Painting_' + i.toString()]['startTime'] = _startTime;
         var _name = paint_list[i][0][0]['name'];
         this.painting['Painting_' + i.toString()]['name'] = _name;
-        if (paint_list[i][0][0]['ph'] == 'B') {
+        if (paint_list[i][0][0]['ph'] === 'B') {
           var _endTime = paint_list[i][0][1]['ts'];
           this.painting['Painting_' + i.toString()]['endTime'] = _endTime;
           if ('args' in paint_list[i][0][0]) {
@@ -924,7 +896,7 @@ class Analyze {
             this.painting['Painting_' + i.toString()]['layerTreeId'] = _layerTreeId;
           }
         }
-        else if (paint_list[i][0][0]['ph'] == 'X') {
+        else if (paint_list[i][0][0]['ph'] === 'X') {
           var _duration = paint_list[i][0][0]['dur'];
           var _endTime = _startTime + _duration;
           this.painting['Painting_' + i.toString()]['endTime'] = _endTime;
@@ -1015,12 +987,12 @@ class Analyze {
       for (let [_id, _load_dict] of this.loading) {
         if ('startTime' in _load_dict && _load_dict['startTime'] >= 0
           && 'endTime' in _load_dict && _load_dict['endTime'] >= 0) {
-          if ('url' in _load_dict && _load_dict['url'] != null) {
+          if ('url' in _load_dict && _load_dict['url'] !== null) {
             if (_load_dict['url'].startsWith('chrome')) {
               continue;
             }
           }
-          if ('fromScript' in _load_dict && _load_dict['fromScript'] != null) {
+          if ('fromScript' in _load_dict && _load_dict['fromScript'] !== null) {
             if (_load_dict['fromScript'].startsWith('chrome')) {
               continue;
             }
@@ -1068,7 +1040,7 @@ class Analyze {
         }
       }
       for (var _thread in this.script) {
-        if (this.script.hasOwnProperty(_thread) && _thread != 'main_thread' && _thread != _main_thread) {
+        if (this.script.hasOwnProperty(_thread) && _thread !== 'main_thread' && _thread !== _main_thread) {
           var scripts_non_main_thread = this.script[_thread];
           for (var _id in scripts_non_main_thread) {
             if (scripts_non_main_thread.hasOwnProperty(_id)) {
@@ -1198,7 +1170,7 @@ class Analyze {
     for (var i = 0; i < _length; i++) {
       var obj = this.all[i];
       if (obj[0].startsWith('Network')) {
-        if (obj[1]['mimeType'] == 'text/html') {
+        if (obj[1]['mimeType'] === 'text/html') {
           download_0 = obj;
           // console.log('download_0');
           // console.log(download_0);
@@ -1211,8 +1183,8 @@ class Analyze {
       for (var j = 0; j < _length; j++) {
         var obj = this.all[j];
         if (obj[0].startsWith('Loading')) {
-          if (obj[1]['name'] == 'ParseHTML' &&
-            obj[1]['url'] == download_0[1]['url']) {
+          if (obj[1]['name'] === 'ParseHTML' &&
+            obj[1]['url'] === download_0[1]['url']) {
             parse_0 = obj;
             break;
           }
@@ -1235,7 +1207,7 @@ class Analyze {
     var activity_startTime = activitiy_data['startTime'];
     var activity_endTime = activitiy_data['endTime'];
     var selected = ['', Infinity];
-    if (_type == 'network') {
+    if (_type === 'network') {
       var _length = this.networkLookupUrl[_url].length;
       for (var i = 0; i < _length; i++) {
         var net_id = this.networkLookupUrl[_url][i];
@@ -1249,12 +1221,12 @@ class Analyze {
           }
         }
       }
-      if (selected[0] == '') {
+      if (selected[0] === '') {
         return this.download0Id;
       }
       return selected[0];
     }
-    else if (_type == 'script') {
+    else if (_type === 'script') {
       if (_url in this.scriptLookupUrl) {
         var _length = this.scriptLookupUrl[_url].length;
 
@@ -1319,7 +1291,7 @@ class Analyze {
         }
       }
     }
-    if (selected[0] == '' || selected[0] == null) {
+    if (selected[0] === '' || selected[0] === null) {
       if (activity_startTime > this.allDict[this.parse0Id]['startTime']) {
         return this.parse0Id;
       }
@@ -1372,7 +1344,7 @@ class Analyze {
         }
       }
     }
-    if (selected[0] == '' || selected[0] == null) {
+    if (selected[0] === '' || selected[0] === null) {
       return null;
     }
     //print('In find_scripting_id', selected[0], activity_data)
@@ -1399,7 +1371,7 @@ class Analyze {
       }
     }
 
-    if (selected[0] == '' || selected[0] == null) {
+    if (selected[0] === '' || selected[0] === null) {
       //print('In find_scripting_id', selected[0], activity_data)
       return null;
     }
@@ -1454,7 +1426,7 @@ class Analyze {
       var a2_startTime = _tmp[0];
       var a1_triggered = _tmp[1];
       this.deps.push({ 'time': a1_triggered, 'a1': this.download0Id, 'a2': this.parse0Id })
-      if (a1_triggered == -1) {
+      if (a1_triggered === -1) {
         a1_triggered = this.allDict[this.download0Id]['endTime'];
       }
       this.depsParent[this.parse0Id].push([this.download0Id, a1_triggered]);
@@ -1476,13 +1448,13 @@ class Analyze {
               var _script_nodeId = this.findScriptingIdBeforeScripting(_nodeData);
             }
             //TODO this.allDict[_script_nodeId]['endTime'] > this.allDict[_parseID]['endTime'] misses processLoadingEvents
-            if (!(_script_nodeId == null) && this.allDict[_script_nodeId]['endTime'] > this.allDict[_parseID]['endTime']) {
+            if (!(_script_nodeId === null) && this.allDict[_script_nodeId]['endTime'] > this.allDict[_parseID]['endTime']) {
               _tmp = this.edgeStart(this.allDict[_script_nodeId]['endTime'],
                 this.allDict[_nodeId]['startTime']);
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_script_nodeId]['endTime'];
               }
               this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1495,7 +1467,7 @@ class Analyze {
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_parseID]['endTime'];
               }
               this.depsParent[_nodeId].push([_parseID, a1_triggered]);
@@ -1542,7 +1514,7 @@ class Analyze {
                   var a2_startTime = _tmp[0];
                   var a1_triggered = _tmp[1];
                   this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
-                  if (a1_triggered == -1) {
+                  if (a1_triggered === -1) {
                     a1_triggered = this.allDict[_script_nodeId]['endTime'];
                     this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
                     this.depsNext[_script_nodeId].push(_nodeId);
@@ -1577,7 +1549,7 @@ class Analyze {
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_parseID]['endTime'];
               }
               this.depsParent[_nodeId].push([_parseID, a1_triggered]);
@@ -1590,7 +1562,7 @@ class Analyze {
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _network_nodeId, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_network_nodeId]['endTime'];
               }
               this.depsParent[_nodeId].push([_network_nodeId, a1_triggered]);
@@ -1622,7 +1594,7 @@ class Analyze {
                   a1_triggered = this.allDict[_cssEvalId]['startTime'];
                 }
                 this.deps.push({ 'time': a1_triggered, 'a1': _cssEvalId, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_cssEvalId]['endTime'];
                 }
 
@@ -1634,13 +1606,13 @@ class Analyze {
             /// Find scripting before js_eval which finishes after it's download but before js_eval June2018
             var _script_nodeId = this.findScriptingIdBeforeScripting(_nodeData);
 
-            if (!(_script_nodeId == null) && this.allDict[_script_nodeId]['endTime'] > this.allDict[_network_nodeId]['endTime']) {
+            if (!(_script_nodeId === null) && this.allDict[_script_nodeId]['endTime'] > this.allDict[_network_nodeId]['endTime']) {
               _tmp = this.edgeStart(this.allDict[_script_nodeId]['endTime'],
                 this.allDict[_nodeId]['startTime']);
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_script_nodeId]['endTime'];
               }
               this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1649,7 +1621,7 @@ class Analyze {
             }
           }
           else if (_nodeId.startsWith('Loading')) {
-            if (_nodeData['name'] == 'ParseAuthorStyleSheet') {
+            if (_nodeData['name'] === 'ParseAuthorStyleSheet') {
               var _tmpurl = _nodeData['styleSheetUrl'].split('#')[0];
               try {
                 if (_tmpurl in this.networkLookupUrl) {
@@ -1682,7 +1654,7 @@ class Analyze {
                 var a2_startTime = _tmp[0];
                 var a1_triggered = _tmp[1];
                 this.deps.push({ 'time': a1_triggered, 'a1': _network_nodeId, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_network_nodeId]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_network_nodeId, a1_triggered]);
@@ -1692,14 +1664,14 @@ class Analyze {
                 // find latest scripting too
                 ///
                 var _script_nodeId = this.findScriptingId(_nodeData);
-                if (!(_script_nodeId == null)) {
+                if (!(_script_nodeId === null)) {
                   _tmp = this.edgeStart(this.allDict[_script_nodeId]['endTime'],
                     this.allDict[_nodeId]['startTime']);
                   var a2_startTime = _tmp[0];
                   var a1_triggered = _tmp[1];
                   this.deps.push({ 'time': a1_triggered, 'a1': _network_nodeId, 'a2': _nodeId });
                   this.fromScriptSet.add((_script_nodeId, _nodeId));
-                  if (a1_triggered == -1) {
+                  if (a1_triggered === -1) {
                     a1_triggered = this.allDict[_script_nodeId]['endTime'];
                   }
                   this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1715,7 +1687,7 @@ class Analyze {
                 var a1_triggered = _tmp[1];
 
                 this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_parseID]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_parseID, a1_triggered]);
@@ -1723,9 +1695,9 @@ class Analyze {
 
               }
             }
-            else if (_nodeData['name'] == 'ParseHTML' &&
+            else if (_nodeData['name'] === 'ParseHTML' &&
               ['Null', null, '', 'null'].includes(_nodeData['fromScript'])) {
-              if (_nodeData['startTime'] > this.allDict[this.parse0Id]['startTime'] && _nodeData['url'] != '') {
+              if (_nodeData['startTime'] > this.allDict[this.parse0Id]['startTime'] && _nodeData['url'] !== '') {
                 if (_nodeData['url'] in this.networkLookupUrl) {
                   if (this.networkLookupUrl[_nodeData['url']].length <= 1 &&
                     this.allDict[this.networkLookupUrl[_nodeData['url']][0]]['startTime'] < _nodeData['startTime']) {
@@ -1750,7 +1722,7 @@ class Analyze {
                 var a2_startTime = _tmp[0];
                 var a1_triggered = _tmp[1];
                 this.deps.push({ 'time': a1_triggered, 'a1': _network_nodeId, 'a2': _nodeId })
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_network_nodeId]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_network_nodeId, a1_triggered]);
@@ -1760,7 +1732,7 @@ class Analyze {
                 // find latest scripting too
                 ///
                 var _script_nodeId = this.findScriptingId(_nodeData);
-                if (!(_script_nodeId == null)) {
+                if (!(_script_nodeId === null)) {
                   _tmp = this.edgeStart(this.allDict[_script_nodeId]['endTime'],
                     this.allDict[_nodeId]['startTime']);
                   var a2_startTime = _tmp[0];
@@ -1768,7 +1740,7 @@ class Analyze {
                   this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
                   this.fromScriptSet.add([_script_nodeId, _nodeId]);
 
-                  if (a1_triggered == -1) {
+                  if (a1_triggered === -1) {
                     a1_triggered = this.allDict[_script_nodeId]['endTime'];
                   }
                   this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1784,7 +1756,7 @@ class Analyze {
                 var a2_startTime = _tmp[0];
                 var a1_triggered = _tmp[1];
                 this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_parseID]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_parseID, a1_triggered]);
@@ -1809,7 +1781,7 @@ class Analyze {
               else if (_nodeData['startTime'] > this.allDict[this.parse0Id]['startTime']) {
                 // find latest scripting too
                 var _script_nodeId = this.findScriptingId(_nodeData);
-                if (!(_script_nodeId == null)) {
+                if (!(_script_nodeId === null)) {
                   var _tmp = this.edgeStart(this.allDict[_script_nodeId]['endTime'],
                     this.allDict[_nodeId]['startTime']);
                   var a2_startTime = _tmp[0];
@@ -1817,7 +1789,7 @@ class Analyze {
                   this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
                   this.fromScriptSet.add([_script_nodeId, _nodeId]);
 
-                  if (a1_triggered == -1) {
+                  if (a1_triggered === -1) {
                     a1_triggered = this.allDict[_script_nodeId]['endTime'];
                   }
                   this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1834,14 +1806,14 @@ class Analyze {
                 var a2_startTime = _tmp[0];
                 var a1_triggered = _tmp[1];
                 this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_parseID]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_parseID, a1_triggered]);
                 this.depsNext[_parseID].push(_nodeId);
               }
             }
-            else if (_nodeData['name'] == 'ParseHTML' && !(['Null', null, '', 'null'].includes(_nodeData['fromScript']))) {
+            else if (_nodeData['name'] === 'ParseHTML' && !(['Null', null, '', 'null'].includes(_nodeData['fromScript']))) {
               // _script_nodeId = this.scriptLookupUrl[urldefrag(_nodeData['fromScript'])[0]]
               var _tmpurl = _nodeData['fromScript'].split('#')[0];
               if (_tmpurl in this.scriptLookupUrl) {
@@ -1857,7 +1829,7 @@ class Analyze {
                   var a2_startTime = _tmp[0];
                   var a1_triggered = _tmp[1];
                   this.deps.push({ 'time': a1_triggered, 'a1': _script_nodeId, 'a2': _nodeId });
-                  if (a1_triggered == -1) {
+                  if (a1_triggered === -1) {
                     a1_triggered = this.allDict[_script_nodeId]['endTime'];
                   }
                   this.depsParent[_nodeId].push([_script_nodeId, a1_triggered]);
@@ -1869,13 +1841,13 @@ class Analyze {
               // find latest scripting too
               ///
               var _middle_script_nodeId = this.findScriptingIdBeforeScripting(_nodeData);
-              if (!(_middle_script_nodeId == null)) {
+              if (!(_middle_script_nodeId === null)) {
                 _tmp = this.edgeStart(this.allDict[_middle_script_nodeId]['endTime'],
                   this.allDict[_nodeId]['startTime']);
                 var a2_startTime = _tmp[0];
                 var a1_triggered = _tmp[1];
                 this.deps.push({ 'time': a1_triggered, 'a1': _middle_script_nodeId, 'a2': _nodeId });
-                if (a1_triggered == -1) {
+                if (a1_triggered === -1) {
                   a1_triggered = this.allDict[_middle_script_nodeId]['endTime'];
                 }
                 this.depsParent[_nodeId].push([_middle_script_nodeId, a1_triggered]);
@@ -1890,7 +1862,7 @@ class Analyze {
               var a2_startTime = _tmp[0];
               var a1_triggered = _tmp[1];
               this.deps.push({ 'time': a1_triggered, 'a1': _parseID, 'a2': _nodeId });
-              if (a1_triggered == -1) {
+              if (a1_triggered === -1) {
                 a1_triggered = this.allDict[_parseID]['endTime'];
               }
               this.depsParent[_nodeId].push([_parseID, a1_triggered]);
@@ -1929,7 +1901,7 @@ class Analyze {
       var parent = source;
       var i = 0;
       this.criticalPath.push(source);
-      while (parent != this.download0Id && i < 1000) {
+      while (parent !== this.download0Id && i < 1000) {
         i += 1;
         if (parent in this.depsParent) {
           _result = this.findCpMaxEnd(this.depsParent[parent], tailTime);
@@ -2001,10 +1973,10 @@ class Analyze {
       var _length3 = this.loadingList.length;
       for (var idx3 = 0; idx3 < _length3; idx3++) {
         var load_obj = this.loadingList[idx3];
-        if (load_obj[1]['name'] == 'ParseHTML') {
+        if (load_obj[1]['name'] === 'ParseHTML') {
           var _url = load_obj[1]['url'];
         }
-        else if (load_obj[1]['name'] == 'ParseAuthorStyleSheet') {
+        else if (load_obj[1]['name'] === 'ParseAuthorStyleSheet') {
           var _url = load_obj[1]['styleSheetUrl'];
         }
         if (!(_url in this.ordered)) {
@@ -2209,7 +2181,7 @@ class Analyze {
       while (i >= 1) {
         nodeId = criticalPath[i];
         prev = criticalPath[i - 1];
-        if (i == cpLength - 1) {
+        if (i === cpLength - 1) {
           duration = parseFloat(this.allDict[nodeId]['endTime']) - parseFloat(this.allDict[nodeId]['startTime']);
         }
         else {
@@ -2221,7 +2193,7 @@ class Analyze {
         var arrLength = this.depsParent[nodeId].length;
         for (var j = 0; j < arrLength; j++) {
           var arr = this.depsParent[nodeId][j];
-          if (arr[0] == prev) {
+          if (arr[0] === prev) {
             endTime = parseFloat(arr[1]);
             break;
           }
