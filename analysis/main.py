@@ -155,17 +155,19 @@ def h2_vs_h3_v2(timings: object, sizes):
                     )
 
                     pvalue = ttest.pvalue
+                    pvalue = 0
 
                     # accept null hypothesis
                     if pvalue >= 0.01:
                         data.append(0)
                     # reject null hypothesis
                     else:
-                        diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
-                        data.append(diff)
-
-                        # diff = (min_h3_median - min_h2_median) / min_h2_median * 100
+                        # diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
                         # data.append(diff)
+
+                        diff = (min_h3_median - min_h2_median) / \
+                            min_h2_median * 100
+                        data.append(diff)
 
             # print(bad_cov)
 
@@ -201,11 +203,11 @@ def h2_vs_h3_v2(timings: object, sizes):
                 multiple = '_Multiple'
 
             plt.savefig(
-                '{}/Desktop/graphs/{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
+                '{}/Desktop/graphs_revised/{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
             # plt.show()
 
 
-def h2_vs_h3_v4(timings: object, groupings, sizes):
+def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
 
     for domain in DOMAINS:
 
@@ -239,7 +241,10 @@ def h2_vs_h3_v4(timings: object, groupings, sizes):
 
                     # get min_median
                     for client, times in timings[network][domain][size].items():
-                        times = times['speed-index']
+                        if useSI:
+                            times = times['speed-index']
+                        else:
+                            times = times['time']
 
                         median = np.median(times)
 
@@ -253,6 +258,20 @@ def h2_vs_h3_v4(timings: object, groupings, sizes):
                             min_h2_median = min(min_h2_median, median)
                             if min_h2_median == median:
                                 min_h2_client = client
+
+                    # check if both are normal distributions
+                    alpha = 0.01
+                    _, p1 = stats.normaltest(
+                        timings[network][domain][size][min_h2_client]['speed-index'])
+                    _, p2 = stats.normaltest(
+                        timings[network][domain][size][min_h3_client]['speed-index'])
+
+                    if p1 < alpha:
+                        print(
+                            f"{domain}, {size}, {min_h2_client} is not a normal distribution")
+                    if p2 < alpha:
+                        print(
+                            f"{domain}, {size}, {min_h3_client} is not a normal distribution")
 
                     # do t-test between min h2 and min h3 clients
                     ttest = stats.ttest_ind(
@@ -303,9 +322,13 @@ def h2_vs_h3_v4(timings: object, groupings, sizes):
             if sizes == WEBPAGE_SIZES:
                 multiple = '_Multiple'
 
+            si = ''
+            if useSI:
+                si = '_SI'
+
             plt.savefig(
-                '{}/Desktop/graphs/revised_{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
-            # plt.show()
+                '{}/Desktop/graphs_revised/{}_Extra_{}{}{}'.format(Path.home(), domain.capitalize(), condition, multiple, si), transparent=True)
+            plt.close()
 
 
 def facebook_patch(timings: object, sizes):
@@ -470,25 +493,25 @@ def client_consistency(timings: object):
                 row_labels.append('{}/{}'.format(domain, size))
                 row_data = []
 
+                min_median = math.inf
                 min_mean = math.inf
                 min_client = None
 
                 # get min_mean
                 for client, times in timings[dirname][domain][size].items():
-                    # skip firefox for now...
-                    if client.count('firefox') > 0:
-                        continue
-
                     if client.count('h2') > 0:
                         continue
 
                     mean = np.mean(times)
+                    median = np.median(times)
 
                     # h3 client
                     min_mean = min(min_mean, mean)
-                    if min_mean == mean:
+                    min_median = min(min_median, median)
+                    # if min_mean == mean:
+                    #     min_client = client
+                    if min_median == median:
                         min_client = client
-
                 # print(title, domain, size, min_mean)
 
                 mean_diffs = 0
@@ -500,26 +523,27 @@ def client_consistency(timings: object):
 
                     times = timings[dirname][domain][size][client]
 
-                    # skip firefox for now...
-                    if client.count('firefox') > 0:
-                        continue
-
                     ttest = stats.ttest_ind(
                         timings[dirname][domain][size][min_client],
                         times,
                         equal_var=False
                     )
 
+                    pvalue = ttest.pvalue
+                    pvalue = 0
+
                     # accept null hypothesis
-                    if ttest.pvalue >= 0.01:
+                    if pvalue >= 0.01:
                         row_data.append(0)
                     # reject null hypothesis
                     else:
-                        mean = np.mean(times)
-                        diff = (mean - min_mean) / min_mean * 100
-                        print(title, domain, size, client, diff)
-                        mean_diffs += diff
+                        median = np.median(times)
+                        diff = (median - min_median) / min_median * 100
                         row_data.append(diff)
+                        # mean = np.mean(times)
+                        # diff = (mean - min_mean) / min_mean * 100
+                        # print(title, domain, size, client, diff)
+                        # row_data.append(diff)
 
                 data.append(row_data)
 
@@ -540,7 +564,8 @@ def client_consistency(timings: object):
         )
         fig.tight_layout()
         plt.savefig(
-            '{}/Desktop/graphs/H3_{}'.format(Path.home(), title), transparent=True)
+            '{}/Desktop/graphs_revised/H3_{}'.format(Path.home(), title), transparent=True)
+        plt.close()
         # plt.show()
 
     percent_diffs.sort(key=lambda x: x[0], reverse=True)
@@ -741,9 +766,10 @@ def main():
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
     # check_data_lengths(timings)
-    # h2_vs_h3_v2(timings, SIZES)
-    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES)
-    # client_consistency(timings)
+    h2_vs_h3_v2(timings, SIZES)
+    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
+    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, False)
+    client_consistency(timings)
 
 
 if __name__ == "__main__":

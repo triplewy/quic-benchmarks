@@ -39,6 +39,7 @@ const TRACE_CATEGORIES = [
 const LIGHTHOUSE_CATEGORIES = [
     'first-contentful-paint',
     'first-meaningful-paint',
+    'largest-contentful-paint',
     'speed-index',
 ];
 
@@ -48,8 +49,9 @@ const ITERATIONS = 60;
 const HAR_DIR = Path.join(__dirname, '..', 'har');
 const ANALYSIS_DIR = Path.join(__dirname, '..', 'analysis_data');
 const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
-// const DOMAINS = ['google', 'facebook', 'cloudflare'];
-const DOMAINS = ['facebook'];
+const DOMAINS = ['google', 'cloudflare'];
+// const DOMAINS = ['facebook'];
+const SINGLE_SIZES = ['100KB', '1MB', '5MB'];
 const SIZES = ['small', 'medium', 'large'];
 // const SIZES = ['medium'];
 
@@ -126,62 +128,96 @@ const runChrome = async (urlString, isH3) => {
         gotoUrl = urlString;
     }
 
-    for (let j = 0; j < RETRIES; j += 1) {
-        // Restart browser for each iteration to make things fair...
-        deleteFolderRecursive('/tmp/chrome-profile');
-        const args = chromeArgs(isH3 ? [urlString] : null);
-        const browser = await puppeteer.launch({
-            headless: true,
-            defaultViewport: null,
-            args,
-        });
+    for (let i = 0; i < ITERATIONS; i += 1) {
+        console.log(`Iteration: ${i}`);
 
-        try {
-            const page = await browser.newPage();
-            const har = await new PuppeteerHar(page);
-
-            await har.start();
-            await page.goto(gotoUrl, {
-                timeout: 120000,
+        for (let j = 0; j < RETRIES; j += 1) {
+            // Restart browser for each iteration to make things fair...
+            deleteFolderRecursive('/tmp/chrome-profile');
+            const args = chromeArgs(isH3 ? [urlString] : null);
+            const browser = await puppeteer.launch({
+                headless: true,
+                defaultViewport: null,
+                args,
             });
 
-            const harResult = await har.stop();
-            const { entries } = harResult.log;
+            try {
+                const page = await browser.newPage();
+                const har = await new PuppeteerHar(page);
 
-            await page.close();
+                await har.start();
+                await page.goto(gotoUrl, {
+                    timeout: 120000,
+                });
 
-            const result = entries.filter((entry) => entry.request.url === urlString);
+                const harResult = await har.stop();
+                const { entries } = harResult.log;
 
-            if (result.length !== 1) {
-                console.error('Invalid HAR', result);
-                throw Error;
+                await page.close();
+
+                const result = entries.filter((entry) => entry.request.url === urlString);
+
+                if (result.length !== 1) {
+                    console.error('Invalid HAR', result);
+                    throw Error;
+                }
+
+                const entry = result[0];
+                const time = entry.time - entry.timings.blocked - entry.timings._queued - entry.timings.dns;
+                console.log(entry.response.httpVersion, time);
+
+                if (isH3 && entry.response.httpVersion === 'h3-29') {
+                    timings.push(time);
+                    break;
+                }
+
+                if (!isH3 && entry.response.httpVersion === 'h2') {
+                    timings.push(time);
+                    break;
+                }
+            } catch (error) {
+                console.log(j);
+                if (j === RETRIES - 1) {
+                    console.error('Exceeded retries');
+                    throw error;
+                }
+            } finally {
+                await browser.close();
             }
-
-            const entry = result[0];
-            const time = entry.time - entry.timings.blocked - entry.timings._queued - entry.timings.dns;
-            console.log(entry.response.httpVersion, time);
-
-            if (isH3 && entry.response.httpVersion === 'h3-29') {
-                timings.push(time);
-                break;
-            }
-
-            if (!isH3 && entry.response.httpVersion === 'h2') {
-                timings.push(time);
-                break;
-            }
-        } catch (error) {
-            console.log(j);
-            if (j === RETRIES - 1) {
-                console.error('Exceeded retries');
-                throw error;
-            }
-        } finally {
-            await browser.close();
         }
     }
 
     return timings;
+};
+
+const runBenchmarkOld = async (urlObj, dir, isH3) => {
+    const urlString = urlObj;
+
+    // Run benchmark
+    const result = await runChrome(urlString, isH3);
+
+    // Create directory
+    if (dir !== undefined) {
+        let timings = [];
+
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Read from file if exists
+        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        try {
+            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch (error) {
+            //
+        }
+
+        // Concat result times to existing data
+        timings.push(...result);
+
+        // Save data
+        fs.writeFileSync(file, JSON.stringify(timings));
+    }
 };
 
 const runBenchmark = async (urlString, dir, isH3) => {
@@ -219,6 +255,7 @@ const runChromeWeb = async (urlString, size, isH3) => {
         time: [],
         'first-contentful-paint': [],
         'first-meaningful-paint': [],
+        'largest-contentful-paint': [],
         'speed-index': [],
     };
 
@@ -335,6 +372,7 @@ const runBenchmarkWebOld = async (urlObj, dir, isH3) => {
             time: [],
             'first-contentful-paint': [],
             'first-meaningful-paint': [],
+            'largest-contentful-paint': [],
             'speed-index': [],
         };
 
@@ -509,8 +547,10 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
         return;
     }
 
+    const sizes = single ? SINGLE_SIZES : SIZES;
+
     for (const domain of DOMAINS) {
-        for (const size of SIZES) {
+        for (const size of sizes) {
             if (!(size in CONFIG[domain])) {
                 continue;
             }
@@ -521,12 +561,12 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
 
             if (single) {
                 console.log('Chrome: H2 - single object');
-                await runBenchmark(urlObj, harDir, false);
+                await runBenchmarkOld(urlObj, harDir, false);
                 console.log('Chrome: H3 - single object');
-                await runBenchmark(urlObj, harDir, true);
+                await runBenchmarkOld(urlObj, harDir, true);
             } else {
-                // console.log('Chrome: H2 - multi object');
-                // await runBenchmarkWebOld(urlObj, harDir, false);
+                console.log('Chrome: H2 - multi object');
+                await runBenchmarkWebOld(urlObj, harDir, false);
                 console.log('Chrome: H3 - multi object');
                 await runBenchmarkWebOld(urlObj, harDir, true);
             }

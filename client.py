@@ -24,9 +24,16 @@ LOCAL_CONFIG = {}
 with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'local.json'), mode='r') as f:
     LOCAL_CONFIG = json.load(f)
 
+ENDPOINTS = {}
+with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'endpoints.json'), mode='r') as f:
+    ENDPOINTS = json.load(f)
+
 RETRIES = 10
-ITERATIONS = 20
+ITERATIONS = 2
 LOCAL = False
+
+DOMAINS = ['google', 'facebook', 'cloudflare']
+SIZES = ['100KB', '1MB', '5MB']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
@@ -247,14 +254,14 @@ def main():
 
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('url')
+    # parser.add_argument('url')
     parser.add_argument('--dir')
     parser.add_argument('--local', action='store_true')
-    parser.add_argument(
-        '-n', type=int, help='number of iterations', default=10)
+    # parser.add_argument(
+    #     '-n', type=int, help='number of iterations', default=10)
 
     args = parser.parse_args()
-    url = args.url
+    # url = args.url
 
     if args.dir is not None:
         dirpath = Path(args.dir)
@@ -262,36 +269,48 @@ def main():
         dirpath = None
 
     LOCAL = args.local
-    ITERATIONS = args.n
+    # ITERATIONS = args.n
 
     doc_clients = list(DOCKER_CONFIG.keys())
     random.shuffle(doc_clients)
     # Not using chrome via python script for now
     clients = [x for x in doc_clients if x.count('chrome') == 0]
 
-    for client in clients:
-        if dirpath is None:
-            client_path = None
-        else:
-            client_path = Path.joinpath(dirpath, client)
+    for domain in DOMAINS:
+        for size in SIZES:
 
-        res = query(client, url, client_path)
+            hardir = Path.joinpath(dirpath, domain, size)
+            hardir.mkdir(parents=True, exist_ok=True)
 
-        print('mean: {}, std: {}'.format(np.mean(res), np.std(res)))
+            for client in clients:
+                # if dirpath is None:
+                #     client_path = None
+                # else:
+                #     client_path = Path.joinpath(dirpath, client)
 
-        if dirpath is not None:
-            filepath = Path.joinpath(dirpath, '{}.json'.format(client))
-            timings = []
-            try:
-                with open(filepath, 'r') as f:
-                    timings = json.load(f)
-            except:
-                pass
+                client_path = None
 
-            timings += res
+                url = ENDPOINTS[domain][size]
 
-            with open(filepath, 'w') as f:
-                json.dump(timings, f)
+                res = query(client, url, client_path)
+
+                print('mean: {}, std: {}'.format(np.mean(res), np.std(res)))
+
+                # dirpath = Path.joinpath(dirpath, domain, size)
+
+                if hardir is not None:
+                    filepath = Path.joinpath(hardir, '{}.json'.format(client))
+                    timings = []
+                    try:
+                        with open(filepath, 'r') as f:
+                            timings = json.load(f)
+                    except:
+                        pass
+
+                    timings += res
+
+                    with open(filepath, 'w') as f:
+                        json.dump(timings, f)
 
 
 if __name__ == "__main__":
