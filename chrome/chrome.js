@@ -42,12 +42,12 @@ const LIGHTHOUSE_CATEGORIES = [
 ];
 
 const RETRIES = 50;
-const ITERATIONS = 20;
+const ITERATIONS = 40;
 
 const HAR_DIR = Path.join(__dirname, '..', 'har');
 const ANALYSIS_DIR = Path.join(__dirname, '..', 'analysis_data');
 const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
-const DOMAINS = ['google', 'cloudflare', 'facebook'];
+const DOMAINS = ['google', 'facebook', 'cloudflare'];
 // const DOMAINS = ['facebook'];
 const SINGLE_SIZES = ['100KB', '1MB', '5MB'];
 const SIZES = ['small', 'medium', 'large'];
@@ -250,17 +250,20 @@ const runChromeWeb = async (urlString, size, isH3) => {
     const domains = [urlString];
 
     const timings = {
-        time: [],
         'first-contentful-paint': [],
         'first-meaningful-paint': [],
         'largest-contentful-paint': [],
         'speed-index': [],
     };
 
+    const traces = [];
+
     console.log(`${urlString}`);
 
     for (let i = 0; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
+
+        const wprofx = new Analyze();
 
         for (let j = 0; j < RETRIES; j += 1) {
             // This webpage incurs throttling
@@ -323,13 +326,13 @@ const runChromeWeb = async (urlString, size, isH3) => {
                 const payloadMb = (payloadBytes / 1048576).toFixed(2);
                 console.log(`Size: ${payloadMb} mb`);
 
-                if (payloadMb < size) {
-                    console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
-                    if (j === RETRIES - 1) {
-                        throw Error('Exceeded retries');
-                    }
-                    continue;
-                }
+                // if (payloadMb < size) {
+                //     console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
+                //     if (j === RETRIES - 1) {
+                //         throw Error('Exceeded retries');
+                //     }
+                //     continue;
+                // }
 
                 entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
 
@@ -339,13 +342,18 @@ const runChromeWeb = async (urlString, size, isH3) => {
 
                 console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
-                timings.time.push(time);
-
-                fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
+                const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
+                res.size = payloadMb;
+                res.time = time;
+                res.entries = entries;
 
                 LIGHTHOUSE_CATEGORIES.forEach((cat) => {
                     timings[cat].push(audits[cat].numericValue);
                 });
+
+                traces.push(res);
+
+                fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
 
                 break;
             } catch (error) {
@@ -360,31 +368,30 @@ const runChromeWeb = async (urlString, size, isH3) => {
             }
         }
     }
-    return timings;
+    return { timings, traces };
 };
 
-const runBenchmarkWebOld = async (urlObj, dir, isH3) => {
+const runBenchmarkWebOld = async (urlObj, harDir, traceDir, isH3) => {
     const { url: urlString, size } = urlObj;
 
     // Run benchmark
-    const result = await runChromeWeb(urlString, size, isH3);
+    const { timings: result, traces } = await runChromeWeb(urlString, size, isH3);
 
     // Create directory
-    if (dir !== undefined) {
+    if (harDir !== undefined) {
         let timings = {
-            time: [],
             'first-contentful-paint': [],
             'first-meaningful-paint': [],
             'largest-contentful-paint': [],
             'speed-index': [],
         };
 
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+        if (!fs.existsSync(harDir)) {
+            fs.mkdirSync(harDir, { recursive: true });
         }
 
         // Read from file if exists
-        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+        const file = Path.join(harDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
         try {
             timings = JSON.parse(fs.readFileSync(file, 'utf8'));
         } catch (error) {
@@ -398,6 +405,19 @@ const runBenchmarkWebOld = async (urlObj, dir, isH3) => {
 
         // Save data
         fs.writeFileSync(file, JSON.stringify(timings));
+    }
+
+    if (traceDir !== undefined) {
+        const realTraceDir = Path.join(traceDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
+
+        if (!fs.existsSync(realTraceDir)) {
+            fs.mkdirSync(realTraceDir, { recursive: true });
+        }
+
+        // Write all traces to disk as well
+        traces.forEach((trace, i) => {
+            fs.writeFileSync(Path.join(realTraceDir, `trace-${i}.json`), JSON.stringify(trace));
+        });
     }
 };
 
@@ -569,8 +589,13 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
             if (!(size in CONFIG[domain])) {
                 continue;
             }
+            if (domain === 'cloudflare' && size === 'medium') {
+                continue;
+            }
+
             const urlObj = CONFIG[domain][size];
             const harDir = Path.join(HAR_DIR, dir, domain, size);
+            const traceDir = Path.join(ANALYSIS_DIR, dir, domain, size);
 
             console.log(`${domain}/${size}`);
 
@@ -581,9 +606,9 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
                 await runBenchmarkOld(urlObj, harDir, true);
             } else {
                 console.log('Chrome: H2 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, false);
+                await runBenchmarkWebOld(urlObj, harDir, traceDir, false);
                 console.log('Chrome: H3 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, true);
+                await runBenchmarkWebOld(urlObj, harDir, traceDir, true);
             }
         }
     }
