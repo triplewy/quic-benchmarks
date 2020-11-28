@@ -44,9 +44,36 @@ NETWORK = [
     },
 ]
 
+NETWORK_V2 = [
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-10',
+            'loss-0dot1_delay-0_bw-10',
+            'loss-1_delay-0_bw-10',
+        ],
+        'title': '10mbps_Loss'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-100',
+            'loss-0dot1_delay-0_bw-100',
+            'loss-1_delay-0_bw-100',
+        ],
+        'title': '100mbps_Loss'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-10',
+            'loss-0_delay-50_bw-10',
+            'loss-0_delay-100_bw-10',
+        ],
+        'title': '10mbps_Delay'
+    },
+]
+
 SI_GROUPINGS = [
     {
-        'title': 'Extra Loss SI',
+        'title': 'Extra Loss',
         'items': [
             {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0%'},
             {'scenario': 'revised_loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
@@ -54,7 +81,7 @@ SI_GROUPINGS = [
         ]
     },
     {
-        'title': 'Extra Delay SI',
+        'title': 'Extra Delay',
         'items': [
             {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0ms'},
             {'scenario': 'revised_loss-0_delay-50_bw-10', 'title': '50ms'},
@@ -259,38 +286,9 @@ def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
                             if min_h2_median == median:
                                 min_h2_client = client
 
-                    # check if both are normal distributions
-                    alpha = 0.01
-                    _, p1 = stats.normaltest(
-                        timings[network][domain][size][min_h2_client]['speed-index'])
-                    _, p2 = stats.normaltest(
-                        timings[network][domain][size][min_h3_client]['speed-index'])
-
-                    if p1 < alpha:
-                        print(
-                            f"{domain}, {size}, {min_h2_client} is not a normal distribution")
-                    if p2 < alpha:
-                        print(
-                            f"{domain}, {size}, {min_h3_client} is not a normal distribution")
-
-                    # do t-test between min h2 and min h3 clients
-                    ttest = stats.ttest_ind(
-                        timings[network][domain][size][min_h2_client]['speed-index'],
-                        timings[network][domain][size][min_h3_client]['speed-index'],
-                        equal_var=False
-                    )
-
-                    pvalue = ttest.pvalue
-                    pvalue = 0
-
-                    # accept null hypothesis
-                    if pvalue >= 0.01:
-                        data.append(0)
-                    # reject null hypothesis
-                    else:
-                        diff = (min_h3_median - min_h2_median) / \
-                            min_h2_median * 100
-                        data.append(diff)
+                    diff = (min_h3_median - min_h2_median) / \
+                        min_h2_median * 100
+                    data.append(diff)
 
             print('{} - {}'.format(domain.capitalize(), grouping['title']))
             fig, ax = plt.subplots()
@@ -572,6 +570,69 @@ def client_consistency(timings: object):
     # print(percent_diffs)
 
 
+def h2_vs_h3_v5(timings: object):
+    for obj in NETWORK_V2:
+        dirnames = obj['dirnames']
+        title = obj['title']
+        data = []
+        row_labels = []
+        col_labels = ['0%', '0.1%', '1%']
+
+        for domain in DOMAINS:
+
+            for i, size in enumerate(SIZES):
+                row_labels.append('{}/{}'.format(domain, size))
+                row_data = []
+
+                for dirname in dirnames:
+
+                    min_h3_median = math.inf
+                    min_h3_client = None
+
+                    min_h2_median = math.inf
+                    min_h2_client = None
+
+                    for client, times in timings[dirname][domain][size].items():
+
+                        median = np.median(times)
+
+                        # h3 client
+                        if client.count('h3') > 0:
+                            min_h3_median = min(min_h3_median, median)
+                            if min_h3_median == median:
+                                min_h3_client = client
+                        # h2 client
+                        else:
+                            min_h2_median = min(min_h2_median, median)
+                            if min_h2_median == median:
+                                min_h2_client = client
+
+                    diff = (min_h3_median - min_h2_median) / \
+                        min_h2_median * 100
+                    row_data.append(diff)
+
+                data.append(row_data)
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        print(title)
+        im, cbar = heatmap(
+            np.transpose(data),
+            col_labels,
+            row_labels,
+            ax=ax,
+            cmap="bwr",
+            # cbarlabel="Percent difference",
+            vmin=-20,
+            vmax=20,
+            rotation=20,
+            show_cbar=True,
+        )
+        fig.tight_layout()
+        plt.savefig(
+            '{}/Desktop/graphs_revised/H2vsH3_{}'.format(Path.home(), title), transparent=True)
+        plt.close()
+
+
 def check_data_lengths(timings):
     for obj in NETWORK:
         dirname = obj['dirname']
@@ -765,11 +826,11 @@ def main():
 
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
-    # check_data_lengths(timings)
-    h2_vs_h3_v2(timings, SIZES)
+    # h2_vs_h3_v5(timings)
+    # h2_vs_h3_v2(timings, SIZES)
     h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
     h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, False)
-    client_consistency(timings)
+    # client_consistency(timings)
 
 
 if __name__ == "__main__":

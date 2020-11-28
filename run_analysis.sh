@@ -10,10 +10,4 @@ SIZE=$5
 
 ANALYSIS_DIR="loss-${LOSS}_delay-${DELAY}_bw-${BW}"
 
-for _ in {0..10}
-do
-    # h2
-    node $BASEDIR/chrome/chrome.js --analysis --dir $ANALYSIS_DIR --domain $DOMAIN --size $SIZE
-    # h3
-    node $BASEDIR/chrome/chrome.js --analysis --h3 --dir $ANALYSIS_DIR --domain $DOMAIN --size $SIZE
-done
+node $BASEDIR/chrome/chrome.js --analysis --dir $ANALYSIS_DIR --domain $DOMAIN --size $SIZE

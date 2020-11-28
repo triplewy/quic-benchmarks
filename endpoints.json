@@ -4,14 +4,14 @@
         "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
         "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
         "small": {
-            "url": "https://www.facebook.com/",
-            "numResources": 30,
-            "size": 0.31
+            "url": "https://about.instagram.com/sitemap/",
+            "numResources": 18,
+            "size": 0.43
         },
         "medium": {
-            "url": "https://www.instagram.com/about/jobs/",
-            "numResources": 25,
-            "size": 1.30
+            "url": "https://www.facebook.com/",
+            "numResources": 59,
+            "size": 1.09
         },
         "large": {
             "url": "https://www.facebook.com/business/marketing-partners/",
@@ -30,13 +30,13 @@
         },
         "medium": {
             "url": "https://careers.google.com/teams/",
-            "numResources": 33,
-            "size": 1.39
+            "numResources": 37,
+            "size": 1.53
         },
         "large": {
             "url": "https://store.google.com/us/category/phones?hl=en-US",
             "numResources": 98,
-            "size": 1.86
+            "size": 1.81
         }
     },
     "cloudflare": {
@@ -50,8 +50,8 @@
         },
         "medium": {
             "url": "https://dash.cloudflare.com/login/",
-            "numResources": 19,
-            "size": 1.72
+            "numResources": 40,
+            "size": 1.71
         }
     }
 }

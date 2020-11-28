@@ -18,8 +18,6 @@ const lighthouse = require('lighthouse');
 const chromeHar = require('chrome-har');
 const Analyze = require('./wprofx/analyze');
 
-const wprofx = new Analyze();
-
 const TRACE_CATEGORIES = [
     '-*',
     'toplevel',
@@ -44,16 +42,16 @@ const LIGHTHOUSE_CATEGORIES = [
 ];
 
 const RETRIES = 50;
-const ITERATIONS = 60;
+const ITERATIONS = 20;
 
 const HAR_DIR = Path.join(__dirname, '..', 'har');
 const ANALYSIS_DIR = Path.join(__dirname, '..', 'analysis_data');
 const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
-const DOMAINS = ['google', 'cloudflare'];
+const DOMAINS = ['google', 'cloudflare', 'facebook'];
 // const DOMAINS = ['facebook'];
 const SINGLE_SIZES = ['100KB', '1MB', '5MB'];
 const SIZES = ['small', 'medium', 'large'];
-// const SIZES = ['medium'];
+// const SIZES = ['small'];
 
 fs.mkdirSync('/tmp/netlog', { recursive: true });
 
@@ -280,16 +278,19 @@ const runChromeWeb = async (urlString, size, isH3) => {
             });
 
             try {
-                const { lhr: { audits }, artifacts } = await lighthouse(
+                const { lhr: { audits }, artifacts, report } = await lighthouse(
                     urlString,
                     {
                         port: (new URL(browser.wsEndpoint())).port,
-                        output: 'json',
+                        output: 'html',
                     },
                     {
                         extends: 'lighthouse:default',
                         settings: {
+                            additionalTraceCategories: TRACE_CATEGORIES.join(','),
                             onlyAudits: LIGHTHOUSE_CATEGORIES,
+                            throttlingMethod: 'provided',
+                            emulatedFormFactor: 'none',
                         },
                     },
                 );
@@ -339,6 +340,8 @@ const runChromeWeb = async (urlString, size, isH3) => {
                 console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
                 timings.time.push(time);
+
+                fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
 
                 LIGHTHOUSE_CATEGORIES.forEach((cat) => {
                     timings[cat].push(audits[cat].numericValue);
@@ -399,92 +402,102 @@ const runBenchmarkWebOld = async (urlObj, dir, isH3) => {
 };
 
 const runChromeTracing = async (urlString, size, isH3) => {
+    const results = [];
     const domains = [urlString];
 
     console.log(`${urlString}`);
 
-    for (let j = 0; j < RETRIES; j += 1) {
-        // Restart browser for each iteration to make things fair...
-        deleteFolderRecursive('/tmp/chrome-profile', { recursive: true });
-        const args = chromeArgs(isH3 ? domains : null);
-        const browser = await puppeteer.launch({
-            headless: true,
-            args,
-        });
+    for (let i = 0; i < ITERATIONS; i += 1) {
+        console.log(`Iteration: ${i}`);
 
-        try {
-            const page = await browser.newPage();
-            const har = await new PuppeteerHar(page);
+        const wprofx = new Analyze();
 
-            await har.start();
-            await page.tracing.start({ categories: TRACE_CATEGORIES });
-
-            await page.goto(urlString, {
-                timeout: 120000,
+        for (let j = 0; j < RETRIES; j += 1) {
+            // Restart browser for each iteration to make things fair...
+            deleteFolderRecursive('/tmp/chrome-profile', { recursive: true });
+            const args = chromeArgs(isH3 ? domains : null);
+            const browser = await puppeteer.launch({
+                headless: true,
+                args,
             });
 
-            const harResult = await har.stop();
-            const tracing = await page.tracing.stop();
+            try {
+                const page = await browser.newPage();
+                const har = await new PuppeteerHar(page);
 
-            await page.close();
+                await har.start();
+                await page.tracing.start({ categories: TRACE_CATEGORIES });
 
-            const { entries } = harResult.log;
+                await page.goto(urlString, {
+                    timeout: 120000,
+                });
 
-            const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
-            const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
+                const harResult = await har.stop();
+                const tracing = await page.tracing.stop();
 
-            if (isH3 && numH2 > 0) {
-                console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
-                if (urlString === 'https://www.facebook.com/') {
-                    domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
-                } else {
-                    domains.push(...entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                await page.close();
+
+                const { entries } = harResult.log;
+
+                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
+                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
+
+                if (isH3 && numH2 > 0) {
+                    console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                    if (urlString === 'https://www.facebook.com/') {
+                        domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
+                    } else {
+                        domains.push(...entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                    }
+                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
+                    if (j === RETRIES - 1) {
+                        throw Error('Exceeded retries');
+                    }
+                    continue;
                 }
-                console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
+
+                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
+                const payloadMb = (payloadBytes / 1048576).toFixed(2);
+                console.log(`Size: ${payloadMb} mb`);
+
+                if (payloadMb < size) {
+                    console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
+                    if (j === RETRIES - 1) {
+                        throw Error('Exceeded retries');
+                    }
+                    continue;
+                }
+
+                entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
+
+                const start = entries[0]._requestTime * 1000;
+                const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
+                const time = end - start;
+
+                console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
+
+                const data = JSON.parse(tracing.toString());
+                const res = await wprofx.analyzeTrace(data.traceEvents);
+
+                res.size = payloadMb;
+                res.time = time;
+                res.entries = entries;
+
+                results.push(res);
+                break;
+            } catch (error) {
+                console.error(error);
                 if (j === RETRIES - 1) {
-                    throw Error('Exceeded retries');
+                    console.error('Exceeded retries');
+                    throw error;
                 }
-                continue;
+            } finally {
+                await browser.close();
             }
-
-            const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
-            const payloadMb = (payloadBytes / 1048576).toFixed(2);
-            console.log(`Size: ${payloadMb} mb`);
-
-            if (payloadMb < size) {
-                console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
-                if (j === RETRIES - 1) {
-                    throw Error('Exceeded retries');
-                }
-                continue;
-            }
-
-            entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
-
-            const start = entries[0]._requestTime * 1000;
-            const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
-            const time = end - start;
-
-            const data = JSON.parse(tracing.toString());
-            const res = await wprofx.analyzeTrace(data.traceEvents);
-
-            res.size = payloadMb;
-            res.time = time;
-            res.entries = entries;
-
-            return res;
-        } catch (error) {
-            console.error(error);
-            if (j === RETRIES - 1) {
-                console.error('Exceeded retries');
-                throw error;
-            }
-        } finally {
-            await browser.close();
         }
     }
 
-    return null;
+    return results;
 };
 
 const runBenchmarkWeb = async (urlObj, dir, isH3) => {
@@ -500,13 +513,15 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
         }
     }
 
-    const res = await runChromeTracing(urlString, size, isH3);
+    const results = await runChromeTracing(urlString, size, isH3);
 
     if (realDir !== undefined) {
-        const file = Path.join(realDir, `${short.generate()}.json`);
+        results.forEach((res) => {
+            const file = Path.join(realDir, `${short.generate()}.json`);
 
-        // Save data
-        fs.writeFileSync(file, JSON.stringify(res));
+            // Save data
+            fs.writeFileSync(file, JSON.stringify(res));
+        });
     }
 };
 
@@ -517,7 +532,6 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
     parser.add_argument('--dir');
     parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)' });
     parser.add_argument('--analysis', { action: argparse.BooleanOptionalAction, default: false, help: 'Perform critical path analysis on web-page' });
-    parser.add_argument('--h3', { action: argparse.BooleanOptionalAction, default: false, help: 'Use H3' });
     parser.add_argument('--domain');
     parser.add_argument('--size');
     const cliArgs = parser.parse_args();
@@ -527,7 +541,6 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
         dir,
         single,
         analysis,
-        h3,
         domain: analysisDomain,
         size: analysisSize,
     } = cliArgs;
@@ -541,8 +554,10 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
 
         const urlObj = CONFIG[analysisDomain][analysisSize];
 
-        console.log(`Chrome: ${h3 ? 'H3' : 'H2'} - multi object analysis`);
-        await runBenchmarkWeb(urlObj, analysisDir, h3);
+        console.log('Chrome: H3 - multi object analysis');
+        await runBenchmarkWeb(urlObj, analysisDir, true);
+        console.log('Chrome: H2 - multi object analysis');
+        await runBenchmarkWeb(urlObj, analysisDir, false);
 
         return;
     }

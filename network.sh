@@ -3,7 +3,7 @@ set -e
 
 start_stop=$1
 mode=$2
-modes=("loss-0_delay-0_bw-10")
+modes=("loss-0_delay-0_bw-10" 3G DSL Edge LTE "Very Bad Network" "Wi-Fi" "Wi-Fi 802.11ac")
 
 if [[ $start_stop == "stop" ]]; then
     echo "Resetting network conditioning..."
@@ -32,11 +32,11 @@ if [[ $start_stop == "start" ]]; then
     fi
 
     if [[ "$mode" == "loss-0_delay-0_bw-10" ]]; then
-        down_bandwidth="0Kbit/s"
-        down_packets_dropped="1.0"
+        down_bandwidth="1Mbit/s"
+        down_packets_dropped="0.0"
         down_delay="0"
-        up_bandwidth="0Kbit/s"
-        up_packets_dropped="1.0"
+        up_bandwidth="1Mbit/s"
+        up_packets_dropped="0.0"
         up_delay="0"
     elif [[ "$mode" == "3G" ]]; then
         down_bandwidth="780Kbit/s"
@@ -90,10 +90,12 @@ if [[ $start_stop == "start" ]]; then
     fi
     echo "Starting network conditioning..."
     (cat /etc/pf.conf && echo "dummynet-anchor \"conditioning\"" && echo "anchor \"conditioning\"") | sudo pfctl -f -
-    sudo dnctl pipe 1 config bw "$down_bandwidth" plr "$down_packets_dropped" delay "$down_delay"
-    sudo dnctl pipe 2 config bw "$up_bandwidth" plr "$up_packets_dropped" delay "$up_delay"
-    echo "dummynet out quick proto tcp from any to any pipe 1" | sudo pfctl -a conditioning -f -
-    echo "dummynet in quick proto tcp from any to any pipe 2" | sudo pfctl -a conditioning -f -
+    sudo dnctl pipe 1 config bw "$down_bandwidth" plr "$down_packets_dropped" delay "$down_delay" noerror
+    sudo dnctl pipe 2 config bw "$up_bandwidth" plr "$up_packets_dropped" delay "$up_delay" noerror
+    echo "dummynet in quick proto tcp from any to any pipe 1" | sudo pfctl -a conditioning -f -
+    echo "dummynet in quick proto udp from any to any pipe 1" | sudo pfctl -a conditioning -f -
+    echo "dummynet out quick proto tcp from any to any pipe 2" | sudo pfctl -a conditioning -f -
+    echo "dummynet out quick proto udp from any to any pipe 2" | sudo pfctl -a conditioning -f -
     set +e
     sudo pfctl -e
     echo "done"
