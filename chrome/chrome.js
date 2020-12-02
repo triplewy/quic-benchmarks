@@ -196,6 +196,18 @@ const runChrome = async (urlString, isH3) => {
                 } finally {
                     await browser.close();
                 }
+
+                const netlogRaw = fs.readFileSync('/tmp/netlog/chrome.json', { encoding: 'utf-8' });
+                let netlog;
+                try {
+                    netlog = JSON.parse(netlog);
+                } catch (error) {
+                    // netlog did not flush completely
+                    netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
+                } finally {
+                    fs.writeFileSync(`/tmp/netlog/chrome-${i}.json`);
+                }
+
                 break;
             } catch (error) {
                 console.error(error);
@@ -282,99 +294,114 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
         const wprofx = new Analyze();
 
         for (let j = 0; j < RETRIES; j += 1) {
-            // Restart browser for each iteration to make things fair...
-            deleteFolderRecursive('/tmp/chrome-profile');
-            const args = chromeArgs(isH3 ? domains : null);
-            const browser = await puppeteer.launch({
-                headless: true,
-                defaultViewport: null,
-                args,
-            });
-
             try {
-                const { lhr: { audits }, artifacts, report } = await lighthouse(
-                    urlString,
-                    {
-                        port: (new URL(browser.wsEndpoint())).port,
-                        output: 'html',
-                    },
-                    {
-                        extends: 'lighthouse:default',
-                        settings: {
-                            additionalTraceCategories: TRACE_CATEGORIES.join(','),
-                            onlyAudits: LIGHTHOUSE_CATEGORIES,
-                            throttlingMethod: 'provided',
-                            emulatedFormFactor: 'none',
-                        },
-                    },
-                );
-
-                if ('pageLoadError-defaultPass' in artifacts.devtoolsLogs) {
-                    await sleep(10000);
-                    throw Error('Webpage throttling');
-                }
-
-                const { log: { entries } } = chromeHar.harFromMessages(artifacts.devtoolsLogs.defaultPass);
-
-                const h2Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h2')
-                    .map((entry) => entry.request.url));
-                const h3Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h3-29')
-                    .map((entry) => entry.request.url));
-                const altSvc = new Set(entries.filter((entry) => hasAltSvc(entry))
-                    .map((entry) => entry.request.url));
-
-                const numH2 = h2Resources.size;
-                const numH3 = h3Resources.size;
-
-                const difference = new Set([...altSvc].filter((x) => !h3Resources.has(x)));
-
-                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
-                const payloadMb = (payloadBytes / 1048576).toFixed(2);
-                console.log(`Size: ${payloadMb} mb`);
-
-                if (isH3 && difference.size > 0) {
-                    console.log(difference);
-                    if (urlString === 'https://www.facebook.com/') {
-                        domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
-                    } else {
-                        domains.push(...difference);
-                    }
-                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
-                    if (j === RETRIES - 1) {
-                        throw Error('Exceeded retries');
-                    }
-                    continue;
-                }
-
-                // if (payloadMb < size) {
-                //     console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
-                //     if (j === RETRIES - 1) {
-                //         throw Error('Exceeded retries');
-                //     }
-                //     continue;
-                // }
-
-                entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
-
-                const start = entries[0]._requestTime * 1000;
-                const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
-                const time = end - start;
-
-                console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
+                // Restart browser for each iteration to make things fair...
+                deleteFolderRecursive('/tmp/chrome-profile');
+                const args = chromeArgs(isH3 ? domains : null);
+                const browser = await puppeteer.launch({
+                    headless: true,
+                    defaultViewport: null,
+                    args,
+                });
 
                 try {
-                    const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
-                    res.size = payloadMb;
-                    res.time = time;
-                    res.entries = entries;
-                    traces.push(res);
-                } catch (error) {
-                    console.error(error);
-                }
+                    const { lhr: { audits }, artifacts, report } = await lighthouse(
+                        urlString,
+                        {
+                            port: (new URL(browser.wsEndpoint())).port,
+                            output: 'html',
+                        },
+                        {
+                            extends: 'lighthouse:default',
+                            settings: {
+                                additionalTraceCategories: TRACE_CATEGORIES.join(','),
+                                onlyAudits: LIGHTHOUSE_CATEGORIES,
+                                throttlingMethod: 'provided',
+                                emulatedFormFactor: 'none',
+                            },
+                        },
+                    );
 
-                LIGHTHOUSE_CATEGORIES.forEach((cat) => {
-                    timings[cat].push(audits[cat].numericValue);
-                });
+                    if ('pageLoadError-defaultPass' in artifacts.devtoolsLogs) {
+                        await sleep(10000);
+                        throw Error('Webpage throttling');
+                    }
+
+                    const { log: { entries } } = chromeHar.harFromMessages(artifacts.devtoolsLogs.defaultPass);
+
+                    const h2Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h2')
+                        .map((entry) => entry.request.url));
+                    const h3Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h3-29')
+                        .map((entry) => entry.request.url));
+                    const altSvc = new Set(entries.filter((entry) => hasAltSvc(entry))
+                        .map((entry) => entry.request.url));
+
+                    const numH2 = h2Resources.size;
+                    const numH3 = h3Resources.size;
+
+                    const difference = new Set([...altSvc].filter((x) => !h3Resources.has(x)));
+
+                    const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
+                    const payloadMb = (payloadBytes / 1048576).toFixed(2);
+                    console.log(`Size: ${payloadMb} mb`);
+
+                    if (isH3 && difference.size > 0) {
+                        console.log(difference);
+                        if (urlString === 'https://www.facebook.com/') {
+                            domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
+                        } else {
+                            domains.push(...difference);
+                        }
+                        console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
+                        if (j === RETRIES - 1) {
+                            throw Error('Exceeded retries');
+                        }
+                        continue;
+                    }
+
+                    // if (payloadMb < size) {
+                    //     console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
+                    //     if (j === RETRIES - 1) {
+                    //         throw Error('Exceeded retries');
+                    //     }
+                    //     continue;
+                    // }
+
+                    entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
+
+                    const start = entries[0]._requestTime * 1000;
+                    const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
+                    const time = end - start;
+
+                    console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
+
+                    try {
+                        const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
+                        res.size = payloadMb;
+                        res.time = time;
+                        res.entries = entries;
+                        traces.push(res);
+                    } catch (error) {
+                        console.error(error);
+                    }
+
+                    LIGHTHOUSE_CATEGORIES.forEach((cat) => {
+                        timings[cat].push(audits[cat].numericValue);
+                    });
+
+                    // fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
+
+                    break;
+                } catch (error) {
+                    console.log('Retrying...');
+                    console.error(error);
+                    if (j === RETRIES - 1) {
+                        console.error('Exceeded retries');
+                        throw error;
+                    }
+                } finally {
+                    await browser.close();
+                }
 
                 const netlogRaw = fs.readFileSync('/tmp/netlog/chrome.json', { encoding: 'utf-8' });
                 let netlog;
@@ -386,18 +413,10 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
                 } finally {
                     fs.writeFileSync(`/tmp/netlog/chrome-${i}.json`);
                 }
-                // fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
 
                 break;
             } catch (error) {
-                console.log('Retrying...');
                 console.error(error);
-                if (j === RETRIES - 1) {
-                    console.error('Exceeded retries');
-                    throw error;
-                }
-            } finally {
-                await browser.close();
             }
         }
     }
