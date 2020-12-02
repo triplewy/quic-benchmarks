@@ -39,6 +39,7 @@ const LIGHTHOUSE_CATEGORIES = [
     'first-meaningful-paint',
     'largest-contentful-paint',
     'speed-index',
+    'interactive',
 ];
 
 const RETRIES = 50;
@@ -46,12 +47,14 @@ const ITERATIONS = 40;
 
 const HAR_DIR = Path.join(__dirname, '..', 'har');
 const ANALYSIS_DIR = Path.join(__dirname, '..', 'analysis_data');
+const NETLOG_DIR = Path.join(__dirname, '..', 'netlog');
+
 const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
 const DOMAINS = ['google', 'facebook', 'cloudflare'];
-// const DOMAINS = ['facebook'];
+// const DOMAINS = ['cloudflare'];
 const SINGLE_SIZES = ['100KB', '1MB', '5MB'];
 const SIZES = ['small', 'medium', 'large'];
-// const SIZES = ['small'];
+// const SIZES = ['medium'];
 
 fs.mkdirSync('/tmp/netlog', { recursive: true });
 
@@ -75,6 +78,16 @@ const toFixedNumber = (num, digits) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const hasAltSvc = (entry) => {
+    const { headers } = entry.response;
+    for (const header of headers) {
+        if (header.name === 'alt-svc' && header.value.includes('h3-29')) {
+            return true;
+        }
+    }
+    return false;
+};
 
 const chromeArgs = (urls) => {
     const args = [
@@ -246,31 +259,24 @@ const runBenchmark = async (urlString, dir, isH3) => {
     }
 };
 
-const runChromeWeb = async (urlString, size, isH3) => {
+const runChromeWeb = async (urlString, size, isH3, n) => {
     const domains = [urlString];
 
-    const timings = {
-        'first-contentful-paint': [],
-        'first-meaningful-paint': [],
-        'largest-contentful-paint': [],
-        'speed-index': [],
-    };
+    const timings = {};
+    LIGHTHOUSE_CATEGORIES.forEach((cat) => {
+        timings[cat] = [];
+    });
 
     const traces = [];
 
     console.log(`${urlString}`);
 
-    for (let i = 0; i < ITERATIONS; i += 1) {
+    for (let i = 0; i < n; i += 1) {
         console.log(`Iteration: ${i}`);
 
         const wprofx = new Analyze();
 
         for (let j = 0; j < RETRIES; j += 1) {
-            // This webpage incurs throttling
-            if (urlString === 'https://dash.cloudflare.com/login/' && isH3) {
-                await sleep(2000);
-            }
-
             // Restart browser for each iteration to make things fair...
             deleteFolderRecursive('/tmp/chrome-profile');
             const args = chromeArgs(isH3 ? domains : null);
@@ -305,15 +311,28 @@ const runChromeWeb = async (urlString, size, isH3) => {
 
                 const { log: { entries } } = chromeHar.harFromMessages(artifacts.devtoolsLogs.defaultPass);
 
-                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
-                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
+                const h2Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h2')
+                    .map((entry) => entry.request.url));
+                const h3Resources = new Set(entries.filter((entry) => entry.response.httpVersion === 'h3-29')
+                    .map((entry) => entry.request.url));
+                const altSvc = new Set(entries.filter((entry) => hasAltSvc(entry))
+                    .map((entry) => entry.request.url));
 
-                if (isH3 && numH2 > 0) {
-                    console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                const numH2 = h2Resources.size;
+                const numH3 = h3Resources.size;
+
+                const difference = new Set([...altSvc].filter((x) => !h3Resources.has(x)));
+
+                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
+                const payloadMb = (payloadBytes / 1048576).toFixed(2);
+                console.log(`Size: ${payloadMb} mb`);
+
+                if (isH3 && difference.size > 0) {
+                    console.log(difference);
                     if (urlString === 'https://www.facebook.com/') {
                         domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
                     } else {
-                        domains.push(...entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
+                        domains.push(...difference);
                     }
                     console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
                     if (j === RETRIES - 1) {
@@ -321,10 +340,6 @@ const runChromeWeb = async (urlString, size, isH3) => {
                     }
                     continue;
                 }
-
-                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
-                const payloadMb = (payloadBytes / 1048576).toFixed(2);
-                console.log(`Size: ${payloadMb} mb`);
 
                 // if (payloadMb < size) {
                 //     console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
@@ -342,18 +357,31 @@ const runChromeWeb = async (urlString, size, isH3) => {
 
                 console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
-                const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
-                res.size = payloadMb;
-                res.time = time;
-                res.entries = entries;
+                try {
+                    const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
+                    res.size = payloadMb;
+                    res.time = time;
+                    res.entries = entries;
+                    traces.push(res);
+                } catch (error) {
+                    console.error(error);
+                }
 
                 LIGHTHOUSE_CATEGORIES.forEach((cat) => {
                     timings[cat].push(audits[cat].numericValue);
                 });
 
-                traces.push(res);
-
-                fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
+                const netlogRaw = fs.readFileSync('/tmp/netlog/chrome.json', { encoding: 'utf-8' });
+                let netlog;
+                try {
+                    netlog = JSON.parse(netlog);
+                } catch (error) {
+                    // netlog did not flush completely
+                    netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
+                } finally {
+                    fs.writeFileSync(`/tmp/netlog/chrome-${i}.json`);
+                }
+                // fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
 
                 break;
             } catch (error) {
@@ -371,54 +399,67 @@ const runChromeWeb = async (urlString, size, isH3) => {
     return { timings, traces };
 };
 
-const runBenchmarkWebOld = async (urlObj, harDir, traceDir, isH3) => {
+const runBenchmarkWebOld = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
+    let timings = {};
+    LIGHTHOUSE_CATEGORIES.forEach((cat) => {
+        timings[cat] = [];
+    });
+
+    // Create directory
+    if (!fs.existsSync(harDir)) {
+        fs.mkdirSync(harDir, { recursive: true });
+    }
+
+    // Read from file if exists
+    const file = Path.join(harDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    try {
+        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+        //
+    }
+
+    if (timings['speed-index'].length >= ITERATIONS) {
+        return;
+    }
+
+    const prevLength = timings['speed-index'].length;
     const { url: urlString, size } = urlObj;
 
     // Run benchmark
-    const { timings: result, traces } = await runChromeWeb(urlString, size, isH3);
+    const { timings: result, traces } = await runChromeWeb(urlString, size, isH3, ITERATIONS - prevLength);
 
-    // Create directory
-    if (harDir !== undefined) {
-        let timings = {
-            'first-contentful-paint': [],
-            'first-meaningful-paint': [],
-            'largest-contentful-paint': [],
-            'speed-index': [],
-        };
+    // Concat result times to existing data
+    Object.keys(timings).forEach((key) => {
+        timings[key].push(...result[key]);
+    });
 
-        if (!fs.existsSync(harDir)) {
-            fs.mkdirSync(harDir, { recursive: true });
-        }
+    // Save data
+    fs.writeFileSync(file, JSON.stringify(timings));
 
-        // Read from file if exists
-        const file = Path.join(harDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-        try {
-            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-        } catch (error) {
-            //
-        }
+    const realTraceDir = Path.join(traceDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
 
-        // Concat result times to existing data
-        Object.keys(timings).forEach((key) => {
-            timings[key].push(...result[key]);
-        });
-
-        // Save data
-        fs.writeFileSync(file, JSON.stringify(timings));
+    if (!fs.existsSync(realTraceDir)) {
+        fs.mkdirSync(realTraceDir, { recursive: true });
     }
 
-    if (traceDir !== undefined) {
-        const realTraceDir = Path.join(traceDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
+    // Write all traces to disk as well
+    traces.forEach((trace, i) => {
+        fs.writeFileSync(Path.join(realTraceDir, `trace-${prevLength + i}.json`), JSON.stringify(trace));
+    });
 
-        if (!fs.existsSync(realTraceDir)) {
-            fs.mkdirSync(realTraceDir, { recursive: true });
-        }
+    // Write netlogs
+    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
 
-        // Write all traces to disk as well
-        traces.forEach((trace, i) => {
-            fs.writeFileSync(Path.join(realTraceDir, `trace-${i}.json`), JSON.stringify(trace));
-        });
+    if (!fs.existsSync(realNetlogDir)) {
+        fs.mkdirSync(realNetlogDir, { recursive: true });
     }
+
+    fs.readdirSync('/tmp/netlog').forEach((netlog) => {
+        const oldPath = Path.join('/tmp/netlog', netlog);
+        if (netlog !== 'chrome.json') {
+            fs.renameSync(oldPath, Path.join(realNetlogDir, netlog));
+        }
+    });
 };
 
 const runChromeTracing = async (urlString, size, isH3) => {
@@ -589,13 +630,11 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
             if (!(size in CONFIG[domain])) {
                 continue;
             }
-            if (domain === 'cloudflare' && size === 'medium') {
-                continue;
-            }
 
             const urlObj = CONFIG[domain][size];
             const harDir = Path.join(HAR_DIR, dir, domain, size);
             const traceDir = Path.join(ANALYSIS_DIR, dir, domain, size);
+            const netlogDir = Path.join(NETLOG_DIR, dir, domain, size);
 
             console.log(`${domain}/${size}`);
 
@@ -605,10 +644,10 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
                 console.log('Chrome: H3 - single object');
                 await runBenchmarkOld(urlObj, harDir, true);
             } else {
-                console.log('Chrome: H2 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, traceDir, false);
                 console.log('Chrome: H3 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, traceDir, true);
+                await runBenchmarkWebOld(urlObj, harDir, traceDir, netlogDir, true);
+                console.log('Chrome: H2 - multi object');
+                await runBenchmarkWebOld(urlObj, harDir, traceDir, netlogDir, false);
             }
         }
     }

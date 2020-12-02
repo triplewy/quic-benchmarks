@@ -215,19 +215,19 @@ def plot_ack(data, graph_title: str):
     # plt.title(graph_title)
     # ax2 = ax.twinx()
 
+    legend = [
+        mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='blue', label='Proxygen H3'),
+        # mpatches.Patch(color='green', label='Ngtcp2 H3'),
+        # mpatches.Patch(color='orange', label='Quiche H3'),
+        # mpatches.Patch(color='yellow', label='Aioquic H3'),
+    ]
+
     # legend = [
     #     mpatches.Patch(color='red', label='Chrome H3'),
     #     mpatches.Patch(color='blue', label='Proxygen H3'),
     #     mpatches.Patch(color='green', label='Ngtcp2 H3'),
-    #     mpatches.Patch(color='orange', label='Quiche H3'),
-    #     mpatches.Patch(color='yellow', label='Aioquic H3'),
     # ]
-
-    legend = [
-        mpatches.Patch(color='red', label='Chrome H3'),
-        mpatches.Patch(color='blue', label='Proxygen H3'),
-        mpatches.Patch(color='green', label='Ngtcp2 H3'),
-    ]
 
     for i, (obj, title) in enumerate(data):
         ack_ts = obj['ack_ts']
@@ -235,8 +235,9 @@ def plot_ack(data, graph_title: str):
         if title.count('.json') > 0:
             color = RED.popleft()
         elif title.count('chrome') > 0:
-            color = RED.popleft()
-            # color = BLUE.popleft()
+            # color = CHROME.popleft()
+            # color = RED.popleft()
+            color = BLUE.popleft()
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
             color = 'blue'
@@ -363,7 +364,7 @@ def main():
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.split('.')[0][-1] != '2':
+        if qlog.split('.')[0][-1] != '3':
             continue
 
         data.append(analyze_qlog(qlog))
@@ -371,7 +372,7 @@ def main():
     if pcapdir is not None:
         files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
         for pcap in files:
-            if pcap.split('.')[0][-1] != '1':
+            if pcap.split('.')[0][-1] != '3':
                 continue
 
             data.append(analyze_pcap(pcap))

@@ -5,6 +5,7 @@ import argparse
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
 
@@ -15,7 +16,7 @@ from pprint import pprint
 from scipy import stats
 from glob import glob
 
-DOMAINS = ['facebook', 'cloudflare', 'google']
+DOMAINS = ['google', 'facebook', 'cloudflare']
 SIZES = ['100KB', '1MB', '5MB']
 WEBPAGE_SIZES = ['small', 'medium', 'large']
 CLIENTS = ['chrome_h3', 'proxygen_h3',
@@ -51,15 +52,7 @@ NETWORK_V2 = [
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
         ],
-        'title': '10mbps_Loss'
-    },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-100',
-            'loss-0dot1_delay-0_bw-100',
-            'loss-1_delay-0_bw-100',
-        ],
-        'title': '100mbps_Loss'
+        'title': '10mbps_Loss_single'
     },
     {
         'dirnames': [
@@ -67,7 +60,23 @@ NETWORK_V2 = [
             'loss-0_delay-50_bw-10',
             'loss-0_delay-100_bw-10',
         ],
-        'title': '10mbps_Delay'
+        'title': '10mbps_Delay_single'
+    },
+    {
+        'dirnames': [
+            'revised_loss-0_delay-0_bw-10',
+            'revised_loss-0dot1_delay-0_bw-10',
+            'revised_loss-1_delay-0_bw-10',
+        ],
+        'title': '10mbps_Loss_multiple'
+    },
+    {
+        'dirnames': [
+            'revised_loss-0_delay-0_bw-10',
+            'revised_loss-0_delay-50_bw-10',
+            'revised_loss-0_delay-100_bw-10',
+        ],
+        'title': '10mbps_Delay_multiple'
     },
 ]
 
@@ -119,8 +128,7 @@ def h2_vs_h3_v2(timings: object, sizes):
             h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
             h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
             h2_vs_h3_col_labels = sizes
-            if domain == 'cloudflare' and sizes == WEBPAGE_SIZES:
-                h2_vs_h3_col_labels = sizes[:2]
+
             bad_cov = 0
 
             for i, item in enumerate(grouping['items']):
@@ -132,9 +140,6 @@ def h2_vs_h3_v2(timings: object, sizes):
                     continue
 
                 for size in sizes:
-
-                    if domain == 'cloudflare' and size == 'large':
-                        continue
 
                     min_h3_median = math.inf
                     min_h3_mean = math.inf
@@ -243,8 +248,6 @@ def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
             h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
             h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
             h2_vs_h3_col_labels = sizes
-            if domain == 'cloudflare' and sizes == WEBPAGE_SIZES:
-                h2_vs_h3_col_labels = sizes[:2]
 
             for i, item in enumerate(grouping['items']):
 
@@ -252,9 +255,6 @@ def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
                 network = item['scenario']
 
                 for size in sizes:
-
-                    if domain == 'cloudflare' and size == 'large':
-                        continue
 
                     min_h3_median = math.inf
                     min_h3_client = None
@@ -574,14 +574,27 @@ def h2_vs_h3_v5(timings: object):
     for obj in NETWORK_V2:
         dirnames = obj['dirnames']
         title = obj['title']
+
         data = []
         row_labels = []
-        col_labels = ['0%', '0.1%', '1%']
+
+        if title.count('Loss') > 0:
+            col_labels = ['0%', '0.1%', '1%']
+        else:
+            col_labels = ['0ms', '50ms', '100ms']
+
+        if title.count('multiple') > 0:
+            sizes = WEBPAGE_SIZES
+        else:
+            sizes = SIZES
 
         for domain in DOMAINS:
 
-            for i, size in enumerate(SIZES):
-                row_labels.append('{}/{}'.format(domain, size))
+            sub_data = []
+            sub_row_labels = []
+
+            for i, size in enumerate(sizes):
+                sub_row_labels.append('{}/{}'.format(domain, size))
                 row_data = []
 
                 for dirname in dirnames:
@@ -592,41 +605,58 @@ def h2_vs_h3_v5(timings: object):
                     min_h2_median = math.inf
                     min_h2_client = None
 
-                    for client, times in timings[dirname][domain][size].items():
+                    if dirname in timings:
+                        for client, times in timings[dirname][domain][size].items():
 
-                        median = np.median(times)
+                            if size in WEBPAGE_SIZES:
+                                median = np.median(times['speed-index'])
+                            else:
+                                median = np.median(times)
 
-                        # h3 client
-                        if client.count('h3') > 0:
-                            min_h3_median = min(min_h3_median, median)
-                            if min_h3_median == median:
-                                min_h3_client = client
-                        # h2 client
-                        else:
-                            min_h2_median = min(min_h2_median, median)
-                            if min_h2_median == median:
-                                min_h2_client = client
+                            # h3 client
+                            if client.count('h3') > 0:
+                                min_h3_median = min(min_h3_median, median)
+                                if min_h3_median == median:
+                                    min_h3_client = client
+                            # h2 client
+                            else:
+                                min_h2_median = min(min_h2_median, median)
+                                if min_h2_median == median:
+                                    min_h2_client = client
 
                     diff = (min_h3_median - min_h2_median) / \
                         min_h2_median * 100
                     row_data.append(diff)
 
-                data.append(row_data)
+                sub_data.append(row_data)
 
-        fig, ax = plt.subplots(figsize=(10, 5))
+            data.append(sub_data)
+            row_labels.append(sub_row_labels)
+
         print(title)
-        im, cbar = heatmap(
-            np.transpose(data),
-            col_labels,
-            row_labels,
-            ax=ax,
-            cmap="bwr",
-            # cbarlabel="Percent difference",
-            vmin=-20,
-            vmax=20,
-            rotation=20,
-            show_cbar=True,
-        )
+        fig, axs = plt.subplots(1, 3, figsize=(12, 4), gridspec_kw={
+                                'wspace': 0, 'hspace': 0})
+
+        for i, ax in enumerate(axs):
+            ax.set_aspect('equal')
+            im, cbar = heatmap(
+                np.transpose(data[i]),
+                col_labels,
+                row_labels[i],
+                ax=ax,
+                cmap="bwr",
+                # cbarlabel="Percent difference",
+                vmin=-25,
+                vmax=25,
+                rotation=20,
+                show_cbar=True if i == len(axs) - 1 else False,
+            )
+            # annotate_heatmap(
+            #     im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
+
+        for ax in axs.flat:
+            ax.label_outer()
+
         fig.tight_layout()
         plt.savefig(
             '{}/Desktop/graphs_revised/H2vsH3_{}'.format(Path.home(), title), transparent=True)
@@ -826,10 +856,9 @@ def main():
 
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
-    # h2_vs_h3_v5(timings)
+    h2_vs_h3_v5(timings)
     # h2_vs_h3_v2(timings, SIZES)
-    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
-    h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, False)
+    # h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
     # client_consistency(timings)
 
 
