@@ -117,8 +117,10 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     if dirpath is None:
         os.remove(logpath)
     else:
-        filepath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
-        os.rename(logpath, filepath)
+        with open(logpath, mode='r') as old:
+            newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+            with open(newpath, mode='w') as new:
+                new.write(old.read())
 
     return res
 

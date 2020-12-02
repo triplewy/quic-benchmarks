@@ -481,7 +481,8 @@ const runBenchmarkWeb = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
     fs.readdirSync('/tmp/netlog').forEach((netlog) => {
         const oldPath = Path.join('/tmp/netlog', netlog);
         if (netlog !== 'chrome.json') {
-            fs.renameSync(oldPath, Path.join(realNetlogDir, netlog));
+            const fileData = fs.readFileSync(oldPath, { encoding: 'utf-8' });
+            fs.writeFileSync(Path.join(realNetlogDir, netlog), fileData);
         }
     });
 };
