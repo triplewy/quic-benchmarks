@@ -17,19 +17,19 @@ DOCKER_CLIENT = docker.from_env()
 
 DOCKER_CONFIG = {}
 
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
+with open(Path.joinpath(Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
     DOCKER_CONFIG = json.load(f)
 
 LOCAL_CONFIG = {}
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'local.json'), mode='r') as f:
+with open(Path.joinpath(Path(__file__).parent.absolute(), 'local.json'), mode='r') as f:
     LOCAL_CONFIG = json.load(f)
 
 ENDPOINTS = {}
-with open(Path.joinpath(pathlib.Path(__file__).parent.absolute(), 'endpoints.json'), mode='r') as f:
+with open(Path.joinpath(Path(__file__).parent.absolute(), 'endpoints.json'), mode='r') as f:
     ENDPOINTS = json.load(f)
 
 RETRIES = 10
-ITERATIONS = 2
+ITERATIONS = 40
 LOCAL = False
 
 DOMAINS = ['google', 'facebook', 'cloudflare']
@@ -37,15 +37,28 @@ SIZES = ['100KB', '1MB', '5MB']
 
 Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
 
+HAR_DIR = Path.joinpath(Path(__file__).parent.absolute(), 'har')
+QLOG_DIR = Path.joinpath(Path(__file__).parent.absolute(), 'qlog')
 
-def query(client: str, url: str, dirpath: str):
+
+def benchmark(client: str, url: str, hardir: str, qlogdir: str):
     timings = []
 
-    for i in range(ITERATIONS):
-        print('{} - {} - Iteration: {}'.format(client, url, i))
+    if hardir is not None:
+        filepath = Path.joinpath(hardir, '{}.json'.format(client))
+        try:
+            with open(filepath, 'r') as f:
+                timings = json.load(f)
+        except:
+            pass
 
-        if dirpath is not None:
-            Path(dirpath).mkdir(parents=True, exist_ok=True)
+    dirpath = None
+    if qlogdir is not None:
+        dirpath = Path.joinpath(qlogdir, client)
+        Path(dirpath).mkdir(parents=True, exist_ok=True)
+
+    for i in range(ITERATIONS - len(timings)):
+        print('{} - {} - Iteration: {}'.format(client, url, i))
 
         if LOCAL:
             elapsed = run_subprocess(client, url, dirpath, i)
@@ -56,7 +69,8 @@ def query(client: str, url: str, dirpath: str):
         timings.append(elapsed)
         print(client, elapsed)
 
-    return timings
+    with open(filepath, 'w') as f:
+        json.dump(timings, f)
 
 
 def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
@@ -261,7 +275,6 @@ def main():
     #     '-n', type=int, help='number of iterations', default=10)
 
     args = parser.parse_args()
-    # url = args.url
 
     if args.dir is not None:
         dirpath = Path(args.dir)
@@ -279,38 +292,15 @@ def main():
     for domain in DOMAINS:
         for size in SIZES:
 
-            hardir = Path.joinpath(dirpath, domain, size)
+            hardir = Path.joinpath(HAR_DIR, dirpath, domain, size)
             hardir.mkdir(parents=True, exist_ok=True)
 
+            qlogdir = Path.joinpath(QLOG_DIR, dirpath, domain, size)
+            qlogdir.mkdir(parents=True, exist_ok=True)
+
             for client in clients:
-                # if dirpath is None:
-                #     client_path = None
-                # else:
-                #     client_path = Path.joinpath(dirpath, client)
-
-                client_path = None
-
                 url = ENDPOINTS[domain][size]
-
-                res = query(client, url, client_path)
-
-                print('mean: {}, std: {}'.format(np.mean(res), np.std(res)))
-
-                # dirpath = Path.joinpath(dirpath, domain, size)
-
-                if hardir is not None:
-                    filepath = Path.joinpath(hardir, '{}.json'.format(client))
-                    timings = []
-                    try:
-                        with open(filepath, 'r') as f:
-                            timings = json.load(f)
-                    except:
-                        pass
-
-                    timings += res
-
-                    with open(filepath, 'w') as f:
-                        json.dump(timings, f)
+                benchmark(client, url, hardir, qlogdir)
 
 
 if __name__ == "__main__":
