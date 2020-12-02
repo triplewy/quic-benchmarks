@@ -121,6 +121,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
             newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
             with open(newpath, mode='w') as new:
                 new.write(old.read())
+        os.remove(logpath)
 
     return res
 
