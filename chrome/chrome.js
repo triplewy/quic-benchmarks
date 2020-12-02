@@ -13,7 +13,6 @@ const argparse = require('argparse');
 const Path = require('path');
 const fs = require('fs');
 const url = require('url');
-const short = require('short-uuid');
 const lighthouse = require('lighthouse');
 const chromeHar = require('chrome-har');
 const Analyze = require('./wprofx/analyze');
@@ -399,7 +398,7 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
     return { timings, traces };
 };
 
-const runBenchmarkWebOld = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
+const runBenchmarkWeb = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
     let timings = {};
     LIGHTHOUSE_CATEGORIES.forEach((cat) => {
         timings[cat] = [];
@@ -462,166 +461,19 @@ const runBenchmarkWebOld = async (urlObj, harDir, traceDir, netlogDir, isH3) => 
     });
 };
 
-const runChromeTracing = async (urlString, size, isH3) => {
-    const results = [];
-    const domains = [urlString];
-
-    console.log(`${urlString}`);
-
-    for (let i = 0; i < ITERATIONS; i += 1) {
-        console.log(`Iteration: ${i}`);
-
-        const wprofx = new Analyze();
-
-        for (let j = 0; j < RETRIES; j += 1) {
-            // Restart browser for each iteration to make things fair...
-            deleteFolderRecursive('/tmp/chrome-profile', { recursive: true });
-            const args = chromeArgs(isH3 ? domains : null);
-            const browser = await puppeteer.launch({
-                headless: true,
-                args,
-            });
-
-            try {
-                const page = await browser.newPage();
-                const har = await new PuppeteerHar(page);
-
-                await har.start();
-                await page.tracing.start({ categories: TRACE_CATEGORIES });
-
-                await page.goto(urlString, {
-                    timeout: 120000,
-                });
-
-                const harResult = await har.stop();
-                const tracing = await page.tracing.stop();
-
-                await page.close();
-
-                const { entries } = harResult.log;
-
-                const numH2 = entries.filter((entry) => entry.response.httpVersion === 'h2').length;
-                const numH3 = entries.filter((entry) => entry.response.httpVersion === 'h3-29').length;
-
-                if (isH3 && numH2 > 0) {
-                    console.log(entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
-                    if (urlString === 'https://www.facebook.com/') {
-                        domains.push(...entries.filter((entry) => entry.response.httpVersion !== 'h3').map((entry) => entry.request.url));
-                    } else {
-                        domains.push(...entries.filter((entry) => entry.response.httpVersion === 'h2').map((entry) => entry.request.url));
-                    }
-                    console.log(`Not enough h3 resources, h2: ${numH2}, h3: ${numH3} `);
-                    if (j === RETRIES - 1) {
-                        throw Error('Exceeded retries');
-                    }
-                    continue;
-                }
-
-                const payloadBytes = entries.reduce((acc, entry) => acc + entry.response._transferSize, 0);
-                const payloadMb = (payloadBytes / 1048576).toFixed(2);
-                console.log(`Size: ${payloadMb} mb`);
-
-                if (payloadMb < size) {
-                    console.log(`Retrieved less than expected payload.Expected: ${size}, Got: ${payloadMb} `);
-                    if (j === RETRIES - 1) {
-                        throw Error('Exceeded retries');
-                    }
-                    continue;
-                }
-
-                entries.sort((a, b) => (a._requestTime * 1000 + a.time) - (b._requestTime * 1000 + b.time));
-
-                const start = entries[0]._requestTime * 1000;
-                const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
-                const time = end - start;
-
-                console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
-
-                const data = JSON.parse(tracing.toString());
-                const res = await wprofx.analyzeTrace(data.traceEvents);
-
-                res.size = payloadMb;
-                res.time = time;
-                res.entries = entries;
-
-                results.push(res);
-                break;
-            } catch (error) {
-                console.error(error);
-                if (j === RETRIES - 1) {
-                    console.error('Exceeded retries');
-                    throw error;
-                }
-            } finally {
-                await browser.close();
-            }
-        }
-    }
-
-    return results;
-};
-
-const runBenchmarkWeb = async (urlObj, dir, isH3) => {
-    const { url: urlString, size } = urlObj;
-
-    let realDir;
-
-    if (dir !== undefined) {
-        realDir = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}`);
-
-        if (!fs.existsSync(realDir)) {
-            fs.mkdirSync(realDir, { recursive: true });
-        }
-    }
-
-    const results = await runChromeTracing(urlString, size, isH3);
-
-    if (realDir !== undefined) {
-        results.forEach((res) => {
-            const file = Path.join(realDir, `${short.generate()}.json`);
-
-            // Save data
-            fs.writeFileSync(file, JSON.stringify(res));
-        });
-    }
-};
-
 (async () => {
     const parser = new argparse.ArgumentParser();
 
     // parser.add_argument('url');
     parser.add_argument('--dir');
     parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)' });
-    parser.add_argument('--analysis', { action: argparse.BooleanOptionalAction, default: false, help: 'Perform critical path analysis on web-page' });
-    parser.add_argument('--domain');
-    parser.add_argument('--size');
     const cliArgs = parser.parse_args();
 
     const {
         // url: urlString,
         dir,
         single,
-        analysis,
-        domain: analysisDomain,
-        size: analysisSize,
     } = cliArgs;
-
-    if (analysis) {
-        if (analysisDomain === undefined || analysisSize === undefined || dir === undefined) {
-            throw Error('Analysis not enough inputs');
-        }
-
-        const analysisDir = Path.join(ANALYSIS_DIR, dir, analysisDomain, analysisSize);
-
-        const urlObj = CONFIG[analysisDomain][analysisSize];
-
-        console.log('Chrome: H3 - multi object analysis');
-        await runBenchmarkWeb(urlObj, analysisDir, true);
-        console.log('Chrome: H2 - multi object analysis');
-        await runBenchmarkWeb(urlObj, analysisDir, false);
-
-        return;
-    }
 
     const sizes = single ? SINGLE_SIZES : SIZES;
 
@@ -645,9 +497,9 @@ const runBenchmarkWeb = async (urlObj, dir, isH3) => {
                 await runBenchmarkOld(urlObj, harDir, true);
             } else {
                 console.log('Chrome: H3 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, traceDir, netlogDir, true);
+                await runBenchmarkWeb(urlObj, harDir, traceDir, netlogDir, true);
                 console.log('Chrome: H2 - multi object');
-                await runBenchmarkWebOld(urlObj, harDir, traceDir, netlogDir, false);
+                await runBenchmarkWeb(urlObj, harDir, traceDir, netlogDir, false);
             }
         }
     }
