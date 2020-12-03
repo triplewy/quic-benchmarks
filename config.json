@@ -1,0 +1,31 @@
+{
+    "local": {
+        "description": "Use locally built clients or docker",
+        "value": true
+    },
+    "data_path": {
+        "description": "Path to save all benchmark related data",
+        "value": "./data"
+    },
+    "iterations": {
+        "description": "Number of iterations to run for each (network condition, endpoint, client) tuple",
+        "value": 3
+    },
+    "domains": [
+        "google",
+        "facebook",
+        "cloudflare"
+    ],
+    "sizes": {
+        "single": [
+            "100KB",
+            "1MB",
+            "5MB"
+        ],
+        "multi": [
+            "small",
+            "medium",
+            "large"
+        ]
+    }
+}

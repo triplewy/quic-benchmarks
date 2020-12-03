@@ -16,7 +16,6 @@ from docker.types import LogConfig
 DOCKER_CLIENT = docker.from_env()
 
 DOCKER_CONFIG = {}
-
 with open(Path.joinpath(Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
     DOCKER_CONFIG = json.load(f)
 
@@ -28,36 +27,46 @@ ENDPOINTS = {}
 with open(Path.joinpath(Path(__file__).parent.absolute(), 'endpoints.json'), mode='r') as f:
     ENDPOINTS = json.load(f)
 
+CONFIG = {}
+with open(Path.joinpath(Path(__file__).parent.absolute(), 'config.json'), mode='r') as f:
+    CONFIG = json.load(f)
+
 RETRIES = 10
-ITERATIONS = 40
-LOCAL = False
+ITERATIONS = CONFIG['iterations']['value']
+LOCAL = CONFIG['local']['value']
+DATA_PATH = Path.joinpath(
+    Path(__file__).parent.absolute(), CONFIG['data_path']['value'])
 
-DOMAINS = ['google', 'facebook', 'cloudflare']
-SIZES = ['100KB', '1MB', '5MB']
+TMP_DIR = Path.joinpath(DATA_PATH, 'tmp')
+TIME_DIR = Path.joinpath(DATA_PATH, 'timings')
+QLOG_DIR = Path.joinpath(DATA_PATH, 'qlogs')
 
-Path('/tmp/qlog').mkdir(parents=True, exist_ok=True)
+TMP_DIR.mkdir(parents=True, exist_ok=True)
+TIME_DIR.mkdir(parents=True, exist_ok=True)
+QLOG_DIR.mkdir(parents=True, exist_ok=True)
 
-HAR_DIR = Path.joinpath(Path(__file__).parent.absolute(), 'har')
-QLOG_DIR = Path.joinpath(Path(__file__).parent.absolute(), 'qlog')
+TMP_QLOG = Path.joinpath(TMP_DIR, 'qlog')
+TMP_QLOG.mkdir(parents=True, exist_ok=True)
 
 
-def benchmark(client: str, url: str, hardir: str, qlogdir: str):
+DOMAINS = CONFIG['domains']
+SIZES = CONFIG['sizes']['single']
+
+
+def benchmark(client: str, url: str, timedir: str, qlogdir: str):
     timings = []
 
-    if hardir is not None:
-        filepath = Path.joinpath(hardir, '{}.json'.format(client))
-        try:
-            with open(filepath, 'r') as f:
-                timings = json.load(f)
-        except:
-            pass
+    timings_path = Path.joinpath(timedir, '{}.json'.format(client))
+    try:
+        with open(timings_path, 'r') as f:
+            timings = json.load(f)
+    except:
+        pass
 
-    dirpath = None
-    if qlogdir is not None:
-        dirpath = Path.joinpath(qlogdir, client)
-        Path(dirpath).mkdir(parents=True, exist_ok=True)
+    dirpath = Path.joinpath(qlogdir, client)
+    Path(dirpath).mkdir(parents=True, exist_ok=True)
 
-    for i in range(ITERATIONS - len(timings)):
+    for i in range(len(timings), ITERATIONS):
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
         if LOCAL:
@@ -69,7 +78,7 @@ def benchmark(client: str, url: str, hardir: str, qlogdir: str):
         timings.append(elapsed)
         print(client, elapsed)
 
-    with open(filepath, 'w') as f:
+    with open(timings_path, 'w') as f:
         json.dump(timings, f)
 
 
@@ -89,6 +98,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     # Modify commands
     commands = []
     for command in LOCAL_CONFIG[client]:
+        command = command.replace('{qlog_dir}', str(TMP_QLOG))
         command = command.replace('{url}', url)
         command = command.replace('{host}', url_host)
         command = command.replace('{path}', url_path)
@@ -106,22 +116,21 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
         total_time = float(out_arr[1].split(':')[1])
         return total_time - dns_time
 
-    if len(os.listdir('/tmp/qlog')) == 0:
+    if len(os.listdir(TMP_QLOG)) == 0:
         raise 'no qlog created'
 
-    logpath = Path.joinpath(
-        Path('/tmp/qlog'), os.listdir('/tmp/qlog')[0])
+    oldpath = Path.joinpath(TMP_QLOG, os.listdir(TMP_QLOG)[0])
 
-    res = get_time_from_qlog(logpath)
+    res = get_time_from_qlog(oldpath)
 
     if dirpath is None:
-        os.remove(logpath)
+        os.remove(oldpath)
     else:
-        with open(logpath, mode='r') as old:
+        with open(oldpath, mode='r') as old:
             newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
             with open(newpath, mode='w') as new:
                 new.write(old.read())
-        os.remove(logpath)
+        os.remove(oldpath)
 
     return res
 
@@ -266,44 +275,35 @@ def get_time_from_qlog(qlog: str) -> float:
 
 
 def main():
-    global ITERATIONS
-    global LOCAL
-
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
-    # parser.add_argument('url')
     parser.add_argument('--dir')
-    parser.add_argument('--local', action='store_true')
-    # parser.add_argument(
-    #     '-n', type=int, help='number of iterations', default=10)
 
     args = parser.parse_args()
 
     if args.dir is not None:
         dirpath = Path(args.dir)
     else:
-        dirpath = None
-
-    LOCAL = args.local
-    # ITERATIONS = args.n
+        raise 'dir is not defined'
 
     doc_clients = list(DOCKER_CONFIG.keys())
     random.shuffle(doc_clients)
+
     # Not using chrome via python script for now
     clients = [x for x in doc_clients if x.count('chrome') == 0]
 
     for domain in DOMAINS:
         for size in SIZES:
 
-            hardir = Path.joinpath(HAR_DIR, dirpath, domain, size)
-            hardir.mkdir(parents=True, exist_ok=True)
+            timedir = Path.joinpath(TIME_DIR, dirpath, domain, size)
+            timedir.mkdir(parents=True, exist_ok=True)
 
             qlogdir = Path.joinpath(QLOG_DIR, dirpath, domain, size)
             qlogdir.mkdir(parents=True, exist_ok=True)
 
             for client in clients:
                 url = ENDPOINTS[domain][size]
-                benchmark(client, url, hardir, qlogdir)
+                benchmark(client, url, timedir, qlogdir)
 
 
 if __name__ == "__main__":

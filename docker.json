@@ -5,8 +5,8 @@
         "commands": [
             "--log_response=false",
             "--mode=client",
-            "--stream_flow_control=1073741824",
-            "--conn_flow_control=1073741824",
+            "--stream_flow_control=6291456",
+            "--conn_flow_control=15728640",
             "--use_draft=true",
             "--draft-version=29",
             "--qlogger_path=/logs",
@@ -22,9 +22,9 @@
         "commands": [
             "--quiet",
             "--exit-on-all-streams-close",
-            "--max-data=1073741824",
-            "--max-stream-data-uni=1073741824",
-            "--max-stream-data-bidi-local=1073741824",
+            "--max-data=15728640",
+            "--max-stream-data-uni=6291456",
+            "--max-stream-data-bidi-local=6291456",
             "--group=X25519",
             "--qlog-dir=/logs",
             "{host}",
@@ -52,12 +52,16 @@
     "chrome_h2_single": {
         "image": "chrome",
         "entrypoint": "",
-        "cap_add": ["SYS_ADMIN"],
-        "security_opt": ["seccomp=seccomp.json"],
+        "cap_add": [
+            "SYS_ADMIN"
+        ],
+        "security_opt": [
+            "seccomp=seccomp.json"
+        ],
         "commands": [
-            "node", 
-            "/usr/src/app/chrome.js", 
-            "{url}", 
+            "node",
+            "/usr/src/app/chrome.js",
+            "{url}",
             "--single",
             "--no-h3",
             "--dir=/logs"
@@ -66,26 +70,34 @@
     "chrome_h2_multiple": {
         "image": "chrome",
         "entrypoint": "",
-        "cap_add": ["SYS_ADMIN"],
-        "security_opt": ["seccomp=seccomp.json"],
+        "cap_add": [
+            "SYS_ADMIN"
+        ],
+        "security_opt": [
+            "seccomp=seccomp.json"
+        ],
         "commands": [
-            "node", 
-            "/usr/src/app/chrome.js", 
-            "{url}", 
+            "node",
+            "/usr/src/app/chrome.js",
+            "{url}",
             "--no-single",
             "--no-h3",
             "--dir=/logs"
         ]
-    },    
+    },
     "chrome_h3_single": {
         "image": "chrome",
         "entrypoint": "",
-        "cap_add": ["SYS_ADMIN"],
-        "security_opt": ["seccomp=seccomp.json"],
+        "cap_add": [
+            "SYS_ADMIN"
+        ],
+        "security_opt": [
+            "seccomp=seccomp.json"
+        ],
         "commands": [
-            "node", 
-            "/usr/src/app/chrome.js", 
-            "{url}", 
+            "node",
+            "/usr/src/app/chrome.js",
+            "{url}",
             "--single",
             "--h3",
             "--dir=/logs"
@@ -94,12 +106,16 @@
     "chrome_h3_multiple": {
         "image": "chrome",
         "entrypoint": "",
-        "cap_add": ["SYS_ADMIN"],
-        "security_opt": ["seccomp=seccomp.json"],
+        "cap_add": [
+            "SYS_ADMIN"
+        ],
+        "security_opt": [
+            "seccomp=seccomp.json"
+        ],
         "commands": [
-            "node", 
-            "/usr/src/app/chrome.js", 
-            "{url}", 
+            "node",
+            "/usr/src/app/chrome.js",
+            "{url}",
             "--no-single",
             "--h3",
             "--dir=/logs"

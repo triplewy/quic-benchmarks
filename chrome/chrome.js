@@ -41,21 +41,32 @@ const LIGHTHOUSE_CATEGORIES = [
     'interactive',
 ];
 
+const ENDPOINTS = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
+const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'config.json'), 'utf8'));
+
 const RETRIES = 50;
-const ITERATIONS = 40;
+const ITERATIONS = CONFIG.iterations.value;
 
-const HAR_DIR = Path.join(__dirname, '..', 'har');
-const ANALYSIS_DIR = Path.join(__dirname, '..', 'analysis_data');
-const NETLOG_DIR = Path.join(__dirname, '..', 'netlog');
+const DATA_PATH = Path.join(__dirname, '..', CONFIG.data_path.value);
+const TMP_DIR = Path.join(DATA_PATH, 'tmp');
+const TIMINGS_DIR = Path.join(DATA_PATH, 'timings');
+const WPROFX_DIR = Path.join(DATA_PATH, 'wprofx');
+const NETLOG_DIR = Path.join(DATA_PATH, 'netlog');
 
-const CONFIG = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'endpoints.json'), 'utf8'));
-const DOMAINS = ['google', 'facebook', 'cloudflare'];
+fs.mkdirSync(TMP_DIR, { recursive: true });
+fs.mkdirSync(TIMINGS_DIR, { recursive: true });
+fs.mkdirSync(WPROFX_DIR, { recursive: true });
+fs.mkdirSync(NETLOG_DIR, { recursive: true });
+
+const DOMAINS = CONFIG.domains;
+const SINGLE_SIZES = CONFIG.sizes.single;
+const MULTI_SIZES = CONFIG.sizes.multi;
+
 // const DOMAINS = ['cloudflare'];
-const SINGLE_SIZES = ['100KB', '1MB', '5MB'];
-const SIZES = ['small', 'medium', 'large'];
 // const SIZES = ['medium'];
 
-fs.mkdirSync('/tmp/netlog', { recursive: true });
+const CHROME_PROFILE = Path.join(TMP_DIR, 'chrome-profile');
+const TMP_NETLOG = Path.join(TMP_DIR, 'chrome.json');
 
 const deleteFolderRecursive = (path) => {
     if (fs.existsSync(path)) {
@@ -90,15 +101,15 @@ const hasAltSvc = (entry) => {
 
 const chromeArgs = (urls) => {
     const args = [
-        '--no-sandbox',
+        // '--no-sandbox',
         '--headless',
         '--disable-gpu',
         '--disable-dev-shm-usage',
-        '--user-data-dir=/tmp/chrome-profile',
+        `--user-data-dir=${CHROME_PROFILE}`,
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
-        '--log-net-log=/tmp/netlog/chrome.json',
+        `--log-net-log=${TMP_NETLOG}`,
     ];
 
     if (urls !== null && urls.length > 0) {
@@ -122,7 +133,7 @@ const chromeArgs = (urls) => {
     return args;
 };
 
-const runChrome = async (urlString, isH3) => {
+const runChrome = async (urlString, netlogDir, isH3, n) => {
     const timings = [];
 
     console.log(`${urlString}`);
@@ -138,14 +149,14 @@ const runChrome = async (urlString, isH3) => {
         gotoUrl = urlString;
     }
 
-    for (let i = 0; i < ITERATIONS; i += 1) {
+    for (let i = n; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Catch browser crashing on linux
             try {
                 // Restart browser for each iteration to make things fair...
-                deleteFolderRecursive('/tmp/chrome-profile');
+                deleteFolderRecursive(CHROME_PROFILE);
                 const args = chromeArgs(isH3 ? [urlString] : null);
                 const browser = await puppeteer.launch({
                     headless: true,
@@ -197,86 +208,64 @@ const runChrome = async (urlString, isH3) => {
                     await browser.close();
                 }
 
-                const netlogRaw = fs.readFileSync('/tmp/netlog/chrome.json', { encoding: 'utf-8' });
-                let netlog;
-                try {
-                    netlog = JSON.parse(netlog);
-                } catch (error) {
-                    // netlog did not flush completely
-                    netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
-                } finally {
-                    fs.writeFileSync(`/tmp/netlog/chrome-${i}.json`);
-                }
-
                 break;
             } catch (error) {
                 console.error(error);
             }
+        }
+
+        const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
+        let netlog;
+        try {
+            netlog = JSON.parse(netlog);
+        } catch (error) {
+            // netlog did not flush completely
+            netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
+        } finally {
+            fs.writeFileSync(Path.join(netlogDir, `chrome-${i}.json`), netlog);
         }
     }
 
     return timings;
 };
 
-const runBenchmarkOld = async (urlObj, dir, isH3) => {
-    const urlString = urlObj;
+const runBenchmark = async (urlString, timingsDir, netlogDir, isH3) => {
+    let timings = [];
+
+    if (!fs.existsSync(timingsDir)) {
+        fs.mkdirSync(timingsDir, { recursive: true });
+    }
+    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}_single`);
+
+    if (!fs.existsSync(realNetlogDir)) {
+        fs.mkdirSync(realNetlogDir, { recursive: true });
+    }
+
+    // Read from file if exists
+    const file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    try {
+        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+        //
+    }
+
+    if (timings.length >= ITERATIONS) {
+        return;
+    }
 
     // Run benchmark
-    const result = await runChrome(urlString, isH3);
+    const result = await runChrome(urlString, realNetlogDir, isH3, timings.length);
 
-    // Create directory
-    if (dir !== undefined) {
-        let timings = [];
+    // Concat result times to existing data
+    timings.push(...result);
 
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        // Read from file if exists
-        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
-        try {
-            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-        } catch (error) {
-            //
-        }
-
-        // Concat result times to existing data
-        timings.push(...result);
-
-        // Save data
-        fs.writeFileSync(file, JSON.stringify(timings));
-    }
+    // Save data
+    fs.writeFileSync(file, JSON.stringify(timings));
 };
 
-const runBenchmark = async (urlString, dir, isH3) => {
-    // Run benchmark
-    const result = await runChrome(urlString, isH3);
+const runChromeWeb = async (urlObj, netlogDir, isH3, n) => {
+    const { url: urlString, size } = urlObj;
 
-    // Create directory
-    if (dir !== undefined) {
-        let timings = [];
-
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir);
-        }
-
-        // Read from file if exists
-        const file = Path.join(dir, `chrome_${isH3 ? 'h3' : 'h2'}_single.json`);
-        try {
-            timings = JSON.parse(fs.readFileSync(file, 'utf8'));
-        } catch (error) {
-            //
-        }
-
-        // Concat result times to existing data
-        timings.push(...result);
-
-        // Save data
-        fs.writeFileSync(file, JSON.stringify(timings));
-    }
-};
-
-const runChromeWeb = async (urlString, size, isH3, n) => {
     const domains = [urlString];
 
     const timings = {};
@@ -288,7 +277,7 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
 
     console.log(`${urlString}`);
 
-    for (let i = 0; i < n; i += 1) {
+    for (let i = n; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
 
         const wprofx = new Analyze();
@@ -296,7 +285,7 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
         for (let j = 0; j < RETRIES; j += 1) {
             try {
                 // Restart browser for each iteration to make things fair...
-                deleteFolderRecursive('/tmp/chrome-profile');
+                deleteFolderRecursive(CHROME_PROFILE);
                 const args = chromeArgs(isH3 ? domains : null);
                 const browser = await puppeteer.launch({
                     headless: true,
@@ -403,39 +392,50 @@ const runChromeWeb = async (urlString, size, isH3, n) => {
                     await browser.close();
                 }
 
-                const netlogRaw = fs.readFileSync('/tmp/netlog/chrome.json', { encoding: 'utf-8' });
-                let netlog;
-                try {
-                    netlog = JSON.parse(netlog);
-                } catch (error) {
-                    // netlog did not flush completely
-                    netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
-                } finally {
-                    fs.writeFileSync(`/tmp/netlog/chrome-${i}.json`);
-                }
-
                 break;
             } catch (error) {
                 console.error(error);
             }
         }
+
+        const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
+        let netlog;
+        try {
+            netlog = JSON.parse(netlog);
+        } catch (error) {
+            // netlog did not flush completely
+            netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
+        } finally {
+            fs.writeFileSync(Path.join(netlogDir, `chrome-${i}.json`), netlog);
+        }
     }
     return { timings, traces };
 };
 
-const runBenchmarkWeb = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
+const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, isH3) => {
     let timings = {};
     LIGHTHOUSE_CATEGORIES.forEach((cat) => {
         timings[cat] = [];
     });
 
-    // Create directory
-    if (!fs.existsSync(harDir)) {
-        fs.mkdirSync(harDir, { recursive: true });
+    // Create directories
+    if (!fs.existsSync(timingsDir)) {
+        fs.mkdirSync(timingsDir, { recursive: true });
+    }
+    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}_multi`);
+
+    if (!fs.existsSync(realNetlogDir)) {
+        fs.mkdirSync(realNetlogDir, { recursive: true });
+    }
+    const realWprofxDir = Path.join(wprofxDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
+
+    if (!fs.existsSync(realWprofxDir)) {
+        fs.mkdirSync(realWprofxDir, { recursive: true });
     }
 
-    // Read from file if exists
-    const file = Path.join(harDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+
+    // Read from timings file if exists
+    const file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     try {
         timings = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch (error) {
@@ -447,10 +447,9 @@ const runBenchmarkWeb = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
     }
 
     const prevLength = timings['speed-index'].length;
-    const { url: urlString, size } = urlObj;
 
     // Run benchmark
-    const { timings: result, traces } = await runChromeWeb(urlString, size, isH3, ITERATIONS - prevLength);
+    const { timings: result, traces } = await runChromeWeb(urlObj, realNetlogDir, isH3, prevLength);
 
     // Concat result times to existing data
     Object.keys(timings).forEach((key) => {
@@ -460,72 +459,49 @@ const runBenchmarkWeb = async (urlObj, harDir, traceDir, netlogDir, isH3) => {
     // Save data
     fs.writeFileSync(file, JSON.stringify(timings));
 
-    const realTraceDir = Path.join(traceDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
-
-    if (!fs.existsSync(realTraceDir)) {
-        fs.mkdirSync(realTraceDir, { recursive: true });
-    }
-
-    // Write all traces to disk as well
+    // Write all wprofx traces to disk as well
     traces.forEach((trace, i) => {
-        fs.writeFileSync(Path.join(realTraceDir, `trace-${prevLength + i}.json`), JSON.stringify(trace));
-    });
-
-    // Write netlogs
-    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
-
-    if (!fs.existsSync(realNetlogDir)) {
-        fs.mkdirSync(realNetlogDir, { recursive: true });
-    }
-
-    fs.readdirSync('/tmp/netlog').forEach((netlog) => {
-        const oldPath = Path.join('/tmp/netlog', netlog);
-        if (netlog !== 'chrome.json') {
-            const fileData = fs.readFileSync(oldPath, { encoding: 'utf-8' });
-            fs.writeFileSync(Path.join(realNetlogDir, netlog), fileData);
-        }
+        fs.writeFileSync(Path.join(realWprofxDir, `trace-${prevLength + i}.json`), JSON.stringify(trace));
     });
 };
 
 (async () => {
     const parser = new argparse.ArgumentParser();
 
-    // parser.add_argument('url');
     parser.add_argument('--dir');
     parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)' });
     const cliArgs = parser.parse_args();
 
     const {
-        // url: urlString,
         dir,
         single,
     } = cliArgs;
 
-    const sizes = single ? SINGLE_SIZES : SIZES;
+    const sizes = single ? SINGLE_SIZES : MULTI_SIZES;
 
     for (const domain of DOMAINS) {
         for (const size of sizes) {
-            if (!(size in CONFIG[domain])) {
+            if (!(size in ENDPOINTS[domain])) {
                 continue;
             }
 
-            const urlObj = CONFIG[domain][size];
-            const harDir = Path.join(HAR_DIR, dir, domain, size);
-            const traceDir = Path.join(ANALYSIS_DIR, dir, domain, size);
+            const urlObj = ENDPOINTS[domain][size];
+            const timingsDir = Path.join(TIMINGS_DIR, dir, domain, size);
+            const wprofxDir = Path.join(WPROFX_DIR, dir, domain, size);
             const netlogDir = Path.join(NETLOG_DIR, dir, domain, size);
 
             console.log(`${domain}/${size}`);
 
             if (single) {
                 console.log('Chrome: H2 - single object');
-                await runBenchmarkOld(urlObj, harDir, false);
+                await runBenchmark(urlObj, timingsDir, netlogDir, false);
                 console.log('Chrome: H3 - single object');
-                await runBenchmarkOld(urlObj, harDir, true);
+                await runBenchmark(urlObj, timingsDir, netlogDir, true);
             } else {
                 console.log('Chrome: H3 - multi object');
-                await runBenchmarkWeb(urlObj, harDir, traceDir, netlogDir, true);
+                await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, true);
                 console.log('Chrome: H2 - multi object');
-                await runBenchmarkWeb(urlObj, harDir, traceDir, netlogDir, false);
+                await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, false);
             }
         }
     }

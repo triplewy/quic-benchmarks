@@ -6,3 +6,4 @@ paths.json
 node_modules/
 har/
 analysis_data/
+data/

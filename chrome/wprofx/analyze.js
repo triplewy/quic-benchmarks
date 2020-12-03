@@ -2085,7 +2085,6 @@ class Analyze {
       'loadEventEnd': this.loadEventEnd,
       'domContentLoadedEventEnd': this.domContentLoadedEventEnd,
       'timeToInteractive': this.timeToInteractive,
-      'networking': dicts['networking'],
       'loading': dicts['loading'],
       'rendering': dicts['rendering'],
       'painting': dicts['painting']
