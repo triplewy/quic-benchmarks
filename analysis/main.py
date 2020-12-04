@@ -64,20 +64,36 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
-            'revised_loss-0_delay-0_bw-10',
-            'revised_loss-0dot1_delay-0_bw-10',
-            'revised_loss-1_delay-0_bw-10',
+            'loss-0_delay-0_bw-10',
+            'loss-0dot1_delay-0_bw-10',
+            'loss-1_delay-0_bw-10',
         ],
         'title': '10mbps_Loss_multiple'
     },
     {
         'dirnames': [
-            'revised_loss-0_delay-0_bw-10',
-            'revised_loss-0_delay-50_bw-10',
-            'revised_loss-0_delay-100_bw-10',
+            'loss-0_delay-0_bw-10',
+            'loss-0_delay-50_bw-10',
+            'loss-0_delay-100_bw-10',
         ],
         'title': '10mbps_Delay_multiple'
     },
+    # {
+    #     'dirnames': [
+    #         'revised_loss-0_delay-0_bw-10',
+    #         'revised_loss-0dot1_delay-0_bw-10',
+    #         'revised_loss-1_delay-0_bw-10',
+    #     ],
+    #     'title': '10mbps_Loss_multiple'
+    # },
+    # {
+    #     'dirnames': [
+    #         'revised_loss-0_delay-0_bw-10',
+    #         'revised_loss-0_delay-50_bw-10',
+    #         'revised_loss-0_delay-100_bw-10',
+    #     ],
+    #     'title': '10mbps_Delay_multiple'
+    # },
 ]
 
 SI_GROUPINGS = [
@@ -608,10 +624,10 @@ def h2_vs_h3_v5(timings: object):
                     if dirname in timings:
                         for client, times in timings[dirname][domain][size].items():
 
-                            if size in WEBPAGE_SIZES:
-                                median = np.median(times['speed-index'])
-                            else:
-                                median = np.median(times)
+                            # if size in WEBPAGE_SIZES:
+                            #     median = np.median(times['speed-index'])
+                            # else:
+                            median = np.median(times)
 
                             # h3 client
                             if client.count('h3') > 0:
