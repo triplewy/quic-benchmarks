@@ -7,6 +7,10 @@
         "description": "Path to save all benchmark related data",
         "value": "./data"
     },
+    "graphs_path": {
+        "descriptions": "Path to save all result graphs from benchmark data",
+        "value": "./graphs"
+    },
     "iterations": {
         "description": "Number of iterations to run for each (network condition, endpoint, client) tuple",
         "value": 3
@@ -27,5 +31,12 @@
             "medium",
             "large"
         ]
-    }
+    },
+    "clients": [
+        "curl_h2",
+        "chrome_h2",
+        "ngtcp2_h3",
+        "proxygen_h3",
+        "chrome_h3"
+    ]
 }

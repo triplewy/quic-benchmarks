@@ -43,3 +43,6 @@ sudo tcset ens192 --rate 100mbps --delay 25ms --loss 1% --direction outgoing
 sudo tcset ens192 --rate 100mbps --delay 25ms --loss 1% --direction incoming --add
 sudo tcshow ens192
 $BASEDIR/run_benchmark.sh 1 50 100
+
+# Analysis
+python3 $BASEDIR/main.py

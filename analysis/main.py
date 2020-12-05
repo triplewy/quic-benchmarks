@@ -16,11 +16,21 @@ from pprint import pprint
 from scipy import stats
 from glob import glob
 
-DOMAINS = ['google', 'facebook', 'cloudflare']
-SIZES = ['100KB', '1MB', '5MB']
-WEBPAGE_SIZES = ['small', 'medium', 'large']
-CLIENTS = ['chrome_h3', 'proxygen_h3',
-           'ngtcp2_h3', 'chrome_h2', 'curl_h2']
+CONFIG = {}
+with open(Path.joinpath(Path(__file__).parent.absolute(), '..', 'config.json'), mode='r') as f:
+    CONFIG = json.load(f)
+
+DOMAINS = CONFIG['domains']
+SINGLE_SIZES = CONFIG['sizes']['single']
+MULTI_SIZES = CONFIG['sizes']['multi']
+CLIENTS = CONFIG['clients']
+
+DATA_PATH = Path.joinpath(Path(__file__).parent.absolute(),
+                          '..', CONFIG['data_path']['value'])
+GRAPHS_PATH = Path.joinpath(Path(__file__).parent.absolute(),
+                            '..', CONFIG['graphs_path']['value'])
+
+GRAPHS_PATH(parents=True, exist_ok=True)
 
 NETWORK = [
     {
@@ -78,22 +88,38 @@ NETWORK_V2 = [
         ],
         'title': '10mbps_Delay_multiple'
     },
-    # {
-    #     'dirnames': [
-    #         'revised_loss-0_delay-0_bw-10',
-    #         'revised_loss-0dot1_delay-0_bw-10',
-    #         'revised_loss-1_delay-0_bw-10',
-    #     ],
-    #     'title': '10mbps_Loss_multiple'
-    # },
-    # {
-    #     'dirnames': [
-    #         'revised_loss-0_delay-0_bw-10',
-    #         'revised_loss-0_delay-50_bw-10',
-    #         'revised_loss-0_delay-100_bw-10',
-    #     ],
-    #     'title': '10mbps_Delay_multiple'
-    # },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-100',
+            'loss-0dot1_delay-0_bw-100',
+            'loss-1_delay-0_bw-100',
+        ],
+        'title': '100mbps_Loss_single'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-100',
+            'loss-0_delay-50_bw-100',
+            'loss-0_delay-100_bw-100',
+        ],
+        'title': '100mbps_Delay_single'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-100',
+            'loss-0dot1_delay-0_bw-100',
+            'loss-1_delay-0_bw-100',
+        ],
+        'title': '100mbps_Loss_multiple'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-100',
+            'loss-0_delay-50_bw-100',
+            'loss-0_delay-100_bw-100',
+        ],
+        'title': '100mbps_Delay_multiple'
+    },
 ]
 
 SI_GROUPINGS = [
@@ -247,7 +273,7 @@ def h2_vs_h3_v2(timings: object, sizes):
                 condition = 'Delay'
 
             multiple = ''
-            if sizes == WEBPAGE_SIZES:
+            if sizes == MULTI_SIZES:
                 multiple = '_Multiple'
 
             plt.savefig(
@@ -333,7 +359,7 @@ def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
                 condition = 'Delay'
 
             multiple = ''
-            if sizes == WEBPAGE_SIZES:
+            if sizes == MULTI_SIZES:
                 multiple = '_Multiple'
 
             si = ''
@@ -414,7 +440,7 @@ def facebook_patch(timings: object, sizes):
     fig.tight_layout()
 
     multiple = ''
-    if sizes == WEBPAGE_SIZES:
+    if sizes == MULTI_SIZES:
         multiple = '_multiple'
 
     plt.savefig(
@@ -424,9 +450,9 @@ def facebook_patch(timings: object, sizes):
 
     data = []
     row_labels = []
-    col_labels = ['Chrome', 'Proxygen', 'Ngtcp2']
+    col_labels = [x.split('_')[0] for x in CLIENTS if x.count('h3') > 0]
 
-    for i, size in enumerate(SIZES):
+    for i, size in enumerate(SINGLE_SIZES):
         row_labels.append('{}/{}'.format(domain, size))
         row_data = []
 
@@ -492,23 +518,20 @@ def facebook_patch(timings: object, sizes):
 
 
 def client_consistency(timings: object):
-    percent_diffs = []
-
     for obj in NETWORK:
         dirname = obj['dirname']
         title = obj['title']
         data = []
         row_labels = []
-        col_labels = ['Chrome', 'Proxygen', 'Ngtcp2']
+        col_labels = [x.split('_')[0] for x in CLIENTS if x.count('h3') > 0]
 
         for domain in DOMAINS:
 
-            for i, size in enumerate(SIZES):
+            for i, size in enumerate(SINGLE_SIZES):
                 row_labels.append('{}/{}'.format(domain, size))
                 row_data = []
 
                 min_median = math.inf
-                min_mean = math.inf
                 min_client = None
 
                 # get min_median
@@ -516,19 +539,12 @@ def client_consistency(timings: object):
                     if client.count('h2') > 0:
                         continue
 
-                    mean = np.mean(times)
                     median = np.median(times)
 
                     # h3 client
-                    min_mean = min(min_mean, mean)
                     min_median = min(min_median, median)
-                    # if min_mean == mean:
-                    #     min_client = client
                     if min_median == median:
                         min_client = client
-                # print(title, domain, size, min_mean)
-
-                mean_diffs = 0
 
                 # perform t-test on other clients
                 for client in CLIENTS:
@@ -554,10 +570,6 @@ def client_consistency(timings: object):
                         median = np.median(times)
                         diff = (median - min_median) / min_median * 100
                         row_data.append(diff)
-                        # mean = np.mean(times)
-                        # diff = (mean - min_mean) / min_mean * 100
-                        # print(title, domain, size, client, diff)
-                        # row_data.append(diff)
 
                 data.append(row_data)
 
@@ -577,13 +589,10 @@ def client_consistency(timings: object):
             show_cbar=True,
         )
         fig.tight_layout()
-        plt.savefig(
-            '{}/Desktop/graphs_revised/H3_{}'.format(Path.home(), title), transparent=True)
+        plt.savefig(Path.joinpath(
+            GRAPHS_PATH, 'H3_{}'.format(title)), transparent=True)
         plt.close()
         # plt.show()
-
-    percent_diffs.sort(key=lambda x: x[0], reverse=True)
-    # print(percent_diffs)
 
 
 def h2_vs_h3_v5(timings: object):
@@ -600,9 +609,9 @@ def h2_vs_h3_v5(timings: object):
             col_labels = ['0ms', '50ms', '100ms']
 
         if title.count('multiple') > 0:
-            sizes = WEBPAGE_SIZES
+            sizes = MULTI_SIZES
         else:
-            sizes = SIZES
+            sizes = SINGLE_SIZES
 
         for domain in DOMAINS:
 
@@ -624,10 +633,10 @@ def h2_vs_h3_v5(timings: object):
                     if dirname in timings:
                         for client, times in timings[dirname][domain][size].items():
 
-                            # if size in WEBPAGE_SIZES:
-                            #     median = np.median(times['speed-index'])
-                            # else:
-                            median = np.median(times)
+                            if size in MULTI_SIZES:
+                                median = np.median(times['speed-index'])
+                            else:
+                                median = np.median(times)
 
                             # h3 client
                             if client.count('h3') > 0:
@@ -651,7 +660,7 @@ def h2_vs_h3_v5(timings: object):
 
         print(title)
         fig, axs = plt.subplots(1, 3, figsize=(12, 4), gridspec_kw={
-                                'wspace': 0, 'hspace': 0})
+            'wspace': 0, 'hspace': 0})
 
         for i, ax in enumerate(axs):
             ax.set_aspect('equal')
@@ -674,27 +683,9 @@ def h2_vs_h3_v5(timings: object):
             ax.label_outer()
 
         fig.tight_layout()
-        plt.savefig(
-            '{}/Desktop/graphs_revised/H2vsH3_{}'.format(Path.home(), title), transparent=True)
+        plt.savefig(Path.joinpath(
+            GRAPHS_PATH, 'H2vsH3_{}'.format(title)), transparent=True)
         plt.close()
-
-
-def check_data_lengths(timings):
-    for obj in NETWORK:
-        dirname = obj['dirname']
-        for domain in DOMAINS:
-            for size in SIZES + WEBPAGE_SIZES:
-
-                times = timings[dirname][domain][size]
-
-                for client in CLIENTS:
-                    if client not in times:
-                        continue
-
-                    mean = np.mean(times[client])
-                    std = np.std(times[client])
-
-                    print(std / mean * 100)
 
 
 def heatmap(data, row_labels, col_labels, ax=None, rotation=0, show_cbar=False,
@@ -835,18 +826,14 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 def main():
     timings = {}
 
-    # 1. Walk har directory and fill in timings
-    path = Path.joinpath(
-        Path(os.path.dirname(os.path.abspath(__file__))),
-        '..',
-        'har'
-    )
+    # 1. Walk timings directory and fill in timings
+    path = Path.joinpath(DATA_PATH, 'timings')
 
     for dirname in os.listdir(path):
         temp = {}
         for domain in DOMAINS:
             temp[domain] = {}
-            for size in SIZES + WEBPAGE_SIZES:
+            for size in SINGLE_SIZES + MULTI_SIZES:
                 temp[domain][size] = {}
 
                 experiment_path = Path.joinpath(
@@ -871,11 +858,14 @@ def main():
         timings[dirname] = temp
 
     # facebook_patch(timings, SIZES)
-    # facebook_patch(timings, WEBPAGE_SIZES)
-    # h2_vs_h3_v5(timings)
+    # facebook_patch(timings, MULTI_SIZES)
+    h2_vs_h3_v5(timings)
     # h2_vs_h3_v2(timings, SIZES)
-    # h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
-    client_consistency(timings)
+    # h2_vs_h3_v4(timings, SI_GROUPINGS, MULTI_SIZES, True)
+    try:
+        client_consistency(timings)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == "__main__":
