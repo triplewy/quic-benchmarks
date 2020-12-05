@@ -12,6 +12,7 @@ import numpy as np
 from pathlib import Path
 from urllib.parse import urlparse
 from docker.types import LogConfig
+from glob import glob
 
 DOCKER_CLIENT = docker.from_env()
 
@@ -80,6 +81,16 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
 
     with open(timings_path, 'w') as f:
         json.dump(timings, f)
+
+    # Get median of timings
+    median_index = np.argsort(timings)[len(timings)//2]
+
+    # Remove qlogs of all runs except median
+    for f in os.listdir(dirpath):
+        filename_arr = f.split('.')
+        i = int(filename_arr[0].split('_')[-1])
+        if i != median_index:
+            os.remove(Path.joinpath(dirpath, f))
 
 
 def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:

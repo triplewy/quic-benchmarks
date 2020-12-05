@@ -89,6 +89,20 @@ const toFixedNumber = (num, digits) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const argsort = (array) => {
+    const arrayObject = array.map((value, idx) => ({ value, idx }));
+    arrayObject.sort((a, b) => {
+        if (a.value < b.value) {
+            return -1;
+        }
+        if (a.value > b.value) {
+            return 1;
+        }
+        return 0;
+    });
+    return arrayObject.map((data) => data.idx);
+};
+
 const hasAltSvc = (entry) => {
     const { headers } = entry.response;
     for (const header of headers) {
@@ -222,7 +236,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
             // netlog did not flush completely
             netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
         } finally {
-            fs.writeFileSync(Path.join(netlogDir, `chrome-${i}.json`), netlog);
+            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), netlog);
         }
     }
 
@@ -261,19 +275,31 @@ const runBenchmark = async (urlString, timingsDir, netlogDir, isH3) => {
 
     // Save data
     fs.writeFileSync(file, JSON.stringify(timings));
+
+    // Get median index of timings
+    const medianIndex = argsort(timings)[Math.floor(timings.length / 2)];
+
+    // Remove netlogs that are not median
+    fs.readdirSync(realNetlogDir).forEach((f) => {
+        const fArr = f.split('.');
+        const i = parseInt(fArr[0].split('_')[1], 10);
+        if (i !== medianIndex) {
+            fs.unlinkSync(Path.join(realNetlogDir, f));
+        }
+    });
 };
 
-const runChromeWeb = async (urlObj, netlogDir, isH3, n) => {
+const runChromeWeb = async (urlObj, netlogDir, wprofxDir, isH3, n) => {
     const { url: urlString, size } = urlObj;
 
     const domains = [urlString];
 
-    const timings = {};
+    const timings = {
+        plt: [],
+    };
     LIGHTHOUSE_CATEGORIES.forEach((cat) => {
         timings[cat] = [];
     });
-
-    const traces = [];
 
     console.log(`${urlString}`);
 
@@ -365,11 +391,17 @@ const runChromeWeb = async (urlObj, netlogDir, isH3, n) => {
                     console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
 
                     try {
-                        const res = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
-                        res.size = payloadMb;
-                        res.time = time;
-                        res.entries = entries;
-                        traces.push(res);
+                        const trace = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
+                        trace.size = payloadMb;
+                        trace.time = time;
+                        trace.entries = entries;
+
+                        const plt = trace.loadEventEnd;
+                        const fcp = trace.firstContentfulPaint;
+                        const wprofxDiff = audits['first-contentful-paint'].numericValue - fcp;
+                        timings.plt.push(plt + wprofxDiff);
+
+                        fs.writeFileSync(Path.join(wprofxDir, `wprofx_${i}.json`), JSON.stringify(trace));
                     } catch (error) {
                         console.error(error);
                     }
@@ -406,14 +438,16 @@ const runChromeWeb = async (urlObj, netlogDir, isH3, n) => {
             // netlog did not flush completely
             netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
         } finally {
-            fs.writeFileSync(Path.join(netlogDir, `chrome-${i}.json`), netlog);
+            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), netlog);
         }
     }
-    return { timings, traces };
+    return timings;
 };
 
 const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, isH3) => {
-    let timings = {};
+    let timings = {
+        plt: [],
+    };
     LIGHTHOUSE_CATEGORIES.forEach((cat) => {
         timings[cat] = [];
     });
@@ -449,7 +483,7 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, isH3) =
     const prevLength = timings['speed-index'].length;
 
     // Run benchmark
-    const { timings: result, traces } = await runChromeWeb(urlObj, realNetlogDir, isH3, prevLength);
+    const result = await runChromeWeb(urlObj, realNetlogDir, realWprofxDir, isH3, prevLength);
 
     // Concat result times to existing data
     Object.keys(timings).forEach((key) => {
@@ -459,9 +493,26 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, isH3) =
     // Save data
     fs.writeFileSync(file, JSON.stringify(timings));
 
-    // Write all wprofx traces to disk as well
-    traces.forEach((trace, i) => {
-        fs.writeFileSync(Path.join(realWprofxDir, `trace-${prevLength + i}.json`), JSON.stringify(trace));
+    // Get median index of timings
+    const medianIndexes = new Set(['plt'].concat(LIGHTHOUSE_CATEGORIES)
+        .map((cat) => argsort(timings[cat])[Math.floor(timings[cat].length / 2)]));
+
+    // Remove netlogs that are not median
+    fs.readdirSync(realNetlogDir).forEach((f) => {
+        const fArr = f.split('.');
+        const i = parseInt(fArr[0].split('_')[1], 10);
+        if (!medianIndexes.has(i)) {
+            fs.unlinkSync(Path.join(realNetlogDir, f));
+        }
+    });
+
+    // Remove traces that are not median
+    fs.readdirSync(realWprofxDir).forEach((f) => {
+        const fArr = f.split('.');
+        const i = parseInt(fArr[0].split('_')[1], 10);
+        if (!medianIndexes.has(i)) {
+            fs.unlinkSync(Path.join(realWprofxDir, f));
+        }
     });
 };
 

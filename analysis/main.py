@@ -511,7 +511,7 @@ def client_consistency(timings: object):
                 min_mean = math.inf
                 min_client = None
 
-                # get min_mean
+                # get min_median
                 for client, times in timings[dirname][domain][size].items():
                     if client.count('h2') > 0:
                         continue
@@ -872,10 +872,10 @@ def main():
 
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, WEBPAGE_SIZES)
-    h2_vs_h3_v5(timings)
+    # h2_vs_h3_v5(timings)
     # h2_vs_h3_v2(timings, SIZES)
     # h2_vs_h3_v4(timings, SI_GROUPINGS, WEBPAGE_SIZES, True)
-    # client_consistency(timings)
+    client_consistency(timings)
 
 
 if __name__ == "__main__":
