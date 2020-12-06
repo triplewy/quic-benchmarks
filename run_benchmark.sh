@@ -9,5 +9,5 @@ BW=$3
 DIRNAME="loss-${LOSS}_delay-${DELAY}_bw-${BW}"
 
 python3 client.py --dir $DIRNAME
-node $BASEDIR/chrome/chrome.js --single --dir $DIRNAME
-# node $BASEDIR/chrome/chrome.js --no-single --dir $DIRNAME
+HOME=/quic node $BASEDIR/chrome/chrome.js --single --dir $DIRNAME
+HOME=/quic node $BASEDIR/chrome/chrome.js --no-single --dir $DIRNAME
