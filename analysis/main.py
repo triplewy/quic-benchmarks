@@ -72,17 +72,17 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
-            'loss-0_delay-0_bw-10',
-            'loss-0dot1_delay-0_bw-10',
-            'loss-1_delay-0_bw-10',
+            'revised_loss-0_delay-0_bw-10',
+            'revised_loss-0dot1_delay-0_bw-10',
+            'revised_loss-1_delay-0_bw-10',
         ],
         'title': '10mbps_Loss_multiple'
     },
     {
         'dirnames': [
-            'loss-0_delay-0_bw-10',
-            'loss-0_delay-50_bw-10',
-            'loss-0_delay-100_bw-10',
+            'revised_loss-0_delay-0_bw-10',
+            'revised_loss-0_delay-50_bw-10',
+            'revised_loss-0_delay-100_bw-10',
         ],
         'title': '10mbps_Delay_multiple'
     },
