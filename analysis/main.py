@@ -31,26 +31,21 @@ GRAPHS_PATH = Path.joinpath(Path(__file__).parent.absolute(),
 GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
-    {
-        'dirname': 'loss-0_delay-0_bw-10',
-        'title': '0_Loss'
-    },
-    {
-        'dirname': 'loss-0dot1_delay-0_bw-10',
-        'title': '0dot1_Loss'
-    },
-    {
-        'dirname': 'loss-1_delay-0_bw-10',
-        'title': '1_Loss'
-    },
-    {
-        'dirname': 'loss-0_delay-50_bw-10',
-        'title': '50_Delay'
-    },
-    {
-        'dirname': 'loss-0_delay-100_bw-10',
-        'title': '100_Delay'
-    },
+    'loss-0_delay-0_bw-100',
+    'loss-0dot1_delay-0_bw-100',
+    'loss-1_delay-0_bw-100',
+    'loss-1burst_delay-0_bw-100',
+    'loss-0_delay-50_bw-100',
+    'loss-0_delay-100_bw-100',
+    'loss-0_delay-100jitter_bw-100',
+
+    'loss-0_delay-0_bw-10',
+    'loss-0dot1_delay-0_bw-10',
+    'loss-1_delay-0_bw-10',
+    'loss-1burst_delay-0_bw-10',
+    'loss-0_delay-50_bw-10',
+    'loss-0_delay-100_bw-10',
+    'loss-0_delay-100jitter_bw-10',
 ]
 
 NETWORK_V2 = [
@@ -59,6 +54,7 @@ NETWORK_V2 = [
             'loss-0_delay-0_bw-10',
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
+            'loss-1burst_delay-0_bw-100'
         ],
         'title': '10mbps_Loss_single'
     },
@@ -67,30 +63,16 @@ NETWORK_V2 = [
             'loss-0_delay-0_bw-10',
             'loss-0_delay-50_bw-10',
             'loss-0_delay-100_bw-10',
+            'loss-0_delay-100jitter_bw-100',
         ],
         'title': '10mbps_Delay_single'
-    },
-    {
-        'dirnames': [
-            'revised_loss-0_delay-0_bw-10',
-            'revised_loss-0dot1_delay-0_bw-10',
-            'revised_loss-1_delay-0_bw-10',
-        ],
-        'title': '10mbps_Loss_multiple'
-    },
-    {
-        'dirnames': [
-            'revised_loss-0_delay-0_bw-10',
-            'revised_loss-0_delay-50_bw-10',
-            'revised_loss-0_delay-100_bw-10',
-        ],
-        'title': '10mbps_Delay_multiple'
     },
     {
         'dirnames': [
             'loss-0_delay-0_bw-100',
             'loss-0dot1_delay-0_bw-100',
             'loss-1_delay-0_bw-100',
+            'loss-1burst_delay-0_bw-100'
         ],
         'title': '100mbps_Loss_single'
     },
@@ -99,25 +81,43 @@ NETWORK_V2 = [
             'loss-0_delay-0_bw-100',
             'loss-0_delay-50_bw-100',
             'loss-0_delay-100_bw-100',
+            'loss-0_delay-100jitter_bw-100',
         ],
         'title': '100mbps_Delay_single'
     },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-100',
-            'loss-0dot1_delay-0_bw-100',
-            'loss-1_delay-0_bw-100',
-        ],
-        'title': '100mbps_Loss_multiple'
-    },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-100',
-            'loss-0_delay-50_bw-100',
-            'loss-0_delay-100_bw-100',
-        ],
-        'title': '100mbps_Delay_multiple'
-    },
+    # {
+    #     'dirnames': [
+    #         'revised_loss-0_delay-0_bw-10',
+    #         'revised_loss-0dot1_delay-0_bw-10',
+    #         'revised_loss-1_delay-0_bw-10',
+    #     ],
+    #     'title': '10mbps_Loss_multiple'
+    # },
+    # {
+    #     'dirnames': [
+    #         'revised_loss-0_delay-0_bw-10',
+    #         'revised_loss-0_delay-50_bw-10',
+    #         'revised_loss-0_delay-100_bw-10',
+    #     ],
+    #     'title': '10mbps_Delay_multiple'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-0_bw-100',
+    #         'loss-0dot1_delay-0_bw-100',
+    #         'loss-1_delay-0_bw-100',
+    #         'loss-1burst_delay-0_bw-100'
+    #     ],
+    #     'title': '100mbps_Loss_multiple'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-0_bw-100',
+    #         'loss-0_delay-50_bw-100',
+    #         'loss-0_delay-100_bw-100',
+    #     ],
+    #     'title': '100mbps_Delay_multiple'
+    # },
 ]
 
 SI_GROUPINGS = [
@@ -588,7 +588,7 @@ def client_consistency(timings: object):
         )
         fig.tight_layout()
         plt.savefig(Path.joinpath(
-            GRAPHS_PATH, 'H3_{}'.format(title)), transparent=True)
+            GRAPHS_PATH, 'H3_{}'.format(dirname)), transparent=True)
         plt.close()
         # plt.show()
 
@@ -602,9 +602,9 @@ def h2_vs_h3_v5(timings: object):
         row_labels = []
 
         if title.count('Loss') > 0:
-            col_labels = ['0%', '0.1%', '1%']
+            col_labels = ['0%', '0.1%', '1%', '1% burst']
         else:
-            col_labels = ['0ms', '50ms', '100ms']
+            col_labels = ['0ms', '50ms', '100ms', '100ms jitter']
 
         if title.count('multiple') > 0:
             sizes = MULTI_SIZES

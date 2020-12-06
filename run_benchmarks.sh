@@ -23,7 +23,7 @@ NETWORK_CONDITIONS=(
 
 for network in "${NETWORK_CONDITIONS[@]}"; do
     echo "$network"
-    $BASEDIR/network/"$network".sh
+    sudo $BASEDIR/network/"$network".sh
     $BASEDIR/run_benchmark.sh $network
 done
 
