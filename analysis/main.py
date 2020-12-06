@@ -860,10 +860,7 @@ def main():
     h2_vs_h3_v5(timings)
     # h2_vs_h3_v2(timings, SIZES)
     # h2_vs_h3_v4(timings, SI_GROUPINGS, MULTI_SIZES, True)
-    try:
-        client_consistency(timings)
-    except Exception as e:
-        print(e)
+    client_consistency(timings)
 
 
 if __name__ == "__main__":

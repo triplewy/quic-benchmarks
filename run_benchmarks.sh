@@ -28,4 +28,4 @@ for network in "${NETWORK_CONDITIONS[@]}"; do
 done
 
 # Analysis
-python3 $BASEDIR/main.py
+python3 $BASEDIR/analysis/main.py
