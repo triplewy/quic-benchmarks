@@ -7,12 +7,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
 import numpy as np
-import pandas as pd
 
 from matplotlib.ticker import StrMethodFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
 from pathlib import Path
-from pprint import pprint
 from scipy import stats
 from glob import glob
 
