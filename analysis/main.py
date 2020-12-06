@@ -28,7 +28,7 @@ DATA_PATH = Path.joinpath(Path(__file__).parent.absolute(),
 GRAPHS_PATH = Path.joinpath(Path(__file__).parent.absolute(),
                             '..', CONFIG['graphs_path']['value'])
 
-GRAPHS_PATH(parents=True, exist_ok=True)
+GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
     {
