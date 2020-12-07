@@ -516,9 +516,8 @@ def facebook_patch(timings: object, sizes):
 
 
 def client_consistency(timings: object):
-    for obj in NETWORK:
-        dirname = obj['dirname']
-        title = obj['title']
+    for network in NETWORK:
+        dirname = network
         data = []
         row_labels = []
         col_labels = [x.split('_')[0] for x in CLIENTS if x.count('h3') > 0]
@@ -572,7 +571,7 @@ def client_consistency(timings: object):
                 data.append(row_data)
 
         fig, ax = plt.subplots(figsize=(10, 5))
-        print(title)
+        print(network)
         # ax.set_title(title)
         im, cbar = heatmap(
             np.transpose(data),
