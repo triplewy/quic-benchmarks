@@ -62,6 +62,7 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0_delay-0_bw-10',
             'loss-0_delay-50_bw-10',
+            'loss-1_delay-50_bw-10',
             'loss-0_delay-100_bw-10',
             'loss-0_delay-100jitter_bw-100',
         ],
@@ -80,6 +81,7 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0_delay-0_bw-100',
             'loss-0_delay-50_bw-100',
+            'loss-1_delay-50_bw-100',
             'loss-0_delay-100_bw-100',
             'loss-0_delay-100jitter_bw-100',
         ],
@@ -603,7 +605,8 @@ def h2_vs_h3_v5(timings: object):
         if title.count('Loss') > 0:
             col_labels = ['0%', '0.1%', '1%', '1% burst']
         else:
-            col_labels = ['0ms', '50ms', '100ms', '100ms jitter']
+            col_labels = ['0ms', '50ms',
+                          '50ms + 1% loss', '100ms', '100ms jitter']
 
         if title.count('multiple') > 0:
             sizes = MULTI_SIZES
