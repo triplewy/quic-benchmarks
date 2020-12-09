@@ -138,10 +138,13 @@ const getNetlogTime = (netlog) => {
         const eventType = logEventTypes[event.type];
         const eventPhase = logEventPhase[event.phase];
         const eventParams = event.params;
-        if (eventType === 'TCP_CONNECT' && eventPhase === 'PHASE_BEGIN') {
+        if ((eventType === 'TCP_CONNECT' || eventType === 'QUIC_SESSION') && eventPhase === 'PHASE_BEGIN') {
             start = eventTime;
         }
         if (eventType === 'HTTP2_SESSION_RECV_DATA' && eventParams.stream_id === 1 && eventParams.fin) {
+            end = eventTime;
+        }
+        if (eventType === 'QUIC_SESSION_PACKET_RECEIVED') {
             end = eventTime;
         }
     }
