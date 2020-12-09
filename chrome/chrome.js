@@ -116,6 +116,39 @@ const hasAltSvc = (entry) => {
     return false;
 };
 
+const invertMap = (map) => {
+    const result = {};
+
+    Object.entries(map).forEach(([key, value]) => {
+        result[value] = key;
+    });
+
+    return result;
+};
+
+const getNetlogTime = (netlog) => {
+    const logEventTypes = invertMap(netlog.constants.logEventTypes);
+    const logEventPhase = invertMap(netlog.constants.logEventPhase);
+
+    let start = 0;
+    let end = 0;
+
+    for (const event of netlog.events) {
+        const eventTime = parseInt(event.time, 10);
+        const eventType = logEventTypes[event.type];
+        const eventPhase = logEventPhase[event.phase];
+        const eventParams = event.params;
+        if (eventType === 'TCP_CONNECT' && eventPhase === 'PHASE_BEGIN') {
+            start = eventTime;
+        }
+        if (eventType === 'HTTP2_SESSION_RECV_DATA' && eventParams.stream_id === 1 && eventParams.fin) {
+            end = eventTime;
+        }
+    }
+
+    return end - start;
+};
+
 const chromeArgs = (urls) => {
     const args = [
         // '--no-sandbox',
@@ -208,12 +241,10 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
                     console.log(entry.response.httpVersion, time);
 
                     if (isH3 && entry.response.httpVersion === 'h3-29') {
-                        timings.push(time);
                         break;
                     }
 
                     if (!isH3 && entry.response.httpVersion === 'h2') {
-                        timings.push(time);
                         break;
                     }
                 } catch (error) {
@@ -235,12 +266,15 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
         const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
         let netlog;
         try {
-            netlog = JSON.parse(netlog);
+            netlog = JSON.parse(netlogRaw);
         } catch (error) {
             // netlog did not flush completely
             netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
         } finally {
-            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), netlog);
+            const time = getNetlogTime(netlog);
+            console.log('netlog time:', time);
+            timings.push(time);
+            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
         }
     }
 

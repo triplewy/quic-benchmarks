@@ -4,8 +4,9 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.ticker import StrMethodFormatter
+import os
 
+from matplotlib.ticker import StrMethodFormatter
 from collections import deque
 from pathlib import Path
 from glob import glob
@@ -25,7 +26,6 @@ PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
 def analyze_pcap(filename: str) -> (dict, str):
-    # print(filename)
     with open(filename) as f:
         data = json.load(f)
 
@@ -81,23 +81,24 @@ def analyze_pcap(filename: str) -> (dict, str):
                     if lost_packet is None:
                         lost_packet = (bytes_ack, window)
                         lost_time = time
-                        # print('ack: {}kb, window: {}kb'.format(bytes_ack, window))
                 else:
                     if lost_time and time - lost_time > 5:
-                        # print('recovery: {}ms, lost_packet: {}'.format(
-                        #     time - lost_time, lost_packet))
                         pass
 
                     lost_time = None
                     lost_packet = None
                     prev_ack = bytes_ack
 
-    print(filename, "num_lost", num_lost)
     return {'ack_ts': ack_ts, 'window_updates': window_updates, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
 
 
 def analyze_qlog(filename: str) -> (dict, str):
-    print(filename)
+    ack_ts = {}
+    pkts_received = {}
+    received_ts = {}
+    max_stream_data = {}
+    lost_packets = {}
+
     with open(filename) as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -108,12 +109,6 @@ def analyze_qlog(filename: str) -> (dict, str):
             time_units = 'ms'
 
         first_time = None
-
-        ack_ts = {}
-        pkts_received = {}
-        received_ts = {}
-        max_stream_data = {}
-        lost_packets = {}
 
         prev_pkt = {'pn': 0, 'dl': 0}
         loss_count = 0
@@ -164,7 +159,6 @@ def analyze_qlog(filename: str) -> (dict, str):
                         if prev_pkt['dl'] < data_length:
                             prev_pkt = {'pn': pkt_num, 'dl': data_length}
                         elif prev_pkt['pn'] < pkt_num:
-                            # print('loss detected', prev_pkt, data_length)
                             lost_packets[ts] = data_length
                             loss_count += 1
                         else:
@@ -179,7 +173,8 @@ def analyze_qlog(filename: str) -> (dict, str):
                 frames = event_data['frames']
                 for frame in frames:
                     if frame['frame_type'] == 'max_stream_data':
-                        max_stream_data[ts] = int(frame['maximum']) / 1024
+                        if 'maximum' in frame:
+                            max_stream_data[ts] = int(frame['maximum']) / 1024
 
                     if 'acked_ranges' not in frame:
                         continue
@@ -204,8 +199,62 @@ def analyze_qlog(filename: str) -> (dict, str):
                 if local_max_ack is not None:
                     ack_ts[ts] = local_max_ack
 
-    print(filename, "num_lost", loss_count)
     return {'ack_ts': ack_ts, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
+
+
+def analyze_netlog(filename: str) -> (dict, str):
+    ack_ts = {}
+
+    with open(filename) as f:
+        data = json.load(f)
+
+        constants = data['constants']
+        events = data['events']
+        event_types = {v: k for k,
+                       v in constants['logEventTypes'].items()}
+        source_types = {v: k for k,
+                        v in constants['logSourceType'].items()}
+        phases = {v: k for k,
+                  v in constants['logEventPhase'].items()}
+
+        start_time = None
+        total_size = 0
+
+        for event in events:
+            # source_type in string
+            source_type = source_types[event['source']['type']]
+            # source id
+            source_id = event['source']['id']
+            # event_type in string
+            event_type = event_types[event['type']]
+            # phase in string
+            phase = phases[event['phase']]
+
+            if 'params' not in event:
+                continue
+
+            # params
+            params = event['params']
+            # event time
+            event_time = int(event['time'])
+
+            if start_time is not None:
+                ts = event_time - start_time
+
+            if (event_type == 'TCP_CONNECT' or event_type == 'QUIC_SESSION') and phase == 'PHASE_BEGIN':
+                if start_time is None:
+                    start_time = event_time
+
+            if event_type == 'HTTP2_SESSION_RECV_DATA':
+                total_size += params['size']
+                ack_ts[ts] = total_size / 1024
+
+            if event_type == 'QUIC_SESSION_STREAM_FRAME_RECEIVED':
+                if params['stream_id'] != 0:
+                    continue
+                ack_ts[ts] = (params['offset'] + params['length']) / 1024
+
+    return {'ack_ts': ack_ts}, filename
 
 
 def plot_ack(data, graph_title: str):
@@ -259,74 +308,6 @@ def plot_ack(data, graph_title: str):
             markersize=4,
         )
 
-        # # throughput
-        # items = list(sorted(ack_ts.items(), key=lambda x: x[0]))
-        # throughputs = []
-        # for j, (k2, v2) in enumerate(items):
-        #     if j == 0:
-        #         continue
-        #     k1, v1 = items[j - 1]
-        #     throughput = (v2 - v1) / (k2 - k1)
-        #     throughputs.append((k2, throughput))
-
-        # if title.count('ngtcp2') == 0:
-        #     continue
-
-        # ax2.plot(
-        #     [x[0] for x in throughputs],
-        #     [x[1] for x in throughputs],
-        #     color='purple',
-        #     linestyle='-',
-        #     linewidth=1
-        # )
-
-    # for obj, title in data:
-    #     if 'lost_packets' not in obj:
-    #         continue
-    #     for k, v in obj['lost_packets'].items():
-    #         ax.plot(
-    #             k,
-    #             v,
-    #             color='orange' if title.count('ngtcp2') == 0 else 'blue',
-    #             marker='x',
-    #             markersize=4,
-    #             linewidth=0
-    #         )
-
-    # for i, (obj, title) in enumerate(data):
-    #     if 'window_updates' not in obj:
-    #         continue
-    #     updates = obj['window_updates']
-
-    #     ax2.plot(
-    #         [x[0] for x in updates.items()],
-    #         [x[1] for x in updates.items()],
-    #         color='green',
-    #         marker='o',
-    #         linestyle='-',
-    #         linewidth=1,
-    #         markersize=1,
-    #     )
-
-    #     for k, v in updates.items():
-    #         if v == 0:
-    #             ax.axvline(k, color='orange')
-
-    # for i, (obj, title) in enumerate(data):
-    #     if 'max_stream_data' not in obj:
-    #         continue
-    #     updates = obj['max_stream_data']
-
-    #     ax.plot(
-    #         [x[0] for x in updates.items()],
-    #         [x[1] for x in updates.items()],
-    #         color='blue',
-    #         marker='o',
-    #         linestyle='-',
-    #         linewidth=1,
-    #         markersize=1,
-    #     )
-
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
 
@@ -338,7 +319,7 @@ def plot_ack(data, graph_title: str):
 
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    # plt.xticks(np.array([0, 300, 600, 900, 1200]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 16
     plt.legend(handles=legend)
@@ -350,35 +331,50 @@ def plot_ack(data, graph_title: str):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--title")
     parser.add_argument("--qlogdir")
     parser.add_argument("--pcapdir")
+    parser.add_argument("--netlogdir_h2")
+    parser.add_argument("--netlogdir_h3")
 
     args = parser.parse_args()
 
-    qlogdir = args.qlogdir
-    pcapdir = args.pcapdir
+    title = args.title
 
     data = []
     wnd_updates = []
 
-    files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
-    files.sort()
-    for qlog in files:
-        if qlog.split('.')[0][-1] != '3':
-            continue
+    if args.qlogdir is not None:
+        qlogdir = Path.joinpath(Path.cwd(), args.qlogdir)
+        files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
+        files.sort()
+        for qlog in files:
+            # if qlog.split('.')[0][-1] != '3':
+            #     continue
+            data.append(analyze_qlog(qlog))
 
-        data.append(analyze_qlog(qlog))
-
-    if pcapdir is not None:
+    if args.pcapdir is not None:
+        pcapdir = Path.joinpath(Path.cwd(), args.pcapdir)
         files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
         for pcap in files:
-            if pcap.split('.')[0][-1] != '3':
-                continue
+            # if pcap.split('.')[0][-1] != '3':
+            #     continue
 
             data.append(analyze_pcap(pcap))
-            # print(pcap, max(data[-1][0].keys()))
 
-    plot_ack(data, qlogdir.split('/')[-1])
+    if args.netlogdir_h2 is not None:
+        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir_h2)
+        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
+        for netlog in files:
+            data.append(analyze_netlog(netlog))
+
+    if args.netlogdir_h3 is not None:
+        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir_h3)
+        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
+        for netlog in files:
+            data.append(analyze_netlog(netlog))
+
+    plot_ack(data, title)
 
 
 if __name__ == "__main__":
