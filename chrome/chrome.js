@@ -272,7 +272,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
             netlog = JSON.parse(netlogRaw);
         } catch (error) {
             // netlog did not flush completely
-            netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
+            netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
         } finally {
             const time = getNetlogTime(netlog);
             console.log('netlog time:', time);
