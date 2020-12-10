@@ -266,8 +266,9 @@ def plot_ack(data, graph_title: str):
 
     legend = [
         mpatches.Patch(color='red', label='Chrome H2'),
+        mpatches.Patch(color='orange', label='Chrome H3'),
         mpatches.Patch(color='blue', label='Proxygen H3'),
-        # mpatches.Patch(color='green', label='Ngtcp2 H3'),
+        mpatches.Patch(color='green', label='Ngtcp2 H3'),
         # mpatches.Patch(color='orange', label='Quiche H3'),
         # mpatches.Patch(color='yellow', label='Aioquic H3'),
     ]
@@ -281,12 +282,12 @@ def plot_ack(data, graph_title: str):
     for i, (obj, title) in enumerate(data):
         ack_ts = obj['ack_ts']
 
-        if title.count('.json') > 0:
-            color = RED.popleft()
-        elif title.count('chrome') > 0:
-            # color = CHROME.popleft()
+        if title.count('chrome_h2') > 0:
             # color = RED.popleft()
-            color = BLUE.popleft()
+            color = 'red'
+        elif title.count('chrome_h3') > 0:
+            # color = ORANGE.popleft()
+            color = 'orange'
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
             color = 'blue'
@@ -324,7 +325,7 @@ def plot_ack(data, graph_title: str):
     plt.rcParams["legend.fontsize"] = 16
     plt.legend(handles=legend)
     plt.savefig(
-        '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
+        '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()
     plt.close(fig=fig)
 
@@ -334,8 +335,7 @@ def main():
     parser.add_argument("--title")
     parser.add_argument("--qlogdir")
     parser.add_argument("--pcapdir")
-    parser.add_argument("--netlogdir_h2")
-    parser.add_argument("--netlogdir_h3")
+    parser.add_argument("--netlogdir")
 
     args = parser.parse_args()
 
@@ -362,14 +362,8 @@ def main():
 
             data.append(analyze_pcap(pcap))
 
-    if args.netlogdir_h2 is not None:
-        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir_h2)
-        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
-        for netlog in files:
-            data.append(analyze_netlog(netlog))
-
-    if args.netlogdir_h3 is not None:
-        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir_h3)
+    if args.netlogdir is not None:
+        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
         files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
         for netlog in files:
             data.append(analyze_netlog(netlog))

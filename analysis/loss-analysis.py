@@ -28,7 +28,6 @@ PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
 def analyze_qlog(filename: str) -> (dict, str):
-    # print(filename)
     with open(filename) as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -84,7 +83,6 @@ def analyze_qlog(filename: str) -> (dict, str):
                     continue
 
                 frames = event_data['frames']
-
                 for frame in frames:
                     if frame['frame_type'].lower() == 'stream':
                         if frame['stream_id'] != '0':
@@ -93,12 +91,11 @@ def analyze_qlog(filename: str) -> (dict, str):
                         pkt_num = int(event_data['header']['packet_number'])
                         offset = int(frame['offset'])
                         length = int(frame['length'])
-
+                        print(length)
                         data_length = (offset + length) / 1024
 
                         pkts_received[pkt_num] = data_length
                         received_ts[ts] = data_length
-
                         if prev_pkt['dl'] < data_length:
                             prev_pkt = {'pn': pkt_num,
                                         'dl': data_length, 'of': offset / 1024}
@@ -188,12 +185,10 @@ def main():
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.count('proxygen') == 0:
-            continue
 
         res = analyze_qlog(qlog)
-        if len(res[0]) == 0 or res[1] > 2000:
-            continue
+        # if len(res[0]) == 0 or res[1] > 2000:
+        #     continue
 
         print(qlog, res[0][0]['dl'], res[1], '{} losses'.format(len(res[0])))
 
