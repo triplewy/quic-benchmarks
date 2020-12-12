@@ -31,6 +31,9 @@ GRAPHS_PATH = Path.joinpath(Path(__file__).parent.absolute(),
 GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
+    'LTE',
+    'LTE_Replica',
+
     'loss-0_delay-0_bw-100',
     'loss-0dot1_delay-0_bw-100',
     'loss-1_delay-0_bw-100',
@@ -54,7 +57,8 @@ NETWORK_V2 = [
             'loss-0_delay-0_bw-10',
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
-            'loss-1burst_delay-0_bw-100'
+            'loss-1burst_delay-0_bw-100',
+            'LTE'
         ],
         'title': '10mbps_Loss_single'
     },
@@ -72,8 +76,13 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0_delay-0_bw-100',
             'loss-0dot1_delay-0_bw-100',
+            'loss-0dot1burstingress_delay-0_bw-100',
+            'loss-0dot1burstegress_delay-0_bw-100',
+            'loss-0dot1burst_delay-0_bw-100',
             'loss-1_delay-0_bw-100',
-            'loss-1burst_delay-0_bw-100'
+            'loss-1burstingress_delay-0_bw-100',
+            'loss-1burstegress_delay-0_bw-100',
+            'loss-1burst_delay-0_bw-100',
         ],
         'title': '100mbps_Loss_single'
     },
@@ -550,6 +559,10 @@ def client_consistency(timings: object):
                     if client.count('h2') > 0:
                         continue
 
+                    if client not in timings[dirname][domain][size]:
+                        row_data.append(0)
+                        continue
+
                     times = timings[dirname][domain][size][client]
 
                     ttest = stats.ttest_ind(
@@ -604,6 +617,7 @@ def h2_vs_h3_v5(timings: object):
 
         if title.count('Loss') > 0:
             col_labels = ['0%', '0.1%', '1%', '1% burst']
+            col_labels = dirnames
         else:
             col_labels = ['0ms', '50ms',
                           '50ms + 1% loss', '100ms', '100ms jitter']

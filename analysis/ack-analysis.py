@@ -26,14 +26,14 @@ PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
 def analyze_pcap(filename: str) -> (dict, str):
+    ack_ts = {}
+    rx_ts = {}
+    window_updates = {}
+    max_stream_data = {}
+    lost_packets = {}
+
     with open(filename) as f:
         data = json.load(f)
-
-        ack_ts = {}
-        received_ts = {}
-        window_updates = {}
-        max_stream_data = {}
-        lost_packets = {}
 
         prev_ack = 0
         lost_packet = None
@@ -55,7 +55,7 @@ def analyze_pcap(filename: str) -> (dict, str):
                 if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
                     fin = True
                 bytes_seq = int(tcp['tcp.seq']) / 1024
-                received_ts[time] = bytes_seq
+                rx_ts[time] = bytes_seq
 
                 if bytes_seq > prev_seq:
                     prev_seq = bytes_seq
@@ -89,15 +89,16 @@ def analyze_pcap(filename: str) -> (dict, str):
                     lost_packet = None
                     prev_ack = bytes_ack
 
-    return {'ack_ts': ack_ts, 'window_updates': window_updates, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
+    return {'ack_ts': ack_ts, 'rx_ts': rx_ts}, filename
 
 
 def analyze_qlog(filename: str) -> (dict, str):
     ack_ts = {}
     pkts_received = {}
-    received_ts = {}
+    rx_ts = {}
     max_stream_data = {}
     lost_packets = {}
+    rx_packets_ts = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -154,7 +155,8 @@ def analyze_qlog(filename: str) -> (dict, str):
                         data_length = (offset + length) / 1024
 
                         pkts_received[pkt_num] = data_length
-                        received_ts[ts] = data_length
+                        rx_ts[ts] = data_length
+                        rx_packets_ts.append((ts, {'length': length / 1024}))
 
                         if prev_pkt['dl'] < data_length:
                             prev_pkt = {'pn': pkt_num, 'dl': data_length}
@@ -199,11 +201,19 @@ def analyze_qlog(filename: str) -> (dict, str):
                 if local_max_ack is not None:
                     ack_ts[ts] = local_max_ack
 
-    return {'ack_ts': ack_ts, 'max_stream_data': max_stream_data, 'lost_packets': lost_packets}, filename
+    return {
+        'ack_ts': ack_ts,
+        'rx_ts': rx_ts,
+        'rx_packets_ts': rx_packets_ts,
+        'max_stream_data': max_stream_data,
+        'lost_packets': lost_packets,
+    }, filename
 
 
 def analyze_netlog(filename: str) -> (dict, str):
     ack_ts = {}
+    rx_ts = {}
+    rx_packets_ts = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -248,60 +258,89 @@ def analyze_netlog(filename: str) -> (dict, str):
             if event_type == 'HTTP2_SESSION_RECV_DATA':
                 total_size += params['size']
                 ack_ts[ts] = total_size / 1024
+                rx_ts[ts] = total_size / 1024
+                rx_packets_ts.append((ts, {'length': params['size'] / 1024}))
 
             if event_type == 'QUIC_SESSION_STREAM_FRAME_RECEIVED':
                 if params['stream_id'] != 0:
                     continue
+                rx_ts[ts] = (params['offset'] + params['length']) / 1024
                 ack_ts[ts] = (params['offset'] + params['length']) / 1024
+                rx_packets_ts.append((ts, {'length': params['length'] / 1024}))
 
-    return {'ack_ts': ack_ts}, filename
+    return {
+        'ack_ts': ack_ts,
+        'rx_ts': rx_ts,
+        'rx_packets_ts': rx_packets_ts
+    }, filename
 
 
 def plot_ack(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.ylabel('Total KB ACKed', fontsize=18, labelpad=10)
+    # plt.ylabel('Total KB ACKed', fontsize=18, labelpad=10)
     plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
-    # plt.title(graph_title)
-    # ax2 = ax.twinx()
+    plt.ylabel('CDF of Total Data Rxed', fontsize=18, labelpad=10)
 
-    legend = [
-        mpatches.Patch(color='red', label='Chrome H2'),
-        mpatches.Patch(color='orange', label='Chrome H3'),
-        mpatches.Patch(color='blue', label='Proxygen H3'),
-        mpatches.Patch(color='green', label='Ngtcp2 H3'),
-        # mpatches.Patch(color='orange', label='Quiche H3'),
-        # mpatches.Patch(color='yellow', label='Aioquic H3'),
-    ]
-
-    # legend = [
-    #     mpatches.Patch(color='red', label='Chrome H3'),
-    #     mpatches.Patch(color='blue', label='Proxygen H3'),
-    #     mpatches.Patch(color='green', label='Ngtcp2 H3'),
-    # ]
+    legend = []
 
     for i, (obj, title) in enumerate(data):
         ack_ts = obj['ack_ts']
+        rx_ts = obj['rx_ts']
+        rx_packets_ts = obj['rx_packets_ts']
+
+        max_length = max(rx_ts.values())
+        rx_packets = []
+        curr = 0
+        for ts, params in rx_packets_ts:
+            curr += params['length']
+            rx_packets.append([ts, curr / max_length])
 
         if title.count('chrome_h2') > 0:
             # color = RED.popleft()
             color = 'red'
+        elif title.count('curl_h2') > 0:
+            color = 'red'
         elif title.count('chrome_h3') > 0:
             # color = ORANGE.popleft()
             color = 'orange'
+            legend.append(mpatches.Patch(color='orange',
+                                         label='Chrome:   {} pkts'.format(len(rx_packets))))
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
             color = 'blue'
+            legend.append(mpatches.Patch(color='blue',
+                                         label='Proxygen: {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
             # color = GREEN.popleft()
             color = 'green'
+            legend.append(mpatches.Patch(color='green',
+                                         label='Ngtcp2:    {} pkts'.format(len(rx_packets))))
         elif title.count('quiche') > 0:
             color = PURPLE.popleft()
         elif title.count('aioquic') > 0:
             color = YELLOW.popleft()
 
+        # ax.plot(
+        #     [x[0] for x in ack_ts.items()],
+        #     [x[1] for x in ack_ts.items()],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
+        # ax.plot(
+        #     [x[0] for x in rx_ts.items()],
+        #     [x[1] for x in rx_ts.items()],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
         ax.plot(
-            [x[0] for x in ack_ts.items()],
-            [x[1] for x in ack_ts.items()],
+            [x[0] for x in rx_packets],
+            [x[1] for x in rx_packets],
             color=color,
             marker='o',
             linestyle='-',
@@ -312,7 +351,8 @@ def plot_ack(data, graph_title: str):
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
 
-    formatter0 = StrMethodFormatter('{x:,g} kb')
+    # formatter0 = StrMethodFormatter('{x:,g} kb')
+    formatter0 = StrMethodFormatter('{x:,g}')
     ax.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
@@ -320,9 +360,11 @@ def plot_ack(data, graph_title: str):
 
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    # plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
+    # plt.xticks(np.array([0, 400, 800, 1200, 1600]))
     fig.tight_layout()
-    plt.rcParams["legend.fontsize"] = 16
+    plt.rcParams["legend.fontsize"] = 14
+    plt.rcParams['legend.loc'] = 'lower right'
     plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
@@ -344,6 +386,12 @@ def main():
     data = []
     wnd_updates = []
 
+    if args.netlogdir is not None:
+        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
+        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
+        for netlog in files:
+            data.append(analyze_netlog(netlog))
+
     if args.qlogdir is not None:
         qlogdir = Path.joinpath(Path.cwd(), args.qlogdir)
         files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
@@ -361,12 +409,6 @@ def main():
             #     continue
 
             data.append(analyze_pcap(pcap))
-
-    if args.netlogdir is not None:
-        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
-        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
-        for netlog in files:
-            data.append(analyze_netlog(netlog))
 
     plot_ack(data, title)
 

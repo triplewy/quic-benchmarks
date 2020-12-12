@@ -50,15 +50,15 @@ const ITERATIONS = CONFIG.iterations.value;
 const DATA_PATH = Path.join(__dirname, '..', CONFIG.data_path.value);
 const TMP_DIR = Path.join(DATA_PATH, 'tmp');
 const TIMINGS_DIR = Path.join(DATA_PATH, 'timings');
-const WPROFX_DIR = Path.join(DATA_PATH, 'wprofx');
 const NETLOG_DIR = Path.join(DATA_PATH, 'netlog');
+const WPROFX_DIR = Path.join(DATA_PATH, 'wprofx');
 const IMAGE_DIR = Path.join(DATA_PATH, 'images');
 
 fs.mkdirSync(TMP_DIR, { recursive: true });
 fs.mkdirSync(TIMINGS_DIR, { recursive: true });
-fs.mkdirSync(WPROFX_DIR, { recursive: true });
 fs.mkdirSync(NETLOG_DIR, { recursive: true });
-fs.mkdirSync(IMAGE_DIR, { recursive: true });
+// fs.mkdirSync(WPROFX_DIR, { recursive: true });
+// fs.mkdirSync(IMAGE_DIR, { recursive: true });
 
 const DOMAINS = CONFIG.domains;
 const SINGLE_SIZES = CONFIG.sizes.single;
@@ -205,6 +205,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
 
     for (let i = n; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
+        await sleep(1000);
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Catch browser crashing on linux

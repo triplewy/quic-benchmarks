@@ -5,11 +5,11 @@
     },
     "data_path": {
         "description": "Path to save all benchmark related data",
-        "value": "./data_12-9"
+        "value": "./data"
     },
     "graphs_path": {
         "descriptions": "Path to save all result graphs from benchmark data",
-        "value": "./graphs_12-9"
+        "value": "./graphs"
     },
     "iterations": {
         "description": "Number of iterations to run for each (network condition, endpoint, client) tuple",

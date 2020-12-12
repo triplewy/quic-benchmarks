@@ -78,6 +78,7 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
         elapsed *= 1000
         timings.append(elapsed)
         print(client, elapsed)
+        time.sleep(1)
 
     with open(timings_path, 'w') as f:
         json.dump(timings, f)
@@ -297,11 +298,11 @@ def main():
     else:
         raise 'dir is not defined'
 
-    doc_clients = list(DOCKER_CONFIG.keys())
-    random.shuffle(doc_clients)
+    clients = CONFIG['clients']
+    random.shuffle(clients)
 
     # Not using chrome via python script for now
-    clients = [x for x in doc_clients if x.count('chrome') == 0]
+    clients = [x for x in clients if x.count('chrome') == 0]
 
     for domain in DOMAINS:
         for size in SIZES:
