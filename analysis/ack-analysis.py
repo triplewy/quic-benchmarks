@@ -307,6 +307,7 @@ def plot_ack(data, graph_title: str):
             rx_packets.append([ts, curr / max_length])
 
         if title.count('chrome_h2') > 0:
+            continue
             # color = RED.popleft()
             color = 'red'
             legend.append(mpatches.Patch(color='red',
@@ -321,11 +322,13 @@ def plot_ack(data, graph_title: str):
             legend.append(mpatches.Patch(color='orange',
                                          label='Chrome H3:   {} pkts'.format(len(rx_packets))))
         elif title.count('proxygen') > 0:
+            continue
             # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
                                          label='Proxygen H3: {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
+            continue
             # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color='green',
