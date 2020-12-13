@@ -144,7 +144,7 @@ const getNetlogTime = (netlog) => {
         if (eventType === 'HTTP2_SESSION_RECV_DATA' && eventParams.stream_id === 1 && eventParams.fin) {
             end = eventTime;
         }
-        if (eventType === 'QUIC_SESSION_PACKET_RECEIVED') {
+        if (eventType === 'QUIC_SESSION_STREAM_FRAME_RECEIVED') {
             end = eventTime;
         }
     }

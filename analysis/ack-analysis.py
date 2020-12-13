@@ -31,6 +31,7 @@ def analyze_pcap(filename: str) -> (dict, str):
     window_updates = {}
     max_stream_data = {}
     lost_packets = {}
+    rx_packets_ts = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -54,8 +55,14 @@ def analyze_pcap(filename: str) -> (dict, str):
             if srcport == '443':
                 if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
                     fin = True
+                if tcp['tcp.len'] == '0':
+                    continue
+
                 bytes_seq = int(tcp['tcp.seq']) / 1024
+                bytes_len = int(tcp['tcp.len']) / 1024
+
                 rx_ts[time] = bytes_seq
+                rx_packets_ts.append((time, {'length': bytes_len}))
 
                 if bytes_seq > prev_seq:
                     prev_seq = bytes_seq
@@ -89,7 +96,11 @@ def analyze_pcap(filename: str) -> (dict, str):
                     lost_packet = None
                     prev_ack = bytes_ack
 
-    return {'ack_ts': ack_ts, 'rx_ts': rx_ts}, filename
+    return {
+        'ack_ts': ack_ts,
+        'rx_ts': rx_ts,
+        'rx_packets_ts': rx_packets_ts
+    }, filename
 
 
 def analyze_qlog(filename: str) -> (dict, str):
@@ -298,23 +309,27 @@ def plot_ack(data, graph_title: str):
         if title.count('chrome_h2') > 0:
             # color = RED.popleft()
             color = 'red'
+            legend.append(mpatches.Patch(color='red',
+                                         label='Chrome H2:   {} pkts'.format(len(rx_packets))))
         elif title.count('curl_h2') > 0:
             color = 'red'
+            legend.append(mpatches.Patch(color='red',
+                                         label='Curl H2:     {} pkts'.format(len(rx_packets))))
         elif title.count('chrome_h3') > 0:
             # color = ORANGE.popleft()
             color = 'orange'
             legend.append(mpatches.Patch(color='orange',
-                                         label='Chrome:   {} pkts'.format(len(rx_packets))))
+                                         label='Chrome H3:   {} pkts'.format(len(rx_packets))))
         elif title.count('proxygen') > 0:
             # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
-                                         label='Proxygen: {} pkts'.format(len(rx_packets))))
+                                         label='Proxygen H3: {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
             # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color='green',
-                                         label='Ngtcp2:    {} pkts'.format(len(rx_packets))))
+                                         label='Ngtcp2 H3:    {} pkts'.format(len(rx_packets))))
         elif title.count('quiche') > 0:
             color = PURPLE.popleft()
         elif title.count('aioquic') > 0:
