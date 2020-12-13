@@ -288,9 +288,9 @@ def analyze_netlog(filename: str) -> (dict, str):
 
 def plot_ack(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    # plt.ylabel('Total KB ACKed', fontsize=18, labelpad=10)
+    plt.ylabel('Total KB Received', fontsize=18, labelpad=10)
     plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
-    plt.ylabel('CDF of Total Data Rxed', fontsize=18, labelpad=10)
+    # plt.ylabel('CDF of Total Data Rxed', fontsize=18, labelpad=10)
 
     legend = []
 
@@ -304,14 +304,14 @@ def plot_ack(data, graph_title: str):
         curr = 0
         for ts, params in rx_packets_ts:
             curr += params['length']
-            rx_packets.append([ts, curr / max_length])
+            # rx_packets.append([ts, curr / max_length])
+            rx_packets.append([ts, curr])
 
         if title.count('chrome_h2') > 0:
-            continue
             # color = RED.popleft()
             color = 'red'
             legend.append(mpatches.Patch(color='red',
-                                         label='Chrome H2:   {} pkts'.format(len(rx_packets))))
+                                         label='Chrome H2:'))
         elif title.count('curl_h2') > 0:
             color = 'red'
             legend.append(mpatches.Patch(color='red',
@@ -322,13 +322,11 @@ def plot_ack(data, graph_title: str):
             legend.append(mpatches.Patch(color='orange',
                                          label='Chrome H3:   {} pkts'.format(len(rx_packets))))
         elif title.count('proxygen') > 0:
-            continue
             # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
                                          label='Proxygen H3: {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
-            continue
             # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color='green',
@@ -370,7 +368,7 @@ def plot_ack(data, graph_title: str):
     ax.tick_params(axis='both', which='minor', labelsize=18)
 
     # formatter0 = StrMethodFormatter('{x:,g} kb')
-    formatter0 = StrMethodFormatter('{x:,g}')
+    formatter0 = StrMethodFormatter('{x:,g} KB')
     ax.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
@@ -379,11 +377,11 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    # plt.xticks(np.array([0, 400, 800, 1200, 1600]))
+    # plt.xticks(np.array([0, 40, 80, 120, 160]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'lower right'
-    plt.legend(handles=legend)
+    # plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()

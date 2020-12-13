@@ -18,7 +18,8 @@
     "domains": [
         "google",
         "facebook",
-        "cloudflare"
+        "cloudflare",
+        "local"
     ],
     "sizes": {
         "single": [

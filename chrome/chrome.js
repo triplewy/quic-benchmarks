@@ -175,7 +175,11 @@ const chromeArgs = (urls) => {
         const origins = new Set();
         urls.forEach((urlString) => {
             const urlObject = url.parse(urlString);
-            origins.add(`${urlObject.host}:443`);
+            let port = '443';
+            if (urlObject.port !== null) {
+                port = urlObject.port;
+            }
+            origins.add(`${urlObject.host}:${port}`);
         });
         args.push(`--origin-to-force-quic-on=${Array.from(origins).join(',')}`);
     } else {

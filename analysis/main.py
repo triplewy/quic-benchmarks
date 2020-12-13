@@ -31,7 +31,6 @@ GRAPHS_PATH = Path.joinpath(Path(__file__).parent.absolute(),
 GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
-    'LTE',
     'loss-0_delay-0_bw-10',
     'loss-0_delay-0_bw-100',
 
@@ -48,6 +47,8 @@ NETWORK = [
     'loss-0_delay-50_bw-10',
     'loss-0_delay-100_bw-10',
     'loss-0_delay-100jitter_bw-10',
+
+    'LTE',
 ]
 
 NETWORK_V2 = [
@@ -68,29 +69,23 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
-            'loss-1burst_delay-0_bw-100',
         ],
         'labels': [
             '0.1%',
             '1%',
-            '1% + burst'
         ],
-        'title': '10mbps_Loss_single'
+        'title': '10mbps_Loss'
     },
     {
         'dirnames': [
             'loss-0_delay-50_bw-10',
-            'loss-1_delay-50_bw-10',
             'loss-0_delay-100_bw-10',
-            'loss-0_delay-100jitter_bw-100',
         ],
         'labels': [
             '50ms',
-            '1% loss + 50ms',
             '100ms',
-            '100ms + jitter'
         ],
-        'title': '10mbps_Delay_single'
+        'title': '10mbps_Delay'
     },
     # {
     #     'dirnames': [
