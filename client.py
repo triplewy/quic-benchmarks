@@ -78,7 +78,6 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
         elapsed *= 1000
         timings.append(elapsed)
         print(client, elapsed)
-        time.sleep(1)
 
     with open(timings_path, 'w') as f:
         json.dump(timings, f)

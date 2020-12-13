@@ -32,9 +32,9 @@ GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
     'LTE',
-    'LTE_Replica',
-
+    'loss-0_delay-0_bw-10',
     'loss-0_delay-0_bw-100',
+
     'loss-0dot1_delay-0_bw-100',
     'loss-1_delay-0_bw-100',
     'loss-1burst_delay-0_bw-100',
@@ -42,7 +42,6 @@ NETWORK = [
     'loss-0_delay-100_bw-100',
     'loss-0_delay-100jitter_bw-100',
 
-    'loss-0_delay-0_bw-10',
     'loss-0dot1_delay-0_bw-10',
     'loss-1_delay-0_bw-10',
     'loss-1burst_delay-0_bw-10',
@@ -54,48 +53,69 @@ NETWORK = [
 NETWORK_V2 = [
     {
         'dirnames': [
+            'LTE',
             'loss-0_delay-0_bw-10',
+            'loss-0_delay-0_bw-100',
+        ],
+        'labels': [
+            'LTE',
+            '10mbps',
+            '100mbps'
+        ],
+        'title': 'varying_bandwidth'
+    },
+    {
+        'dirnames': [
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
             'loss-1burst_delay-0_bw-100',
-            'LTE'
+        ],
+        'labels': [
+            '0.1%',
+            '1%',
+            '1% + burst'
         ],
         'title': '10mbps_Loss_single'
     },
     {
         'dirnames': [
-            'loss-0_delay-0_bw-10',
             'loss-0_delay-50_bw-10',
             'loss-1_delay-50_bw-10',
             'loss-0_delay-100_bw-10',
             'loss-0_delay-100jitter_bw-100',
         ],
+        'labels': [
+            '50ms',
+            '1% loss + 50ms',
+            '100ms',
+            '100ms + jitter'
+        ],
         'title': '10mbps_Delay_single'
     },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-100',
-            'loss-0dot1_delay-0_bw-100',
-            'loss-0dot1burstingress_delay-0_bw-100',
-            'loss-0dot1burstegress_delay-0_bw-100',
-            'loss-0dot1burst_delay-0_bw-100',
-            'loss-1_delay-0_bw-100',
-            'loss-1burstingress_delay-0_bw-100',
-            'loss-1burstegress_delay-0_bw-100',
-            'loss-1burst_delay-0_bw-100',
-        ],
-        'title': '100mbps_Loss_single'
-    },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-100',
-            'loss-0_delay-50_bw-100',
-            'loss-1_delay-50_bw-100',
-            'loss-0_delay-100_bw-100',
-            'loss-0_delay-100jitter_bw-100',
-        ],
-        'title': '100mbps_Delay_single'
-    },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-0_bw-100',
+    #         'loss-0dot1_delay-0_bw-100',
+    #         'loss-0dot1burstingress_delay-0_bw-100',
+    #         'loss-0dot1burstegress_delay-0_bw-100',
+    #         'loss-0dot1burst_delay-0_bw-100',
+    #         'loss-1_delay-0_bw-100',
+    #         'loss-1burstingress_delay-0_bw-100',
+    #         'loss-1burstegress_delay-0_bw-100',
+    #         'loss-1burst_delay-0_bw-100',
+    #     ],
+    #     'title': '100mbps_Loss_single'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-0_bw-100',
+    #         'loss-0_delay-50_bw-100',
+    #         'loss-1_delay-50_bw-100',
+    #         'loss-0_delay-100_bw-100',
+    #         'loss-0_delay-100jitter_bw-100',
+    #     ],
+    #     'title': '100mbps_Delay_single'
+    # },
     # {
     #     'dirnames': [
     #         'revised_loss-0_delay-0_bw-10',
@@ -610,17 +630,11 @@ def client_consistency(timings: object):
 def h2_vs_h3_v5(timings: object):
     for obj in NETWORK_V2:
         dirnames = obj['dirnames']
+        col_labels = obj['labels']
         title = obj['title']
 
         data = []
         row_labels = []
-
-        if title.count('Loss') > 0:
-            col_labels = ['0%', '0.1%', '1%', '1% burst']
-            col_labels = dirnames
-        else:
-            col_labels = ['0ms', '50ms',
-                          '50ms + 1% loss', '100ms', '100ms jitter']
 
         if title.count('multiple') > 0:
             sizes = MULTI_SIZES

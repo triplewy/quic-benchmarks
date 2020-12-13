@@ -205,7 +205,6 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
 
     for (let i = n; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
-        await sleep(1000);
 
         for (let j = 0; j < RETRIES; j += 1) {
             // Catch browser crashing on linux
@@ -241,44 +240,48 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
                     }
 
                     const entry = result[0];
-                    const time = entry.time - entry.timings.blocked - entry.timings._queued - entry.timings.dns;
-                    console.log(entry.response.httpVersion, time);
+                    const harTime = entry.time - entry.timings.blocked - entry.timings._queued - entry.timings.dns;
+                    console.log(entry.response.httpVersion, harTime);
 
-                    if (isH3 && entry.response.httpVersion === 'h3-29') {
-                        break;
+                    if (isH3 && entry.response.httpVersion !== 'h3-29') {
+                        throw Error('incorrect protocol');
                     }
 
-                    if (!isH3 && entry.response.httpVersion === 'h2') {
-                        break;
+                    if (!isH3 && entry.response.httpVersion !== 'h2') {
+                        throw Error('incorrect protocol');
                     }
+                    await browser.close();
+
+                    const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
+                    let netlog;
+                    try {
+                        netlog = JSON.parse(netlogRaw);
+                    } catch (error) {
+                        // netlog did not flush completely
+                        netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
+                    }
+
+                    const time = getNetlogTime(netlog);
+                    console.log('netlog time:', time);
+                    timings.push(time);
+                    fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
+
+                    break;
                 } catch (error) {
+                    await browser.close();
                     console.log(j);
                     if (j === RETRIES - 1) {
                         console.error('Exceeded retries');
                         throw error;
                     }
-                } finally {
-                    await browser.close();
                 }
-
-                break;
             } catch (error) {
-                console.error(error);
+                console.log(j);
+                if (j === RETRIES - 1) {
+                    console.error('Exceeded retries');
+                    throw error;
+                }
             }
-        }
-
-        const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
-        let netlog;
-        try {
-            netlog = JSON.parse(netlogRaw);
-        } catch (error) {
-            // netlog did not flush completely
-            netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
-        } finally {
-            const time = getNetlogTime(netlog);
-            console.log('netlog time:', time);
-            timings.push(time);
-            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
         }
     }
 
