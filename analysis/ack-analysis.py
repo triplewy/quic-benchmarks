@@ -307,6 +307,25 @@ def plot_ack(data, graph_title: str):
             # rx_packets.append([ts, curr / max_length])
             rx_packets.append([ts, curr])
 
+        throughput = []
+        prevX, prevY, max_tput = None, None, 0
+        for x, y in rx_packets:
+            if prevX is None:
+                prevX = x
+                prevY = y
+
+            if prevX == x:
+                continue
+
+            tput = (y - prevY) / (x - prevX) * 1000 / 1024
+            max_tput = max(max_tput, tput)
+            throughput.append([x, max_tput])
+
+            prevX = x
+            prevY = y
+
+        print(title, throughput[-1])
+
         if title.count('chrome_h2') > 0:
             # color = RED.popleft()
             color = 'red'
@@ -327,6 +346,7 @@ def plot_ack(data, graph_title: str):
             legend.append(mpatches.Patch(color='blue',
                                          label='Proxygen H3: {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
+            # continue
             # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color='green',
@@ -346,8 +366,8 @@ def plot_ack(data, graph_title: str):
         #     markersize=4,
         # )
         # ax.plot(
-        #     [x[0] for x in rx_ts.items()],
-        #     [x[1] for x in rx_ts.items()],
+        #     [x[0] for x in throughput],
+        #     [x[1] for x in throughput],
         #     color=color,
         #     marker='o',
         #     linestyle='-',
@@ -377,7 +397,7 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    # plt.xticks(np.array([0, 40, 80, 120, 160]))
+    # plt.xticks(np.array([0, 50, 100, 150, 200]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'lower right'

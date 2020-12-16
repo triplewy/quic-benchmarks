@@ -208,6 +208,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
     }
 
     for (let i = n; i < ITERATIONS; i += 1) {
+        await sleep(2000);
         console.log(`Iteration: ${i}`);
 
         for (let j = 0; j < RETRIES; j += 1) {

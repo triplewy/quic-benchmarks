@@ -68,6 +68,7 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
     Path(dirpath).mkdir(parents=True, exist_ok=True)
 
     for i in range(len(timings), ITERATIONS):
+        time.sleep(2)
         print('{} - {} - Iteration: {}'.format(client, url, i))
 
         if LOCAL:
