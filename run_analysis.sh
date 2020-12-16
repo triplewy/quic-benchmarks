@@ -10,6 +10,16 @@ QLOGDIR=/tmp/qlog
 CONN_FLOW_CONTROL=15728640
 STREAM_FLOW_CONTROL=6291456
 
+mkdir -p ${BASEDIR}/local
+mkdir -p ${QLOGDIR}/client
+mkdir -p ${QLOGDIR}/server
+rm -rfv ${QLOGDIR}/client/*
+rm -rfv ${QLOGDIR}/server/*
+
+# Set network condition
+sudo tcdel lo --all
+sudo tcset lo --rate 100mbps --delay 5ms --delay-distro 2 --direction outgoing
+
 # Remove container
 docker stop mvfst
 docker rm mvfst
@@ -52,6 +62,11 @@ lnicco/mvfst-qns:latest \
 --path=${URLPATH} \
 --v=0
 
+mkdir -p ${BASEDIR}/local/proxygen_h3/client
+mkdir -p ${BASEDIR}/local/proxygen_h3/server
+mv /tmp/qlog/server/* ${BASEDIR}/local/proxygen_h3/server/
+mv /tmp/qlog/client/* ${BASEDIR}/local/proxygen_h3/client/
+
 # ngtpc2
 /quic/ngtcp2/examples/client \
 --quiet \
@@ -65,8 +80,23 @@ ${HOST} \
 ${PORT} \
 https://${HOST}:${PORT}${URLPATH}
 
+mkdir -p ${BASEDIR}/local/ngtcp2_h3/client
+mkdir -p ${BASEDIR}/local/ngtcp2_h3/server
+mv /tmp/qlog/server/* ${BASEDIR}/local/ngtcp2_h3/server/
+mv /tmp/qlog/client/* ${BASEDIR}/local/ngtcp2_h3/client/
+
 # chrome h3
 $BASEDIR/connect_h3.sh ${HOST} ${PORT} ${URLPATH}
 
+mkdir -p ${BASEDIR}/local/chrome_h3/client
+mkdir -p ${BASEDIR}/local/chrome_h3/server
+mv /tmp/qlog/server/* ${BASEDIR}/local/chrome_h3/server/
+mv /tmp/netlog/chrome_h3.json ${BASEDIR}/local/chrome_h3/client/chrome_h3.json
+
 # chrome h2
 $BASEDIR/connect_h2.sh ${HOST} ${PORT} ${URLPATH}
+
+mkdir -p ${BASEDIR}/local/chrome_h2/client
+mkdir -p ${BASEDIR}/local/chrome_h2/server
+mv /tmp/qlog/server/* ${BASEDIR}/local/chrome_h2/server/
+mv /tmp/netlog/chrome_h2.json ${BASEDIR}/local/chrome_h3/client/chrome_h2.json
