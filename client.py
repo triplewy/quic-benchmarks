@@ -8,6 +8,7 @@ import docker
 import os
 import random
 import numpy as np
+import datetime
 
 from pathlib import Path
 from urllib.parse import urlparse
@@ -68,17 +69,21 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
     Path(dirpath).mkdir(parents=True, exist_ok=True)
 
     for i in range(len(timings), ITERATIONS):
-        time.sleep(2)
-        print('{} - {} - Iteration: {}'.format(client, url, i))
+        for j in range(RETRIES):
+            try:
+                print('{} - {} - Iteration: {}'.format(client, url, i))
 
-        if LOCAL:
-            elapsed = run_subprocess(client, url, dirpath, i)
-        else:
-            elapsed = run_docker(client, url, dirpath, i)
+                if LOCAL:
+                    elapsed = run_subprocess(client, url, dirpath, i)
+                else:
+                    elapsed = run_docker(client, url, dirpath, i)
 
-        elapsed *= 1000
-        timings.append(elapsed)
-        print(client, elapsed)
+                elapsed *= 1000
+                timings.append(elapsed)
+                print(client, elapsed)
+                break
+            except Exception as e:
+                print(e)
 
     with open(timings_path, 'w') as f:
         json.dump(timings, f)
@@ -110,6 +115,8 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     # Modify commands
     commands = []
     for command in LOCAL_CONFIG[client]:
+        if '{qlog_dir}' in command:
+            continue
         command = command.replace('{qlog_dir}', str(TMP_QLOG))
         command = command.replace('{url}', url)
         command = command.replace('{host}', url_host)
@@ -117,10 +124,15 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
         command = command.replace('{port}', url_port)
         commands.append(command)
 
+    start = datetime.datetime.now()
     output = subprocess.run(
         commands,
         capture_output=True
     )
+    end = datetime.datetime.now()
+    duration = end - start
+
+    return duration.total_seconds()
 
     if client == 'curl_h2':
         out_arr = output.stdout.decode().split('\n')[:-1]

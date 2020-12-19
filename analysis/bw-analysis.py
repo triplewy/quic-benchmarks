@@ -26,26 +26,14 @@ LINE = 10
 
 
 def analyze_qlog(filename):
-    global LINE
-
-    if filename.count('good') > 0:
-        name = 'Proxygen (good)'
-        event_line = LINE
-        # LINE += 5
-    elif filename.count('mid') > 0:
-        name = 'Proxygen (bad)'
-        event_line = LINE
-        LINE += 10
-    elif filename.count('ngtcp2') > 0:
-        name = 'Ngtcp2'
-        event_line = LINE
-        LINE += 10
-    elif filename.count('chrome') > 0:
-        name = 'Chrome'
-        event_line = LINE
-        LINE += 10
-    else:
-        return None
+    bandwidth = {}
+    loss = {}
+    handshake_done = {}
+    data_sent = []
+    acks_received = {}
+    packets_sent = {}
+    cwnd_updates = []
+    bytes_in_flight = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -57,14 +45,8 @@ def analyze_qlog(filename):
         else:
             time_units = 'ms'
 
+        start = None
         curr_bw = 0
-        bandwidth = {}
-        loss = {}
-        handshake_done = {}
-        data_sent = {}
-        acks_received = {}
-        packets_sent = {}
-
         curr_ack = 0
 
         # Store all stream packets received by client
@@ -77,26 +59,26 @@ def analyze_qlog(filename):
             else:
                 ts = int(event[0]) / 1000
 
+            if start is None:
+                start = ts
+
+            ts -= start
+
             event_type = event[2]
             event_data = event[3]
 
             if event_type.lower() == 'bandwidth_est_update':
-                bandwidth[ts] = int(event_data['bandwidth_bytes']) / 1024
+                bandwidth[ts] = int(event_data['bandwidth_bytes'])
                 curr_bw = bandwidth[ts]
-
-            if event_type.lower() == 'loss_alarm':
-                loss[ts] = event_line
 
             if event_type.lower() == 'packet_sent':
                 if 'frames' in event_data:
                     for frame in event_data['frames']:
-                        if frame['frame_type'] == 'handshake_done':
-                            handshake_done[ts] = event_line
                         if frame['frame_type'] == 'stream' and frame['stream_id'] == '0':
                             data_offset = frame['offset'] + frame['length']
-                            data_sent[ts] = data_offset / 1024
+                            data_sent.append((ts, data_offset))
                             packets_sent[event_data['header']
-                                         ['packet_number']] = data_offset / 1024
+                                         ['packet_number']] = data_offset
 
             if event_type.lower() == 'packet_received':
                 if 'frames' in event_data:
@@ -125,18 +107,27 @@ def analyze_qlog(filename):
                             curr_ack = local_max_ack
                             acks_received[ts] = local_max_ack
 
-        return {
-            'bw': bandwidth,
-            'loss': loss,
-            'handshake_done': handshake_done,
-            'data_sent': data_sent,
-            'acks_received': acks_received
-        }, name
+            if event_type.lower() == 'congestion_metric_update':
+                bif = int(event_data['bytes_in_flight'])
+                cwnd = int(event_data['current_cwnd'])
+                cwnd_updates.append((ts, cwnd))
+                bytes_in_flight.append((ts, bif))
+
+    return {
+        'bw': bandwidth,
+        'loss': loss,
+        'handshake_done': handshake_done,
+        'data_sent': data_sent,
+        'acks_received': acks_received,
+        'cwnd_updates': cwnd_updates,
+        'bytes_in_flight': bytes_in_flight
+    }, filename
 
 
 def plot_ack(data, title):
     fig, ax = plt.subplots(figsize=(10, 6))
-    plt.ylabel('Server estimated bandwidth', fontsize=18, labelpad=15)
+    # plt.ylabel('Server estimated bandwidth', fontsize=18, labelpad=15)
+    plt.ylabel('Data sent', fontsize=18, labelpad=15)
     plt.xlabel('Time elapsed', fontsize=18, labelpad=15)
     # plt.title(graph_title)
 
@@ -149,36 +140,35 @@ def plot_ack(data, title):
         handshake_done = obj['handshake_done']
         data_sent = obj['data_sent']
         acks_received = obj['acks_received']
+        cwnd_updates = obj['cwnd_updates']
+        bytes_in_flight = obj['bytes_in_flight']
 
-        if name.count('Chrome') > 0:
+        if name.count('chrome_h3') > 0:
             color = RED.popleft()
-            # name = 'Chrome (PTO)'
             name = 'Chrome H3'
-        elif name.count('Proxygen (bad)') > 0:
-            if found_proxygen_bad:
-                continue
-            found_proxygen_bad = True
-            if random.uniform(0, 1) >= 0.5:
-                color = ORANGE.popleft()
-            else:
-                color = RED.popleft()
+        elif name.count('proxygen_h3') > 0:
             color = BLUE.popleft()
-            # name = 'Proxygen (PTO)'
             name = 'Proxygen H3'
-        elif name.count('Proxygen (good)') > 0:
             continue
-            color = BLUE.popleft()
-            name = 'Proxygen (No PTO)'
         else:
             color = GREEN.popleft()
-            # name = 'Ngtcp2 (PTO)'
             name = 'Ngtcp2 H3'
 
         legend.append(mpatches.Patch(color=color, label=name))
 
+        # plt.plot(
+        #     [x[0] for x in bw_ts.items()],
+        #     [x[1] / 1024 for x in bw_ts.items()],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
+
         plt.plot(
-            [x[0] for x in bw_ts.items()],
-            [x[1] for x in bw_ts.items()],
+            [x[0] for x in data_sent],
+            [x[1] / 1024 for x in data_sent],
             color=color,
             marker='o',
             linestyle='-',
@@ -186,58 +176,31 @@ def plot_ack(data, title):
             markersize=4,
         )
 
-        # if len(loss_ts) > 0:
-        #     plt.axvline(
-        #         x=[x + random.uniform(-10, 10) for x in loss_ts.keys()],
-        #         color=color,
-        #         # marker='x',
-        #         linestyle='dashed',
-        #         linewidth=0.5,
-        #     )
+        plt.plot(
+            [x[0] for x in cwnd_updates],
+            [x[1] / 1024 for x in cwnd_updates],
+            color='red',
+            marker='o',
+            linestyle='-',
+            linewidth=1,
+            markersize=4,
+        )
 
         # plt.plot(
-        #     [x[0] for x in loss_ts.items()],
-        #     [x[1] for x in loss_ts.items()],
+        #     [x[0] for x in bytes_in_flight],
+        #     [x[1] / 1024 for x in bytes_in_flight],
         #     color=color,
-        #     marker='x',
-        #     linewidth=0,
-        #     markersize=8,
-        #     mew=4
-        # )
-
-        # plt.plot(
-        #     [x[0] for x in handshake_done.items()],
-        #     [x[1] for x in handshake_done.items()],
-        #     color=color,
-        #     marker='v',
-        #     linewidth=0,
-        #     markersize=8,
-        # )
-
-        # plt.plot(
-        #     [x[0] for x in data_sent.items()],
-        #     [x[1] for x in data_sent.items()],
-        #     color=color,
-        #     marker='s',
-        #     linestyle='dotted',
+        #     marker='o',
+        #     linestyle='-',
         #     linewidth=1,
-        #     markersize=2,
-        # )
-
-        # plt.plot(
-        #     [x[0] for x in acks_received.items()],
-        #     [x[1] for x in acks_received.items()],
-        #     color=color,
-        #     marker='D',
-        #     linestyle='dotted',
-        #     linewidth=1,
-        #     markersize=2,
+        #     markersize=4,
         # )
 
     ax.tick_params(axis='both', which='major', labelsize=16)
     ax.tick_params(axis='both', which='minor', labelsize=16)
 
-    formatter0 = StrMethodFormatter('{x:,g} kb')
+    # formatter0 = StrMethodFormatter('{x:,g} KB/s')
+    formatter0 = StrMethodFormatter('{x:,g} KB')
     ax.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
@@ -268,22 +231,9 @@ def main():
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
 
-    found_ngtcp2 = False
-    found_chrome = False
-
     for qlog in files:
-        if qlog.count('server') == 0:
+        if qlog != 'local/LTE/server/ngtcp2_h3/ngtcp2_h3_1.qlog' and qlog != 'local/LTE/server/proxygen_h3/proxygen_h3_2.qlog':
             continue
-
-        if qlog.count('ngtcp2') > 0:
-            if found_ngtcp2:
-                continue
-            found_ngtcp2 = True
-
-        if qlog.count('chrome') > 0:
-            if found_chrome:
-                continue
-            found_chrome = True
 
         res = analyze_qlog(qlog)
         if res is not None:
@@ -291,6 +241,7 @@ def main():
         else:
             print(qlog)
 
+        print(qlog, max(res[0]['bw'].keys()))
     plot_ack(data, '{}_bw_analysis'.format(qlogdir.split('/')[-1]))
 
 

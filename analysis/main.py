@@ -35,7 +35,7 @@ NETWORK = [
     'loss-0_delay-0_bw-100',
 
     'LTE',
-    
+
     'loss-0dot1_delay-0_bw-100',
     'loss-1_delay-0_bw-100',
     'loss-1burst_delay-0_bw-100',
@@ -50,7 +50,7 @@ NETWORK = [
     'loss-0_delay-100_bw-10',
     'loss-0_delay-100jitter_bw-10',
 
-    
+
 ]
 
 NETWORK_V2 = [
@@ -702,7 +702,7 @@ def h2_vs_h3_v5(timings: object):
                 # show_cbar=True if i == len(axs) - 1 else False,
             )
             annotate_heatmap(
-                im, valfmt="{x:.1f}%", threshold=10, fontsize=16, fontweight=600)
+                im, valfmt="{x:.1f}%", threshold=8, fontsize=16, fontweight=600)
 
         for ax in axs.flat:
             ax.label_outer()

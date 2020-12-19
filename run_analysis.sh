@@ -18,7 +18,7 @@ rm -rfv ${QLOGDIR}/server/*
 
 # Set network condition
 sudo tcdel lo --all
-sudo tcset lo --rate 100mbps --delay 5ms --delay-distro 2 --direction outgoing
+sudo tcset lo --rate 100mbps --delay 5ms --direction outgoing
 
 # Remove container
 docker stop mvfst
@@ -31,7 +31,7 @@ docker run \
 -v ${QLOGDIR}/server:/logs \
 -v /certs:/certs \
 --entrypoint /proxygen/_build/proxygen/bin/hq \
--p ${HOST}:${PORT}:${PORT}/udp \
+-p ${PORT}:${PORT}/udp \
 -p ${HOST}:${PORT}:${PORT}/tcp \
 lnicco/mvfst-qns:latest \
 --mode=server \
@@ -56,11 +56,14 @@ lnicco/mvfst-qns:latest \
 --conn_flow_control=${CONN_FLOW_CONTROL} \
 --use_draft=true \
 --draft-version=29 \
+--httpversion=${HTTPVERSION} \
 --qlogger_path=${QLOGDIR}/client \
 --host=${HOST} \
 --port=${PORT} \
 --path=${URLPATH} \
 --v=0
+
+sleep 2
 
 mkdir -p ${BASEDIR}/local/proxygen_h3/client
 mkdir -p ${BASEDIR}/local/proxygen_h3/server
@@ -80,6 +83,8 @@ ${HOST} \
 ${PORT} \
 https://${HOST}:${PORT}${URLPATH}
 
+sleep 2
+
 mkdir -p ${BASEDIR}/local/ngtcp2_h3/client
 mkdir -p ${BASEDIR}/local/ngtcp2_h3/server
 mv /tmp/qlog/server/* ${BASEDIR}/local/ngtcp2_h3/server/
@@ -87,6 +92,8 @@ mv /tmp/qlog/client/* ${BASEDIR}/local/ngtcp2_h3/client/
 
 # chrome h3
 $BASEDIR/connect_h3.sh ${HOST} ${PORT} ${URLPATH}
+
+sleep 2
 
 mkdir -p ${BASEDIR}/local/chrome_h3/client
 mkdir -p ${BASEDIR}/local/chrome_h3/server
@@ -96,7 +103,15 @@ mv /tmp/netlog/chrome_h3.json ${BASEDIR}/local/chrome_h3/client/chrome_h3.json
 # chrome h2
 $BASEDIR/connect_h2.sh ${HOST} ${PORT} ${URLPATH}
 
+sleep 2
+
 mkdir -p ${BASEDIR}/local/chrome_h2/client
 mkdir -p ${BASEDIR}/local/chrome_h2/server
-mv /tmp/qlog/server/* ${BASEDIR}/local/chrome_h2/server/
-mv /tmp/netlog/chrome_h2.json ${BASEDIR}/local/chrome_h3/client/chrome_h2.json
+mv /tmp/netlog/chrome_h2.json ${BASEDIR}/local/chrome_h2/client/chrome_h2.json
+
+
+docker run \
+-d \
+--name quiche \
+--entrypoint /usr/local/bin/quiche-server \
+cloudflare/quiche \

@@ -597,6 +597,7 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
         single,
     } = cliArgs;
 
+    const clients = CONFIG.clients.filter(client => client.includes("chrome"));
     const sizes = single ? SINGLE_SIZES : MULTI_SIZES;
 
     for (const domain of DOMAINS) {
@@ -613,16 +614,16 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
 
             console.log(`${domain}/${size}`);
 
-            if (single) {
-                console.log('Chrome: H2 - single object');
-                await runBenchmark(urlObj, timingsDir, netlogDir, false);
-                console.log('Chrome: H3 - single object');
-                await runBenchmark(urlObj, timingsDir, netlogDir, true);
-            } else {
-                console.log('Chrome: H3 - multi object');
-                await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, imageDir, true);
-                console.log('Chrome: H2 - multi object');
-                await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, imageDir, false);
+            for (const client of clients) {
+                const isH3 = client == 'chrome_h3'
+                if (single) {
+                    console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
+                    await runBenchmark(urlObj, timingsDir, netlogDir, isH3);
+                } else {
+                    console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - multi object`);
+                    await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, imageDir, isH3);
+                }
+
             }
         }
     }

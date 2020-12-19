@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CHROME_PATH=/quic/quic-benchmarks/chrome/node_modules/puppeteer/.local-chromium/linux-809590/chrome-linux/chrome
+CHROME_PATH=chrome/node_modules/puppeteer/.local-chromium/mac-809590/chrome-mac/Chromium.app/Contents/MacOS/Chromium
 HOST=$1
 PORT=$2
 WEBPATH=$3

@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
+import math
 
 from matplotlib.ticker import StrMethodFormatter
 from collections import deque
@@ -32,6 +33,9 @@ def analyze_pcap(filename: str) -> (dict, str):
     max_stream_data = {}
     lost_packets = {}
     rx_packets_ts = []
+    initial_rtt = None
+    second_rtt = None
+    init_cwnd = 0
 
     with open(filename) as f:
         data = json.load(f)
@@ -40,6 +44,9 @@ def analyze_pcap(filename: str) -> (dict, str):
         lost_packet = None
         lost_time = None
         num_lost = 0
+        tx_tls = None
+        rx_tls = None
+        start_data_time = None
 
         fin = False
         prev_seq = -1
@@ -51,11 +58,33 @@ def analyze_pcap(filename: str) -> (dict, str):
             dstport = tcp['tcp.dstport']
             time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
 
+            if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
+                fin = True
+
+            init_rtt = tcp.get('tcp.analysis', {}).get(
+                'tcp.analysis.initial_rtt')
+            if init_rtt is not None:
+                initial_rtt = float(init_rtt)
+
+            if tcp.get("tcp.analysis", {}).get("tcp.analysis.acks_frame") == "4":
+                second_rtt = float(tcp.get("tcp.analysis").get(
+                    "tcp.analysis.ack_rtt"))
+
             # receive packet
             if srcport == '443':
-                if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
-                    fin = True
-                if tcp['tcp.len'] == '0':
+                if tcp['tcp.len'] == '1376' and int(tcp['tcp.seq']) >= 3000:
+                    if start_data_time is None:
+                        start_data_time = time
+
+                    min_rtt = min(initial_rtt, second_rtt) * 1000
+
+                    if time - start_data_time < min_rtt:
+                        init_cwnd += 1
+
+                if tcp['tcp.len'] == '0' or int(tcp['tcp.seq']) < 3000:
+                    continue
+
+                if fin:
                     continue
 
                 bytes_seq = int(tcp['tcp.seq']) / 1024
@@ -96,6 +125,7 @@ def analyze_pcap(filename: str) -> (dict, str):
                     lost_packet = None
                     prev_ack = bytes_ack
 
+    print(filename, initial_rtt, second_rtt, init_cwnd)
     return {
         'ack_ts': ack_ts,
         'rx_ts': rx_ts,
@@ -295,6 +325,7 @@ def plot_ack(data, graph_title: str):
     legend = []
 
     for i, (obj, title) in enumerate(data):
+        print(title)
         ack_ts = obj['ack_ts']
         rx_ts = obj['rx_ts']
         rx_packets_ts = obj['rx_packets_ts']
@@ -304,29 +335,28 @@ def plot_ack(data, graph_title: str):
         curr = 0
         for ts, params in rx_packets_ts:
             curr += params['length']
-            # rx_packets.append([ts, curr / max_length])
             rx_packets.append([ts, curr])
 
-        throughput = []
-        prevX, prevY, max_tput = None, None, 0
-        for x, y in rx_packets:
-            if prevX is None:
-                prevX = x
-                prevY = y
+        # throughput = []
+        # prevX, prevY, max_tput = None, None, 0
+        # for x, y in rx_packets:
+        #     if prevX is None:
+        #         prevX = x
+        #         prevY = y
 
-            if prevX == x:
-                continue
+        #     if y - prevY < 1024:
+        #         continue
+        #     tput = (y - prevY) / (x - prevX) * 1000 / 1024
+        #     max_tput = max(max_tput, tput)
+        #     throughput.append([x, max_tput])
 
-            tput = (y - prevY) / (x - prevX) * 1000 / 1024
-            max_tput = max(max_tput, tput)
-            throughput.append([x, max_tput])
+        #     prevX = x
+        #     prevY = y
 
-            prevX = x
-            prevY = y
-
-        print(title, throughput[-1])
+        # print(title, throughput[-1])
 
         if title.count('chrome_h2') > 0:
+            continue
             # color = RED.popleft()
             color = 'red'
             legend.append(mpatches.Patch(color='red',
@@ -334,7 +364,7 @@ def plot_ack(data, graph_title: str):
         elif title.count('curl_h2') > 0:
             color = 'red'
             legend.append(mpatches.Patch(color='red',
-                                         label='Curl H2:     {} pkts'.format(len(rx_packets))))
+                                         label='Curl H2:         {} pkts'.format(len(rx_packets))))
         elif title.count('chrome_h3') > 0:
             # color = ORANGE.popleft()
             color = 'orange'
@@ -397,11 +427,11 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    # plt.xticks(np.array([0, 50, 100, 150, 200]))
+    plt.xticks(np.array([100, 150, 200, 250, 300]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'lower right'
-    # plt.legend(handles=legend)
+    plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()
