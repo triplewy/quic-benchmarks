@@ -71,12 +71,16 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
+            'loss-0dot1_delay-0_bw-100',
+            'loss-1_delay-0_bw-100'
         ],
         'labels': [
-            '0.1%',
-            '1%',
+            '0.1% (10mbps)',
+            '1% (10mbps)',
+            '0.1% (100mbps)',
+            '1% (100mbps)',
         ],
-        'title': '10mbps_Loss'
+        'title': 'Loss'
     },
     {
         'dirnames': [
@@ -615,8 +619,10 @@ def client_consistency(timings: object):
             vmin=0,
             vmax=20,
             rotation=20,
-            show_cbar=True,
+            show_cbar=False,
         )
+        annotate_heatmap(
+            im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
         fig.tight_layout()
         plt.savefig(Path.joinpath(
             GRAPHS_PATH, 'H3_{}'.format(dirname)), transparent=True)
@@ -702,7 +708,7 @@ def h2_vs_h3_v5(timings: object):
                 # show_cbar=True if i == len(axs) - 1 else False,
             )
             annotate_heatmap(
-                im, valfmt="{x:.1f}%", threshold=8, fontsize=16, fontweight=600)
+                im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
 
         for ax in axs.flat:
             ax.label_outer()

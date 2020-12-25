@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
 import math
+import scipy.stats as st
 
+from collections import Counter
 from matplotlib.ticker import StrMethodFormatter
 from collections import deque
 from pathlib import Path
@@ -316,115 +318,74 @@ def analyze_netlog(filename: str) -> (dict, str):
     }, filename
 
 
-def plot_ack(data, graph_title: str):
+def plot(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.ylabel('Total KB Received', fontsize=18, labelpad=10)
+    plt.ylabel('Count', fontsize=18, labelpad=10)
     plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
-    # plt.ylabel('CDF of Total Data Rxed', fontsize=18, labelpad=10)
 
     legend = []
 
-    for i, (obj, title) in enumerate(data):
+    data.sort(key=lambda x: np.median(x[0]))
+
+    for i, (timings, title) in enumerate(data):
         print(title)
-        ack_ts = obj['ack_ts']
-        rx_ts = obj['rx_ts']
-        rx_packets_ts = obj['rx_packets_ts']
 
-        max_length = max(rx_ts.values())
-        rx_packets = []
-        curr = 0
-        for ts, params in rx_packets_ts:
-            curr += params['length']
-            rx_packets.append([ts, curr])
+        median = int(np.median(timings))
 
-        # throughput = []
-        # prevX, prevY, max_tput = None, None, 0
-        # for x, y in rx_packets:
-        #     if prevX is None:
-        #         prevX = x
-        #         prevY = y
+        counter = Counter()
 
-        #     if y - prevY < 1024:
-        #         continue
-        #     tput = (y - prevY) / (x - prevX) * 1000 / 1024
-        #     max_tput = max(max_tput, tput)
-        #     throughput.append([x, max_tput])
+        for time in timings:
+            bucket = round(time, -2)
+            counter[bucket] += 1
 
-        #     prevX = x
-        #     prevY = y
-
-        # print(title, throughput[-1])
+        median_bucket = round(median, -2)
+        buckets = sorted(list(counter.items()), key=lambda x: x[0])
 
         if title.count('chrome_h2') > 0:
             continue
-            # color = RED.popleft()
-            color = 'red'
-            legend.append(mpatches.Patch(color='red',
-                                         label='Chrome H2:'))
+            color = 'purple'
+            legend.append(mpatches.Patch(color='purple',
+                                         label='Chrome H2 (median):   {}ms'.format(median)))
         elif title.count('curl_h2') > 0:
+            continue
             color = 'red'
             legend.append(mpatches.Patch(color='red',
-                                         label='Curl H2:         {} pkts'.format(len(rx_packets))))
+                                         label='Curl H2 (median):         {}ms'.format(median)))
         elif title.count('chrome_h3') > 0:
-            # color = ORANGE.popleft()
             color = 'orange'
             legend.append(mpatches.Patch(color='orange',
-                                         label='Chrome H3:                  {} pkts'.format(len(rx_packets))))
+                                         label='Chrome H3 (median):   {}ms'.format(median)))
         elif title.count('proxygen_h3') > 0:
-            # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
-                                         label='Proxygen H3 (10 ACK): {} pkts'.format(len(rx_packets))))
+                                         label='Proxygen H3 (median): {}ms'.format(median)))
         elif title.count('proxygen_ack_h3') > 0:
-            # color = BLUE.popleft()
             color = '#A7DFE2'
             legend.append(mpatches.Patch(color='#A7DFE2',
-                                         label='Proxygen H3 (2 ACK):   {} pkts'.format(len(rx_packets))))
+                                         label='Proxygen H3 (median): {}ms'.format(median)))
         elif title.count('ngtcp2') > 0:
-            # continue
-            # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color='green',
-                                         label='Ngtcp2 H3:    {} pkts'.format(len(rx_packets))))
-        elif title.count('quiche') > 0:
-            color = PURPLE.popleft()
-        elif title.count('aioquic') > 0:
-            color = YELLOW.popleft()
+                                         label='Ngtcp2 H3 (median):    {}ms'.format(median)))
 
-        # ax.plot(
-        #     [x[0] for x in ack_ts.items()],
-        #     [x[1] for x in ack_ts.items()],
-        #     color=color,
-        #     marker='o',
-        #     linestyle='-',
-        #     linewidth=1,
-        #     markersize=4,
-        # )
-        # ax.plot(
-        #     [x[0] for x in throughput],
-        #     [x[1] for x in throughput],
-        #     color=color,
-        #     marker='o',
-        #     linestyle='-',
-        #     linewidth=1,
-        #     markersize=4,
-        # )
         ax.plot(
-            [x[0] for x in rx_packets],
-            [x[1] for x in rx_packets],
+            [x[0] for x in buckets],
+            [x[1] for x in buckets],
             color=color,
             marker='o',
             linestyle='-',
-            linewidth=1,
+            linewidth=2,
             markersize=4,
         )
+        ax.plot(median_bucket, counter[median_bucket],
+                color='red', marker='o', markersize=8)
 
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
 
     # formatter0 = StrMethodFormatter('{x:,g} kb')
-    formatter0 = StrMethodFormatter('{x:,g} KB')
-    ax.yaxis.set_major_formatter(formatter0)
+    # formatter0 = StrMethodFormatter('{x:,g} KB')
+    # ax.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
     ax.xaxis.set_major_formatter(formatter1)
@@ -432,10 +393,10 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    plt.xticks(np.array([300, 600, 900, 1200, 1500]))
+    plt.xticks(np.array([500, 1000, 1500, 2000]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
-    plt.rcParams['legend.loc'] = 'lower right'
+    plt.rcParams['legend.loc'] = 'upper right'
     plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
@@ -446,42 +407,22 @@ def plot_ack(data, graph_title: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--title")
-    parser.add_argument("--qlogdir")
-    parser.add_argument("--pcapdir")
-    parser.add_argument("--netlogdir")
+    parser.add_argument("--timingsdir")
 
     args = parser.parse_args()
 
     title = args.title
 
     data = []
-    wnd_updates = []
 
-    if args.netlogdir is not None:
-        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
-        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
-        for netlog in files:
-            data.append(analyze_netlog(netlog))
+    if args.timingsdir is not None:
+        timingsdir = Path.joinpath(Path.cwd(), args.timingsdir)
+        files = glob('{}/**/*.json'.format(timingsdir), recursive=True)
+        for filepath in files:
+            with open(filepath) as f:
+                data.append((json.load(f), filepath))
 
-    if args.qlogdir is not None:
-        qlogdir = Path.joinpath(Path.cwd(), args.qlogdir)
-        files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
-        files.sort()
-        for qlog in files:
-            # if qlog.split('.')[0][-1] != '3':
-            #     continue
-            data.append(analyze_qlog(qlog))
-
-    if args.pcapdir is not None:
-        pcapdir = Path.joinpath(Path.cwd(), args.pcapdir)
-        files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
-        for pcap in files:
-            # if pcap.split('.')[0][-1] != '3':
-            #     continue
-
-            data.append(analyze_pcap(pcap))
-
-    plot_ack(data, title)
+    plot(data, title)
 
 
 if __name__ == "__main__":

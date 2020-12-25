@@ -1,6 +1,6 @@
 {
     "facebook": {
-        "100KB": "https://scontent.xx.fbcdn.net/speedtest-100KB",
+        "100KB": "https://scontent-bos3-1.cdninstagram.com/speedtest-100KB",
         "1MB": "https://scontent.xx.fbcdn.net/speedtest-1MB",
         "5MB": "https://scontent.xx.fbcdn.net/speedtest-5MB",
         "small": {
@@ -65,6 +65,7 @@
         "5MB": "https://127.0.0.1:30000/5242880"
     },
     "brown": {
-        "100KB": "https://quic.cs.brown.edu:30000/102400"
+        "100KB": "https://quic.cs.brown.edu:30000/102400",
+        "200KB": "https://quic.cs.brown.edu:30000/quic-hero.png"
     }
 }

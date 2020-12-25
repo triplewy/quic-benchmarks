@@ -21,7 +21,8 @@ PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
 def analyze_cc(filename: str) -> (dict, str):
-    print(filename)
+    cc_ts = []
+
     with open(filename) as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -30,8 +31,6 @@ def analyze_cc(filename: str) -> (dict, str):
             time_units = traces['configuration']['time_units']
         else:
             time_units = 'ms'
-
-        cc_ts = {}
 
         # Store all stream packets received by client
         for event in events:
@@ -47,10 +46,10 @@ def analyze_cc(filename: str) -> (dict, str):
             event_data = event[3]
 
             if event_type.lower() == 'metrics_updated':
-                cwnd = float(event_data['congestion_window']) / 1000
-                cc_ts[ts] = cwnd
+                cwnd = float(event_data['congestion_window']) / 1024
+                cc_ts.append((ts, cwnd))
 
-    return cc_ts
+    return cc_ts, filename
 
 
 def analyze_ack(filename: str) -> (dict, str):
@@ -134,64 +133,64 @@ def analyze_ack(filename: str) -> (dict, str):
     return ack_ts
 
 
-def plot(client_data, server_data, graph_title: str):
-    fig, ax1 = plt.subplots(figsize=(12, 6))
-    ax2 = ax1.twinx()
-    # plt.ylabel('Total KB ACKed')
-    # plt.xlabel('Time (ms)')
+def plot(data, graph_title: str):
+    fig, ax = plt.subplots(figsize=(12, 6))
+    plt.ylabel('Cwnd', fontsize=18, labelpad=10)
+    plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
     # plt.title(graph_title)
 
-    legend = [
-        mpatches.Patch(color='red', label='Chrome H3'),
-        mpatches.Patch(color='blue', label='Proxygen H3'),
-        mpatches.Patch(color='green', label='Ngtcp2 H3'),
-        mpatches.Patch(color='orange', label='Quiche H3'),
-        mpatches.Patch(color='yellow', label='Aioquic H3'),
-    ]
+    legend = []
 
-    for i, ack_ts in enumerate(client_data):
-        color = BLUE.popleft()
-        ax1.plot(
-            [x[0] for x in ack_ts.items()],
-            [x[1] for x in ack_ts.items()],
-            color=color,
-            marker='o',
-            linestyle='-',
-            linewidth=1,
-            markersize=4,
-        )
+    for i, (cc_ts, title) in enumerate(data):
+        if title.count('chrome_h3') > 0:
+            # color = ORANGE.popleft()
+            color = 'orange'
+            legend.append(mpatches.Patch(color='orange',
+                                         label='Chrome H3:                  {} updates'.format(len(cc_ts))))
+        elif title.count('proxygen_h3') > 0:
+            # color = BLUE.popleft()
+            color = 'blue'
+            legend.append(mpatches.Patch(color='blue',
+                                         label='Proxygen H3 (10 ACK): {} updates'.format(len(cc_ts))))
+        elif title.count('proxygen_ack_h3') > 0:
+            # color = BLUE.popleft()
+            color = '#A7DFE2'
+            legend.append(mpatches.Patch(color='#A7DFE2',
+                                         label='Proxygen H3 (2 ACK):   {} updates'.format(len(cc_ts))))
+        elif title.count('ngtcp2_h3') > 0:
+            # continue
+            color = 'green'
+            legend.append(mpatches.Patch(color='green',
+                                         label='Ngtcp2 H3:                   {} updates'.format(len(cc_ts))))
 
-    for i, cc_ts in enumerate(server_data):
-        color = ORANGE.popleft()
-        ax2.plot(
-            [x[0] for x in cc_ts.items()],
-            [x[1] for x in cc_ts.items()],
+        ax.plot(
+            [x[0] for x in cc_ts],
+            [x[1] for x in cc_ts],
             color=color,
             marker='o',
             linestyle='-',
             linewidth=2,
-            markersize=0,
+            markersize=4,
         )
 
-    ax1.tick_params(axis='both', which='major', labelsize=18)
-    ax1.tick_params(axis='both', which='minor', labelsize=18)
-    ax2.tick_params(axis='both', which='major', labelsize=18)
-    ax2.tick_params(axis='both', which='minor', labelsize=18)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.tick_params(axis='both', which='minor', labelsize=18)
 
-    formatter0 = StrMethodFormatter('{x:,g} kb')
-    ax1.yaxis.set_major_formatter(formatter0)
+    formatter0 = StrMethodFormatter('{x:,g} KB')
+    ax.yaxis.set_major_formatter(formatter0)
 
     formatter1 = StrMethodFormatter('{x:,g} ms')
-    ax1.xaxis.set_major_formatter(formatter1)
-
-    ax2.yaxis.set_major_formatter(formatter0)
+    ax.xaxis.set_major_formatter(formatter1)
 
     # plt.yticks(np.array([0, 250, 500, 750, 1000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([250, 500, 750, 1000, 1250]))
+    plt.rcParams["legend.fontsize"] = 14
+    plt.rcParams['legend.loc'] = 'upper right'
+    plt.legend(handles=legend)
     fig.tight_layout()
     plt.savefig(
-        '{}/Desktop/graphs/quiche_analysis'.format(Path.home()), transparent=True)
+        '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()
     plt.close(fig=fig)
 
@@ -199,23 +198,21 @@ def plot(client_data, server_data, graph_title: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("qlogdir")
+    parser.add_argument("--title")
 
     args = parser.parse_args()
 
     qlogdir = args.qlogdir
+    title = args.title
 
-    client_data = []
-    server_data = []
+    data = []
 
     files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
     files.sort()
     for qlog in files:
-        if qlog.count('server') > 0:
-            server_data.append(analyze_cc(qlog))
-        elif qlog.count('client') > 0:
-            client_data.append(analyze_ack(qlog))
+        data.append(analyze_cc(qlog))
 
-    plot(client_data, server_data, qlogdir.split('/')[-1])
+    plot(data, title)
 
 
 if __name__ == "__main__":

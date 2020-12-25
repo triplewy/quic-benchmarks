@@ -55,7 +55,7 @@ DOMAINS = CONFIG['domains']
 SIZES = CONFIG['sizes']['single']
 
 
-def benchmark(client: str, url: str, timedir: str, qlogdir: str):
+def benchmark(client: str, url: str, timedir: str, qlogdir: str, log: bool):
     timings = []
 
     timings_path = Path.joinpath(timedir, '{}.json'.format(client))
@@ -71,10 +71,11 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
     for i in range(len(timings), ITERATIONS):
         for j in range(RETRIES):
             try:
+                # time.sleep(10)
                 print('{} - {} - Iteration: {}'.format(client, url, i))
 
                 if LOCAL:
-                    elapsed = run_subprocess(client, url, dirpath, i)
+                    elapsed = run_subprocess(client, url, dirpath, i, log)
                 else:
                     elapsed = run_docker(client, url, dirpath, i)
 
@@ -99,7 +100,7 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str):
             os.remove(Path.joinpath(dirpath, f))
 
 
-def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
+def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> float:
     # Parse URL object
     url_obj = urlparse(url)
     url_host = url_obj.netloc
@@ -116,8 +117,11 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     commands = []
     for command in LOCAL_CONFIG[client]:
         if '{qlog_dir}' in command:
-            continue
-        command = command.replace('{qlog_dir}', str(TMP_QLOG))
+            if log:
+                command = command.replace('{qlog_dir}', str(TMP_QLOG))
+            else:
+                continue
+
         command = command.replace('{url}', url)
         command = command.replace('{host}', url_host)
         command = command.replace('{path}', url_path)
@@ -132,13 +136,27 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int) -> float:
     end = datetime.datetime.now()
     duration = end - start
 
-    return duration.total_seconds()
-
     if client == 'curl_h2':
         out_arr = output.stdout.decode().split('\n')[:-1]
         dns_time = float(out_arr[0].split(':')[1])
         total_time = float(out_arr[1].split(':')[1])
         return total_time - dns_time
+
+    if not log:
+        if client == 'proxygen_h3':
+            out_arr = output.stderr.decode().split('\n')[:-1]
+            start = datetime.datetime.strptime(
+                out_arr[1].split()[1], '%H:%M:%S.%f')
+            end = datetime.datetime.strptime(
+                out_arr[2].split()[1], '%H:%M:%S.%f')
+            return (end - start).total_seconds()
+        elif client == 'ngtcp2_h3':
+            out_arr = output.stdout.decode().split('\n')[:-1]
+            start = float(out_arr[0].split(':')[1])
+            end = float(out_arr[1].split(':')[1])
+            return end - start
+        else:
+            return duration
 
     if len(os.listdir(TMP_QLOG)) == 0:
         raise 'no qlog created'
@@ -302,6 +320,8 @@ def main():
     # Get network scenario from command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir')
+    parser.add_argument('--log', dest='log',
+                        action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -327,7 +347,7 @@ def main():
 
             for client in clients:
                 url = ENDPOINTS[domain][size]
-                benchmark(client, url, timedir, qlogdir)
+                benchmark(client, url, timedir, qlogdir, args.log)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 PORT=30000
-HTTPVERSION=0.9
+HTTPVERSION=1.1
 HOST=127.0.0.1
 URLPATH=/1048576
 QLOGDIR=/tmp/qlog
@@ -113,5 +113,17 @@ mv /tmp/netlog/chrome_h2.json ${BASEDIR}/local/chrome_h2/client/chrome_h2.json
 docker run \
 -d \
 --name quiche \
+-v ${QLOGDIR}/server:/logs \
+-v /certs:/certs \
+-v /www:/www \
 --entrypoint /usr/local/bin/quiche-server \
+-p ${PORT}:${PORT}/udp \
+-e QLOGDIR=/logs \
 cloudflare/quiche \
+--listen "[::]:${PORT}" \
+--cert /certs/leaf_cert.pem \
+--key /certs/leaf_cert.key \
+--root /www \
+--max-data 107374182 \
+--max-stream-data 107374182 \
+--no-retry

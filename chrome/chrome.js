@@ -152,7 +152,7 @@ const getNetlogTime = (netlog) => {
     return end - start;
 };
 
-const chromeArgs = (urls) => {
+const chromeArgs = (urls, log) => {
     const args = [
         // '--no-sandbox',
         '--headless',
@@ -163,8 +163,11 @@ const chromeArgs = (urls) => {
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
         '--aggressive-cache-discard',
-        `--log-net-log=${TMP_NETLOG}`,
     ];
+
+    if (log) {
+        args.push(`--log-net-log=${TMP_NETLOG}`);
+    }
 
     if (urls !== null && urls.length > 0) {
         args.push(
@@ -179,7 +182,7 @@ const chromeArgs = (urls) => {
             if (urlObject.port !== null) {
                 port = urlObject.port;
             }
-            origins.add(`${urlObject.host}:${port}`);
+            origins.add(`${urlObject.host.split(':')[0]}:${port}`);
         });
         args.push(`--origin-to-force-quic-on=${Array.from(origins).join(',')}`);
     } else {
@@ -191,24 +194,24 @@ const chromeArgs = (urls) => {
     return args;
 };
 
-const runChrome = async (urlString, netlogDir, isH3, n) => {
+const runChrome = async (urlString, netlogDir, isH3, n, log) => {
     const timings = [];
 
     console.log(`${urlString}`);
 
     let gotoUrl;
-    if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-100KB') {
+    if (urlString.includes('speedtest-100KB')) {
         gotoUrl = `file://${Path.join(__dirname, 'html', '100kb.html')}`;
-    } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-1MB') {
+    } else if (urlString.includes('speedtest-1MB')) {
         gotoUrl = `file://${Path.join(__dirname, 'html', '1mb.html')}`;
-    } else if (urlString === 'https://scontent.xx.fbcdn.net/speedtest-5MB') {
+    } else if (urlString.includes('speedtest-5MB')) {
         gotoUrl = `file://${Path.join(__dirname, 'html', '5mb.html')}`;
     } else {
         gotoUrl = urlString;
     }
 
     for (let i = n; i < ITERATIONS; i += 1) {
-        await sleep(2000);
+        // await sleep(10000);
         console.log(`Iteration: ${i}`);
 
         for (let j = 0; j < RETRIES; j += 1) {
@@ -216,7 +219,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
             try {
                 // Restart browser for each iteration to make things fair...
                 deleteFolderRecursive(CHROME_PROFILE);
-                const args = chromeArgs(isH3 ? [urlString] : null);
+                const args = chromeArgs(isH3 ? [urlString] : null, log);
                 const browser = await puppeteer.launch({
                     headless: true,
                     defaultViewport: null,
@@ -245,6 +248,12 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
                     }
 
                     const entry = result[0];
+
+                    if (entry.response.status !== 200) {
+                        console.error('Unsuccessful request');
+                        throw Error;
+                    }
+
                     const harTime = entry.time - entry.timings.blocked - entry.timings._queued - entry.timings.dns;
                     console.log(entry.response.httpVersion, harTime);
 
@@ -256,6 +265,11 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
                         throw Error('incorrect protocol');
                     }
                     await browser.close();
+
+                    if (!log) {
+                        timings.push(harTime);
+                        break;
+                    }
 
                     const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
                     let netlog;
@@ -274,14 +288,14 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
                     break;
                 } catch (error) {
                     await browser.close();
-                    console.log(j);
+                    console.error(error);
                     if (j === RETRIES - 1) {
                         console.error('Exceeded retries');
                         throw error;
                     }
                 }
             } catch (error) {
-                console.log(j);
+                console.error(error);
                 if (j === RETRIES - 1) {
                     console.error('Exceeded retries');
                     throw error;
@@ -293,7 +307,7 @@ const runChrome = async (urlString, netlogDir, isH3, n) => {
     return timings;
 };
 
-const runBenchmark = async (urlString, timingsDir, netlogDir, isH3) => {
+const runBenchmark = async (urlString, timingsDir, netlogDir, isH3, log) => {
     let timings = [];
 
     if (!fs.existsSync(timingsDir)) {
@@ -317,7 +331,7 @@ const runBenchmark = async (urlString, timingsDir, netlogDir, isH3) => {
     }
 
     // Run benchmark
-    const result = await runChrome(urlString, realNetlogDir, isH3, timings.length);
+    const result = await runChrome(urlString, realNetlogDir, isH3, timings.length, log);
 
     // Concat result times to existing data
     timings.push(...result);
@@ -590,11 +604,13 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
 
     parser.add_argument('--dir');
     parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)' });
+    parser.add_argument('--log', { action: argparse.BooleanOptionalAction, help: 'Log netlog', default: false });
     const cliArgs = parser.parse_args();
 
     const {
         dir,
         single,
+        log
     } = cliArgs;
 
     const clients = CONFIG.clients.filter(client => client.includes("chrome"));
@@ -618,7 +634,7 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
                 const isH3 = client == 'chrome_h3'
                 if (single) {
                     console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
-                    await runBenchmark(urlObj, timingsDir, netlogDir, isH3);
+                    await runBenchmark(urlObj, timingsDir, netlogDir, isH3, log);
                 } else {
                     console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - multi object`);
                     await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, imageDir, isH3);
