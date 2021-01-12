@@ -42,20 +42,41 @@ DATA_PATH = Path.joinpath(
 TMP_DIR = Path.joinpath(DATA_PATH, 'tmp')
 TIME_DIR = Path.joinpath(DATA_PATH, 'timings')
 QLOG_DIR = Path.joinpath(DATA_PATH, 'qlogs')
+PCAP_DIR = Path.joinpath(DATA_PATH, 'pcaps')
 
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 TIME_DIR.mkdir(parents=True, exist_ok=True)
 QLOG_DIR.mkdir(parents=True, exist_ok=True)
+PCAP_DIR.mkdir(parents=True, exist_ok=True)
 
 TMP_QLOG = Path.joinpath(TMP_DIR, 'qlog')
 TMP_QLOG.mkdir(parents=True, exist_ok=True)
 
+TMP_PCAP = Path.joinpath(TMP_DIR, 'pcap')
+TMP_PCAP.mkdir(parents=True, exist_ok=True)
 
 DOMAINS = CONFIG['domains']
 SIZES = CONFIG['sizes']['single']
 
 
-def benchmark(client: str, url: str, timedir: str, qlogdir: str, log: bool):
+def record_pcap(url_host: str):
+    env = os.environ.copy()
+    env['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
+    process = subprocess.Popen([
+        'tshark',
+        '-i',
+        'en0',
+        '-f',
+        f"'host {url_host} and tcp'",
+        '-w',
+        Path.joinpath(TMP_PCAP, 'out.pcapng')
+    ], env=env)
+    time.sleep(2)
+    return process
+
+
+
+def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, log: bool):
     timings = []
 
     timings_path = Path.joinpath(timedir, '{}.json'.format(client))
@@ -65,8 +86,12 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, log: bool):
     except:
         pass
 
-    dirpath = Path.joinpath(qlogdir, client)
-    Path(dirpath).mkdir(parents=True, exist_ok=True)
+    if client.count('h3') > 0:
+        dirpath = Path.joinpath(qlogdir, client)
+        Path(dirpath).mkdir(parents=True, exist_ok=True)
+    else:
+        dirpath = Path.joinpath(pcapdir, client)
+        Path(dirpath).mkdir(parents=True, exist_ok=True)
 
     for i in range(len(timings), ITERATIONS):
         for j in range(RETRIES):
@@ -106,7 +131,7 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, log: bool):
             os.remove(Path.joinpath(dirpath, f))
 
 
-def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> float:
+def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> dict:
     # Parse URL object
     url_obj = urlparse(url)
     url_host = url_obj.netloc
@@ -134,6 +159,10 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> fl
         command = command.replace('{port}', url_port)
         commands.append(command)
 
+    process = None
+    if log:
+        process = record_pcap(url_host)
+
     start = datetime.datetime.now()
     output = subprocess.run(
         commands,
@@ -142,34 +171,46 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> fl
     end = datetime.datetime.now()
     duration = end - start
 
+    result = {}
+
     if client == 'curl_h2':
+        if process is not None:
+            time.sleep(2)
+            process.kill()
+            time.sleep(2)
+
+            subprocess.run([
+                'tshark',
+                '-r',
+                Path.joinpath(TMP_PCAP, 'out.pcapng'),
+                '-T',
+                'json',
+                '-o',
+                f"'ssl.keylog_file: {Path.joinpath(TMP_DIR, 'sslkeylog')}'",
+                '-j',
+                "'Timestamps tcp tcp.flags http2 http2.stream'",
+                '>',
+                Path.joinpath(dirpath, f'{client}_{i}.json')
+            ])
+
+            result = process_pcap(Path.joinpath(dirpath, f'{client}_{i}.json'))
+
         out_arr = output.stdout.decode().split('\n')[:-1]
         dns_time = float(out_arr[0].split(':')[1])
         total_time = float(out_arr[1].split(':')[1])
-        return total_time - dns_time
+        result['time'] = total_time - dns_time
+        return result
 
     if not log:
-        if client == 'proxygen_h3':
-            out_arr = output.stderr.decode().split('\n')[:-1]
-            start = datetime.datetime.strptime(
-                out_arr[1].split()[1], '%H:%M:%S.%f')
-            end = datetime.datetime.strptime(
-                out_arr[2].split()[1], '%H:%M:%S.%f')
-            return (end - start).total_seconds()
-        elif client == 'ngtcp2_h3':
-            out_arr = output.stdout.decode().split('\n')[:-1]
-            start = float(out_arr[0].split(':')[1])
-            end = float(out_arr[1].split(':')[1])
-            return end - start
-        else:
-            return duration
+        result['time'] = duration
+        return result
 
     if len(os.listdir(TMP_QLOG)) == 0:
         raise 'no qlog created'
 
     oldpath = Path.joinpath(TMP_QLOG, os.listdir(TMP_QLOG)[0])
 
-    res = get_time_from_qlog(oldpath)
+    result = process_qlog(oldpath)
 
     if dirpath is None:
         os.remove(oldpath)
@@ -180,7 +221,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> fl
                 new.write(old.read())
         os.remove(oldpath)
 
-    return res
+    return result
 
 
 def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
@@ -272,7 +313,7 @@ def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
             else:
                 time = out[0]['other']['networkingTimeCp'] / 1000
     else:
-        time = get_time_from_qlog(logpath)
+        time = process_qlog(logpath)
 
     if dirpath is None:
         os.remove(logpath)
@@ -286,7 +327,7 @@ def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
     return time
 
 
-def get_time_from_qlog(qlog: str) -> float:
+def process_qlog(qlog: str) -> dict:
     with open(qlog, mode='r') as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -298,6 +339,10 @@ def get_time_from_qlog(qlog: str) -> float:
 
         start = None
         end = 0
+        init_rtt = None
+        first_data_pkt_ts = None
+        init_cwnd_mss = 0
+        init_cwnd_bytes = 0
 
         for event in events:
             if not event:
@@ -316,10 +361,99 @@ def get_time_from_qlog(qlog: str) -> float:
             if event_type.lower() == 'packet_sent' and start is None:
                 start = ts
 
+            if start is None:
+                continue
+            
             if event_type.lower() == 'packet_received':
+                if init_rtt is None:
+                    init_rtt = ts - start
+
                 end = max(end, ts)
 
-        return (end - start) / 1000
+                if 'frames' not in event_data:
+                    continue
+
+                frames = event_data['frames']
+
+                for frame in frames:
+                    if frame['frame_type'].lower() == 'stream':
+                        if frame['stream_id'] != '0':
+                            continue
+                        
+                        length = int(frame['length'])
+
+                        if first_data_pkt_ts is None:
+                            first_data_pkt_ts = ts
+                        
+                        if ts <= first_data_pkt_ts + init_rtt:
+                            init_cwnd_mss += 1
+                            init_cwnd_bytes += length
+
+        return {
+            'time': (end - start) / 1000,
+            'init_cwnd_mss': init_cwnd_mss,
+            'init_cwnd_bytes': init_cwnd_bytes
+        }
+
+
+def process_pcap(pcap: str) -> float:
+    with open(pcap, mode='r') as f:
+        data = json.load(f)
+
+        start = None
+        init_rtt = None
+        init_cwnd_mss = 0
+        init_cwnd_bytes = 0
+
+        # Associate each ACK offset with a timestamp
+        for packet in data:
+            tcp = packet['_source']['layers']['tcp']
+            h2 = packet['_source']['layers']['http2'] if 'http2' in packet['_source']['layers'] else None
+            srcport = tcp['tcp.srcport']
+            time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
+
+            if srcport != '443' and start is None:
+                start = time
+
+            if start is None:
+                continue
+
+            # receive packet
+            if srcport == '443':
+                if init_rtt is None:
+                    init_rtt = time - start
+
+                if 'http2.stream' in h2:
+                    pass
+
+                if int(tcp['tcp.len']) > '1376' and int(tcp['tcp.seq']) >= 3000:
+                    if start_data_time is None:
+                        start_data_time = time
+
+                    min_rtt = min(initial_rtt, second_rtt) * 1000
+
+                    if time - start_data_time < min_rtt:
+                        init_cwnd += 1
+
+                if tcp['tcp.len'] == '0' or int(tcp['tcp.seq']) < 3000:
+                    continue
+
+                bytes_seq = int(tcp['tcp.seq']) / 1024
+                bytes_len = int(tcp['tcp.len']) / 1024
+
+                rx_ts[time] = bytes_seq
+                rx_packets_ts.append((time, {'length': bytes_len}))
+
+                if bytes_seq > prev_seq:
+                    prev_seq = bytes_seq
+                else:
+                    num_lost += 1
+                    lost_packets[time] = bytes_seq
+
+    return {
+        'init_cwnd_mss': init_cwnd_mss,
+        'init_cwnd_bytes': init_cwnd_bytes
+    }
 
 
 def main():
@@ -351,9 +485,12 @@ def main():
             qlogdir = Path.joinpath(QLOG_DIR, dirpath, domain, size)
             qlogdir.mkdir(parents=True, exist_ok=True)
 
+            pcapdir = Path.joinpath(PCAP_DIR, dirpath, domain, size)
+            pcapdir.mkdir(parents=True, exist_ok=True)
+
             for client in clients:
                 url = ENDPOINTS[domain][size]
-                benchmark(client, url, timedir, qlogdir, args.log)
+                benchmark(client, url, timedir, qlogdir, pcapdir, args.log)
 
 
 if __name__ == "__main__":
