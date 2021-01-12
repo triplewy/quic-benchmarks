@@ -1,6 +1,6 @@
 {
     "proxygen_h3": [
-        "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq",
+        "/Users/alexyu/proxygen/proxygen/_build/proxygen/httpserver/hq",
         "--log_response=false",
         "--mode=client",
         "--stream_flow_control=6291456",
@@ -15,7 +15,7 @@
         "--v=0"
     ],
     "proxygen_ack_h3": [
-        "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq_ack",
+        "/Users/alexyu/proxygen/proxygen/_build/proxygen/httpserver/hq_ack",
         "--log_response=false",
         "--mode=client",
         "--stream_flow_control=6291456",

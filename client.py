@@ -70,8 +70,14 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, log: bool):
 
     for i in range(len(timings), ITERATIONS):
         for j in range(RETRIES):
+            
+            if j == RETRIES - 1:
+                raise Exception('Retries exceeded')
+
             try:
-                # time.sleep(10)
+                if timedir.count('LTE'):
+                    time.sleep(10)
+    
                 print('{} - {} - Iteration: {}'.format(client, url, i))
 
                 if LOCAL:

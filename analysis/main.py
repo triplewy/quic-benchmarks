@@ -32,25 +32,22 @@ GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
     'loss-0_delay-0_bw-10',
-    'loss-0_delay-0_bw-100',
-
     'LTE',
-
-    'loss-0dot1_delay-0_bw-100',
-    'loss-1_delay-0_bw-100',
-    'loss-1burst_delay-0_bw-100',
-    'loss-0_delay-50_bw-100',
-    'loss-0_delay-100_bw-100',
-    'loss-0_delay-100jitter_bw-100',
 
     'loss-0dot1_delay-0_bw-10',
     'loss-1_delay-0_bw-10',
-    'loss-1burst_delay-0_bw-10',
+    'loss-10_delay-0_bw-10',
+    
+    'loss-0dot1ingress_delay-0_bw-10',
+    'loss-1ingress_delay-0_bw-10',
+    'loss-10ingress_delay-0_bw-10',
+    
+    'loss-0dot1ingress_delay-0_bw-10',
+    'loss-1ingress_delay-0_bw-10',
+    'loss-10ingress_delay-0_bw-10',
+    
     'loss-0_delay-50_bw-10',
     'loss-0_delay-100_bw-10',
-    'loss-0_delay-100jitter_bw-10',
-
-
 ]
 
 NETWORK_V2 = [
@@ -58,12 +55,10 @@ NETWORK_V2 = [
         'dirnames': [
             'LTE',
             'loss-0_delay-0_bw-10',
-            'loss-0_delay-0_bw-100',
         ],
         'labels': [
             'LTE',
             '10mbps',
-            '100mbps'
         ],
         'title': 'varying_bandwidth'
     },
@@ -71,16 +66,40 @@ NETWORK_V2 = [
         'dirnames': [
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
-            'loss-0dot1_delay-0_bw-100',
-            'loss-1_delay-0_bw-100'
+            'loss-10_delay-0_bw-10',
         ],
         'labels': [
-            '0.1% (10mbps)',
-            '1% (10mbps)',
-            '0.1% (100mbps)',
-            '1% (100mbps)',
+            '0.1%',
+            '1%',
+            '10%',
         ],
         'title': 'Loss'
+    },
+    {
+        'dirnames': [
+            'loss-0dot1ingress_delay-0_bw-10',
+            'loss-1ingress_delay-0_bw-10',
+            'loss-10ingress_delay-0_bw-10',
+        ],
+        'labels': [
+            '0.1%',
+            '1%',
+            '10%',
+        ],
+        'title': 'Ingress Loss'
+    },
+    {
+        'dirnames': [
+            'loss-0dot1egress_delay-0_bw-10',
+            'loss-1egress_delay-0_bw-10',
+            'loss-10egress_delay-0_bw-10',
+        ],
+        'labels': [
+            '0.1%',
+            '1%',
+            '10%',
+        ],
+        'title': 'Egress Loss'
     },
     {
         'dirnames': [
@@ -91,314 +110,9 @@ NETWORK_V2 = [
             '50ms',
             '100ms',
         ],
-        'title': '10mbps_Delay'
+        'title': 'Delay'
     },
-    # {
-    #     'dirnames': [
-    #         'loss-0_delay-0_bw-100',
-    #         'loss-0dot1_delay-0_bw-100',
-    #         'loss-0dot1burstingress_delay-0_bw-100',
-    #         'loss-0dot1burstegress_delay-0_bw-100',
-    #         'loss-0dot1burst_delay-0_bw-100',
-    #         'loss-1_delay-0_bw-100',
-    #         'loss-1burstingress_delay-0_bw-100',
-    #         'loss-1burstegress_delay-0_bw-100',
-    #         'loss-1burst_delay-0_bw-100',
-    #     ],
-    #     'title': '100mbps_Loss_single'
-    # },
-    # {
-    #     'dirnames': [
-    #         'loss-0_delay-0_bw-100',
-    #         'loss-0_delay-50_bw-100',
-    #         'loss-1_delay-50_bw-100',
-    #         'loss-0_delay-100_bw-100',
-    #         'loss-0_delay-100jitter_bw-100',
-    #     ],
-    #     'title': '100mbps_Delay_single'
-    # },
-    # {
-    #     'dirnames': [
-    #         'revised_loss-0_delay-0_bw-10',
-    #         'revised_loss-0dot1_delay-0_bw-10',
-    #         'revised_loss-1_delay-0_bw-10',
-    #     ],
-    #     'title': '10mbps_Loss_multiple'
-    # },
-    # {
-    #     'dirnames': [
-    #         'revised_loss-0_delay-0_bw-10',
-    #         'revised_loss-0_delay-50_bw-10',
-    #         'revised_loss-0_delay-100_bw-10',
-    #     ],
-    #     'title': '10mbps_Delay_multiple'
-    # },
-    # {
-    #     'dirnames': [
-    #         'loss-0_delay-0_bw-100',
-    #         'loss-0dot1_delay-0_bw-100',
-    #         'loss-1_delay-0_bw-100',
-    #         'loss-1burst_delay-0_bw-100'
-    #     ],
-    #     'title': '100mbps_Loss_multiple'
-    # },
-    # {
-    #     'dirnames': [
-    #         'loss-0_delay-0_bw-100',
-    #         'loss-0_delay-50_bw-100',
-    #         'loss-0_delay-100_bw-100',
-    #     ],
-    #     'title': '100mbps_Delay_multiple'
-    # },
 ]
-
-SI_GROUPINGS = [
-    {
-        'title': 'Extra Loss',
-        'items': [
-            {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0%'},
-            {'scenario': 'revised_loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
-            {'scenario': 'revised_loss-1_delay-0_bw-10', 'title': '1%'},
-        ]
-    },
-    {
-        'title': 'Extra Delay',
-        'items': [
-            {'scenario': 'revised_loss-0_delay-0_bw-10', 'title': '0ms'},
-            {'scenario': 'revised_loss-0_delay-50_bw-10', 'title': '50ms'},
-            {'scenario': 'revised_loss-0_delay-100_bw-10', 'title': '100ms'},
-        ]
-    }
-]
-
-GROUPINGS_V1 = [
-    {
-        'title': 'Extra Loss',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0%'},
-            {'scenario': 'loss-0dot1_delay-0_bw-10', 'title': '0.1%'},
-            {'scenario': 'loss-1_delay-0_bw-10', 'title': '1%'},
-        ]
-    },
-    {
-        'title': 'Extra RTT Delay',
-        'items': [
-            {'scenario': 'loss-0_delay-0_bw-10', 'title': '0ms'},
-            {'scenario': 'loss-0_delay-50_bw-10', 'title': '50ms'},
-            {'scenario': 'loss-0_delay-100_bw-10', 'title': '100ms'},
-        ]
-    }
-]
-
-
-def h2_vs_h3_v2(timings: object, sizes):
-
-    for domain in DOMAINS:
-
-        for grouping in GROUPINGS_V1:
-
-            h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
-            h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
-            h2_vs_h3_col_labels = sizes
-
-            bad_cov = 0
-
-            for i, item in enumerate(grouping['items']):
-
-                data = h2_vs_h3_data[i]
-                network = item['scenario']
-
-                if network == 'loss-0_delay-101_bw-10' and domain != 'facebook':
-                    continue
-
-                for size in sizes:
-
-                    min_h3_median = math.inf
-                    min_h3_mean = math.inf
-                    min_h3_client = None
-
-                    min_h2_median = math.inf
-                    min_h2_mean = math.inf
-                    min_h2_client = None
-
-                    if network not in timings:
-                        data.append(0)
-                        continue
-
-                    # get min_mean
-                    for client, times in timings[network][domain][size].items():
-                        if len(times) != 40:
-                            print(network, size, client, len(times))
-
-                        median = np.median(times)
-                        mean = np.mean(times)
-                        std = np.std(times)
-                        cov = std / mean * 100
-
-                        if cov > 10:
-                            bad_cov += 1
-
-                        # h3 client
-                        if client.count('h3') > 0:
-                            min_h3_mean = min(min_h3_mean, mean)
-                            if min_h3_mean == mean:
-                                min_h3_client = client
-                            min_h3_median = min(min_h3_median, median)
-                        # h2 client
-                        else:
-                            min_h2_mean = min(min_h2_mean, mean)
-                            if min_h2_mean == mean:
-                                min_h2_client = client
-                            min_h2_median = min(min_h2_median, median)
-
-                    # do t-test between min h2 and min h3 clients
-                    ttest = stats.ttest_ind(
-                        timings[network][domain][size][min_h2_client],
-                        timings[network][domain][size][min_h3_client],
-                        equal_var=False
-                    )
-
-                    pvalue = ttest.pvalue
-                    pvalue = 0
-
-                    # accept null hypothesis
-                    if pvalue >= 0.01:
-                        data.append(0)
-                    # reject null hypothesis
-                    else:
-                        # diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
-                        # data.append(diff)
-
-                        diff = (min_h3_median - min_h2_median) / \
-                            min_h2_median * 100
-                        data.append(diff)
-
-            # print(bad_cov)
-
-            print('{} - {}'.format(domain.capitalize(), grouping['title']))
-            fig, ax = plt.subplots()
-            # ax.set_title()
-            ax.set_ylabel(grouping['title'], fontsize=18, labelpad=20)
-            ax.set_xlabel('Object sizes', fontsize=18, labelpad=20)
-
-            im, cbar = heatmap(
-                np.array(h2_vs_h3_data),
-                h2_vs_h3_row_labels,
-                h2_vs_h3_col_labels,
-                ax=ax,
-                cmap="bwr",
-                # cbarlabel="% Growth in PLT from H2 to H3",
-                vmin=-20,
-                vmax=20,
-                show_cbar=False,
-            )
-            annotate_heatmap(
-                im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
-            fig.tight_layout()
-
-            condition = None
-            if grouping['title'].count('Loss') > 0:
-                condition = 'Loss'
-            else:
-                condition = 'Delay'
-
-            multiple = ''
-            if sizes == MULTI_SIZES:
-                multiple = '_Multiple'
-
-            plt.savefig(
-                '{}/Desktop/graphs_revised/{}_Extra_{}{}'.format(Path.home(), domain.capitalize(), condition, multiple), transparent=True)
-            # plt.show()
-
-
-def h2_vs_h3_v4(timings: object, groupings, sizes, useSI: bool):
-
-    for domain in DOMAINS:
-
-        for grouping in groupings:
-
-            h2_vs_h3_data = [[] for _ in range(len(grouping['items']))]
-            h2_vs_h3_row_labels = [item['title'] for item in grouping['items']]
-            h2_vs_h3_col_labels = sizes
-
-            for i, item in enumerate(grouping['items']):
-
-                data = h2_vs_h3_data[i]
-                network = item['scenario']
-
-                for size in sizes:
-
-                    min_h3_median = math.inf
-                    min_h3_client = None
-
-                    min_h2_median = math.inf
-                    min_h2_client = None
-
-                    if network not in timings:
-                        data.append(0)
-                        continue
-
-                    # get min_median
-                    for client, times in timings[network][domain][size].items():
-                        if useSI:
-                            times = times['speed-index']
-                        else:
-                            times = times['time']
-
-                        median = np.median(times)
-
-                        # h3 client
-                        if client.count('h3') > 0:
-                            min_h3_median = min(min_h3_median, median)
-                            if min_h3_median == median:
-                                min_h3_client = client
-                        # h2 client
-                        else:
-                            min_h2_median = min(min_h2_median, median)
-                            if min_h2_median == median:
-                                min_h2_client = client
-
-                    diff = (min_h3_median - min_h2_median) / \
-                        min_h2_median * 100
-                    data.append(diff)
-
-            print('{} - {}'.format(domain.capitalize(), grouping['title']))
-            fig, ax = plt.subplots()
-            # ax.set_title()
-            ax.set_ylabel(grouping['title'], fontsize=18, labelpad=20)
-            ax.set_xlabel('Object sizes', fontsize=18, labelpad=20)
-
-            im, cbar = heatmap(
-                np.array(h2_vs_h3_data),
-                h2_vs_h3_row_labels,
-                h2_vs_h3_col_labels,
-                ax=ax,
-                cmap="bwr",
-                vmin=-20,
-                vmax=20,
-                show_cbar=False,
-            )
-            annotate_heatmap(
-                im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
-            fig.tight_layout()
-
-            condition = None
-            if grouping['title'].count('Loss') > 0:
-                condition = 'Loss'
-            else:
-                condition = 'Delay'
-
-            multiple = ''
-            if sizes == MULTI_SIZES:
-                multiple = '_Multiple'
-
-            si = ''
-            if useSI:
-                si = '_SI'
-
-            plt.savefig(
-                '{}/Desktop/graphs_revised/{}_Extra_{}{}{}'.format(Path.home(), domain.capitalize(), condition, multiple, si), transparent=True)
-            plt.close()
 
 
 def facebook_patch(timings: object, sizes):
@@ -630,7 +344,7 @@ def client_consistency(timings: object):
         # plt.show()
 
 
-def h2_vs_h3_v5(timings: object):
+def h2_vs_h3(timings: object):
     for obj in NETWORK_V2:
         dirnames = obj['dirnames']
         col_labels = obj['labels']
@@ -892,9 +606,7 @@ def main():
 
     # facebook_patch(timings, SIZES)
     # facebook_patch(timings, MULTI_SIZES)
-    h2_vs_h3_v5(timings)
-    # h2_vs_h3_v2(timings, SIZES)
-    # h2_vs_h3_v4(timings, SI_GROUPINGS, MULTI_SIZES, True)
+    h2_vs_h3(timings)
     client_consistency(timings)
 
 
