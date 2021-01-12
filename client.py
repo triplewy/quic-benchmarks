@@ -6,6 +6,7 @@ import sys
 import pathlib
 import docker
 import os
+import shutil
 import random
 import numpy as np
 import datetime
@@ -57,20 +58,31 @@ TMP_PCAP.mkdir(parents=True, exist_ok=True)
 
 DOMAINS = CONFIG['domains']
 SIZES = CONFIG['sizes']['single']
+ENV = os.environ.copy()
+
+
+def remove_files(dirname: str):
+    for filename in os.listdir(dirname):
+        file_path = os.path.join(dirname, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
 def record_pcap(url_host: str):
-    env = os.environ.copy()
-    env['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
     process = subprocess.Popen([
         'tshark',
         '-i',
         'en0',
         '-f',
-        f"'host {url_host} and tcp'",
+        f'host {url_host} and tcp',
         '-w',
         Path.joinpath(TMP_PCAP, 'out.pcapng')
-    ], env=env)
+    ])
     time.sleep(2)
     return process
 
@@ -100,17 +112,18 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, l
                 raise Exception('Retries exceeded')
 
             try:
-                if timedir.count('LTE'):
+                if str(timedir).count('LTE'):
                     time.sleep(10)
     
                 print('{} - {} - Iteration: {}'.format(client, url, i))
 
                 if LOCAL:
-                    elapsed = run_subprocess(client, url, dirpath, i, log)
+                    res = run_subprocess(client, url, dirpath, i, log)
                 else:
-                    elapsed = run_docker(client, url, dirpath, i)
+                    res = run_docker(client, url, dirpath, i)
 
-                elapsed *= 1000
+                print(res)
+                elapsed = res['time'] * 1000
                 timings.append(elapsed)
                 print(client, elapsed)
                 break
@@ -129,6 +142,11 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, l
         i = int(filename_arr[0].split('_')[-1])
         if i != median_index:
             os.remove(Path.joinpath(dirpath, f))
+    
+    # Delete sslkeylog if it exists
+    sslkeylog = Path.joinpath(TMP_DIR, 'sslkeylog')
+    if os.path.exists(sslkeylog):
+        os.remove(sslkeylog)
 
 
 def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> dict:
@@ -160,13 +178,15 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
         commands.append(command)
 
     process = None
-    if log:
+    if client.count('h2') > 0 and log:
+        ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
         process = record_pcap(url_host)
 
     start = datetime.datetime.now()
     output = subprocess.run(
         commands,
-        capture_output=True
+        capture_output=True,
+        env=ENV
     )
     end = datetime.datetime.now()
     duration = end - start
@@ -178,21 +198,21 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
             time.sleep(2)
             process.kill()
             time.sleep(2)
-
-            subprocess.run([
+            output = subprocess.run([
                 'tshark',
                 '-r',
                 Path.joinpath(TMP_PCAP, 'out.pcapng'),
                 '-T',
                 'json',
                 '-o',
-                f"'ssl.keylog_file: {Path.joinpath(TMP_DIR, 'sslkeylog')}'",
+                f'tls.keylog_file: {Path.joinpath(TMP_DIR, "sslkeylog")}',
                 '-j',
-                "'Timestamps tcp tcp.flags http2 http2.stream'",
-                '>',
-                Path.joinpath(dirpath, f'{client}_{i}.json')
-            ])
+                "Timestamps tcp tcp.flags http2 http2.stream"
+            ], capture_output=True)
 
+            with open(Path.joinpath(dirpath, f'{client}_{i}.json'), mode='w') as f:
+                json.dump(json.loads(output.stdout.decode()), f)
+            
             result = process_pcap(Path.joinpath(dirpath, f'{client}_{i}.json'))
 
         out_arr = output.stdout.decode().split('\n')[:-1]
@@ -210,18 +230,20 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
     oldpath = Path.joinpath(TMP_QLOG, os.listdir(TMP_QLOG)[0])
 
-    result = process_qlog(oldpath)
+    try:
+        result = process_qlog(oldpath)
 
-    if dirpath is None:
-        os.remove(oldpath)
-    else:
-        with open(oldpath, mode='r') as old:
-            newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
-            with open(newpath, mode='w') as new:
-                new.write(old.read())
-        os.remove(oldpath)
+        if dirpath is not None:
+            with open(oldpath, mode='r') as old:
+                newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+                with open(newpath, mode='w') as new:
+                    new.write(old.read())
 
-    return result
+        remove_files(TMP_QLOG)
+        return result
+    except Exception as e:
+        remove_files(TMP_QLOG)
+        raise e
 
 
 def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
@@ -402,13 +424,16 @@ def process_pcap(pcap: str) -> float:
 
         start = None
         init_rtt = None
+
+        h2_headers_received = False
+        first_data_pkt_time = None
         init_cwnd_mss = 0
         init_cwnd_bytes = 0
 
         # Associate each ACK offset with a timestamp
         for packet in data:
             tcp = packet['_source']['layers']['tcp']
-            h2 = packet['_source']['layers']['http2'] if 'http2' in packet['_source']['layers'] else None
+            h2 = packet['_source']['layers'].get('http2', {})
             srcport = tcp['tcp.srcport']
             time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
 
@@ -423,32 +448,25 @@ def process_pcap(pcap: str) -> float:
                 if init_rtt is None:
                     init_rtt = time - start
 
-                if 'http2.stream' in h2:
-                    pass
-
-                if int(tcp['tcp.len']) > '1376' and int(tcp['tcp.seq']) >= 3000:
-                    if start_data_time is None:
-                        start_data_time = time
-
-                    min_rtt = min(initial_rtt, second_rtt) * 1000
-
-                    if time - start_data_time < min_rtt:
-                        init_cwnd += 1
-
-                if tcp['tcp.len'] == '0' or int(tcp['tcp.seq']) < 3000:
+                if not isinstance(h2, dict):
                     continue
 
-                bytes_seq = int(tcp['tcp.seq']) / 1024
-                bytes_len = int(tcp['tcp.len']) / 1024
+                stream_id = h2.get('http2.stream', {}).get('http2.streamid', None)
 
-                rx_ts[time] = bytes_seq
-                rx_packets_ts.append((time, {'length': bytes_len}))
+                # Find packet received with h2 headers. All packets received after that are data packets
+                if not h2_headers_received:
+                    if stream_id == '1':
+                        h2_headers_received = True
+                    continue
+                
+                if first_data_pkt_time is None:
+                    first_data_pkt_time = time
 
-                if bytes_seq > prev_seq:
-                    prev_seq = bytes_seq
-                else:
-                    num_lost += 1
-                    lost_packets[time] = bytes_seq
+                bytes_len = int(tcp['tcp.len'])
+
+                if time <= first_data_pkt_time + init_rtt:
+                    init_cwnd_mss += 1
+                    init_cwnd_bytes += bytes_len
 
     return {
         'init_cwnd_mss': init_cwnd_mss,
