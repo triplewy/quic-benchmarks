@@ -96,24 +96,64 @@ const getNetlogTime = (netlog) => {
 
     let start = 0;
     let end = 0;
+    let initRtt = null;
+
+    let firstDataPktTime = null
+    let initCwndMss = 0;
+    let initCwndBytes = 0;
 
     for (const event of netlog.events) {
         const eventTime = parseInt(event.time, 10);
         const eventType = logEventTypes[event.type];
         const eventPhase = logEventPhase[event.phase];
         const eventParams = event.params;
-        if ((eventType === 'TCP_CONNECT' || eventType === 'QUIC_SESSION') && eventPhase === 'PHASE_BEGIN') {
+
+        if (eventType === 'TCP_CONNECT') {
+            if (eventPhase === 'PHASE_BEGIN') {
+                start = eventTime;
+            } else {
+                initRtt = eventTime - start;
+            }
+        }
+        if (eventType === 'QUIC_SESSION_PACKET_SENT'
+            && eventParams['encryption_level'] === 'ENCRYPTION_INITIAL'
+            && start === 0) {
             start = eventTime;
         }
-        if (eventType === 'HTTP2_SESSION_RECV_DATA' && eventParams.stream_id === 1 && eventParams.fin) {
-            end = eventTime;
+        if (eventType === 'QUIC_SESSION_UNAUTHENTICATED_PACKET_HEADER_RECEIVED'
+            && eventParams['long_header_type'] === 'INITIAL'
+            && initRtt === null) {
+            initRtt = eventTime - start;
         }
+
+        if ((eventType === 'HTTP2_SESSION_RECV_HEADERS' || eventType === 'HTTP3_HEADERS_RECEIVED')
+            && firstDataPktTime === null) {
+            firstDataPktTime = eventTime;
+        }
+
+        if (eventType === 'HTTP2_SESSION_RECV_DATA' && eventParams.stream_id === 1) {
+            if (firstDataPktTime !== null && eventTime <= firstDataPktTime + initRtt) {
+                initCwndBytes += eventParams['size'];
+            }
+            if (eventParams.fin) {
+                end = eventTime;
+            }
+        }
+
         if (eventType === 'QUIC_SESSION_STREAM_FRAME_RECEIVED') {
+            if (eventParams['stream_id'] === 0 && firstDataPktTime !== null && eventTime <= firstDataPktTime + initRtt) {
+                initCwndMss += 1;
+                initCwndBytes += eventParams['length'];
+            }
             end = eventTime;
         }
     }
-
-    return end - start;
+    console.log('initRtt', initRtt);
+    return {
+        'time': end - start,
+        initCwndMss,
+        initCwndBytes
+    };
 };
 
 const chromeArgs = (urls, log) => {
@@ -175,7 +215,10 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
     }
 
     for (let i = n; i < ITERATIONS; i += 1) {
-        await sleep(10000);
+        if (netlogDir.includes('LTE')) {
+            await sleep(10000);
+        }
+
         console.log(`Iteration: ${i}`);
 
         for (let j = 0; j < RETRIES; j += 1) {
@@ -244,7 +287,9 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
                         netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
                     }
 
-                    const time = getNetlogTime(netlog);
+                    const res = getNetlogTime(netlog);
+                    const time = res.time;
+                    console.log(res);
                     console.log('netlog time:', time);
                     timings.push(time);
                     fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));

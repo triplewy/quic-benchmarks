@@ -179,8 +179,11 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
     process = None
     if client.count('h2') > 0 and log:
-        ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
-        process = record_pcap(url_host)
+        # tcpdump does not include network emulation stuff so info is not useful
+        # Commenting below for now
+        # ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
+        # process = record_pcap(url_host)
+        pass
 
     start = datetime.datetime.now()
     output = subprocess.run(
@@ -198,7 +201,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
             time.sleep(2)
             process.kill()
             time.sleep(2)
-            output = subprocess.run([
+            tshark_output = subprocess.run([
                 'tshark',
                 '-r',
                 Path.joinpath(TMP_PCAP, 'out.pcapng'),
@@ -211,7 +214,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
             ], capture_output=True)
 
             with open(Path.joinpath(dirpath, f'{client}_{i}.json'), mode='w') as f:
-                json.dump(json.loads(output.stdout.decode()), f)
+                json.dump(json.loads(tshark_output.stdout.decode()), f)
             
             result = process_pcap(Path.joinpath(dirpath, f'{client}_{i}.json'))
 
@@ -450,7 +453,7 @@ def process_pcap(pcap: str) -> float:
 
                 if not isinstance(h2, dict):
                     continue
-
+                
                 stream_id = h2.get('http2.stream', {}).get('http2.streamid', None)
 
                 # Find packet received with h2 headers. All packets received after that are data packets
