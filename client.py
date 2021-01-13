@@ -11,6 +11,7 @@ import random
 import numpy as np
 import datetime
 
+from typing import List
 from pathlib import Path
 from urllib.parse import urlparse
 from docker.types import LogConfig
@@ -44,11 +45,13 @@ TMP_DIR = Path.joinpath(DATA_PATH, 'tmp')
 TIME_DIR = Path.joinpath(DATA_PATH, 'timings')
 QLOG_DIR = Path.joinpath(DATA_PATH, 'qlogs')
 PCAP_DIR = Path.joinpath(DATA_PATH, 'pcaps')
+METRICS_DIR = Path.joinpath(DATA_PATH, 'metrics')
 
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 TIME_DIR.mkdir(parents=True, exist_ok=True)
 QLOG_DIR.mkdir(parents=True, exist_ok=True)
 PCAP_DIR.mkdir(parents=True, exist_ok=True)
+METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 TMP_QLOG = Path.joinpath(TMP_DIR, 'qlog')
 TMP_QLOG.mkdir(parents=True, exist_ok=True)
@@ -87,16 +90,23 @@ def record_pcap(url_host: str):
     return process
 
 
+def benchmark(client: str, url: str, dirs: List[str], log: bool):
+    timedir, qlogdir, pcapdir, metricsdir = dirs['time'], dirs['qlog'], dirs['pcap'], dirs['metrics']
 
-def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, log: bool):
     timings = []
+    metrics = []
 
-    timings_path = Path.joinpath(timedir, '{}.json'.format(client))
-    try:
-        with open(timings_path, 'r') as f:
-            timings = json.load(f)
-    except:
-        pass
+    for dirpath in [timedir, metricsdir]:
+        exist_path = Path.joinpath(dirpath, '{}.json'.format(client))
+        try:
+            with open(exist_path, 'r') as f:
+                out = json.load(f)
+                if dirpath == timedir:
+                    timings = out
+                else:
+                    metrics = out
+        except:
+            pass
 
     if client.count('h3') > 0:
         dirpath = Path.joinpath(qlogdir, client)
@@ -107,14 +117,14 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, l
 
     for i in range(len(timings), ITERATIONS):
         for j in range(RETRIES):
-            
+
             if j == RETRIES - 1:
                 raise Exception('Retries exceeded')
 
             try:
                 if str(timedir).count('LTE'):
                     time.sleep(10)
-    
+
                 print('{} - {} - Iteration: {}'.format(client, url, i))
 
                 if LOCAL:
@@ -122,16 +132,24 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, l
                 else:
                     res = run_docker(client, url, dirpath, i)
 
-                print(res)
+                metrics.append(res)
                 elapsed = res['time'] * 1000
                 timings.append(elapsed)
-                print(client, elapsed)
+                print(client, res, elapsed)
                 break
             except Exception as e:
                 print(e)
 
-    with open(timings_path, 'w') as f:
-        json.dump(timings, f)
+    # Write timings and metrics to disk
+    for dump_dir in [timedir, metricsdir]:
+        exist_path = Path.joinpath(dump_dir, '{}.json'.format(client))
+        with open(exist_path, 'w') as f:
+            if dump_dir == timedir:
+                dump = timings
+            else:
+                dump = metrics
+
+            json.dump(dump, f)
 
     # Get median of timings
     median_index = np.argsort(timings)[len(timings)//2]
@@ -142,7 +160,7 @@ def benchmark(client: str, url: str, timedir: str, qlogdir: str, pcapdir: str, l
         i = int(filename_arr[0].split('_')[-1])
         if i != median_index:
             os.remove(Path.joinpath(dirpath, f))
-    
+
     # Delete sslkeylog if it exists
     sslkeylog = Path.joinpath(TMP_DIR, 'sslkeylog')
     if os.path.exists(sslkeylog):
@@ -181,9 +199,9 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
     if client.count('h2') > 0 and log:
         # tcpdump does not include network emulation stuff so info is not useful
         # Commenting below for now
-        # ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
-        # process = record_pcap(url_host)
-        pass
+        ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
+        process = record_pcap(url_host)
+        # pass
 
     start = datetime.datetime.now()
     output = subprocess.run(
@@ -215,7 +233,7 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
             with open(Path.joinpath(dirpath, f'{client}_{i}.json'), mode='w') as f:
                 json.dump(json.loads(tshark_output.stdout.decode()), f)
-            
+
             result = process_pcap(Path.joinpath(dirpath, f'{client}_{i}.json'))
 
         out_arr = output.stdout.decode().split('\n')[:-1]
@@ -238,7 +256,8 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
         if dirpath is not None:
             with open(oldpath, mode='r') as old:
-                newpath = Path.joinpath(dirpath, '{}_{}.qlog'.format(client, i))
+                newpath = Path.joinpath(
+                    dirpath, '{}_{}.qlog'.format(client, i))
                 with open(newpath, mode='w') as new:
                     new.write(old.read())
 
@@ -388,7 +407,7 @@ def process_qlog(qlog: str) -> dict:
 
             if start is None:
                 continue
-            
+
             if event_type.lower() == 'packet_received':
                 if init_rtt is None:
                     init_rtt = ts - start
@@ -404,12 +423,12 @@ def process_qlog(qlog: str) -> dict:
                     if frame['frame_type'].lower() == 'stream':
                         if frame['stream_id'] != '0':
                             continue
-                        
+
                         length = int(frame['length'])
 
                         if first_data_pkt_ts is None:
                             first_data_pkt_ts = ts
-                        
+
                         if ts <= first_data_pkt_ts + init_rtt:
                             init_cwnd_mss += 1
                             init_cwnd_bytes += length
@@ -422,6 +441,13 @@ def process_qlog(qlog: str) -> dict:
 
 
 def process_pcap(pcap: str) -> float:
+    delay = 0
+    # pcap could be posix path
+    if str(pcap).count('delay-50ms') > 0:
+        delay = 50
+    elif str(pcap).count('delay-100ms') > 0:
+        delay = 100
+
     with open(pcap, mode='r') as f:
         data = json.load(f)
 
@@ -449,19 +475,20 @@ def process_pcap(pcap: str) -> float:
             # receive packet
             if srcport == '443':
                 if init_rtt is None:
-                    init_rtt = time - start
+                    init_rtt = time - start + delay
 
                 if not isinstance(h2, dict):
                     continue
-                
-                stream_id = h2.get('http2.stream', {}).get('http2.streamid', None)
+
+                stream_id = h2.get('http2.stream', {}).get(
+                    'http2.streamid', None)
 
                 # Find packet received with h2 headers. All packets received after that are data packets
                 if not h2_headers_received:
                     if stream_id == '1':
                         h2_headers_received = True
                     continue
-                
+
                 if first_data_pkt_time is None:
                     first_data_pkt_time = time
 
@@ -500,18 +527,24 @@ def main():
     for domain in DOMAINS:
         for size in SIZES:
 
-            timedir = Path.joinpath(TIME_DIR, dirpath, domain, size)
-            timedir.mkdir(parents=True, exist_ok=True)
+            dirs = {}
+            for name in ['time', 'qlog', 'pcap', 'metrics']:
+                if name == 'time':
+                    dirname = TIME_DIR
+                elif name == 'qlog':
+                    dirname = QLOG_DIR
+                elif name == 'pcap':
+                    dirname = PCAP_DIR
+                else:
+                    dirname = METRICS_DIR
 
-            qlogdir = Path.joinpath(QLOG_DIR, dirpath, domain, size)
-            qlogdir.mkdir(parents=True, exist_ok=True)
-
-            pcapdir = Path.joinpath(PCAP_DIR, dirpath, domain, size)
-            pcapdir.mkdir(parents=True, exist_ok=True)
+                tmp_dir = Path.joinpath(dirname, dirpath, domain, size)
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                dirs[name] = tmp_dir
 
             for client in clients:
                 url = ENDPOINTS[domain][size]
-                benchmark(client, url, timedir, qlogdir, pcapdir, args.log)
+                benchmark(client, url, dirs, args.log)
 
 
 if __name__ == "__main__":
