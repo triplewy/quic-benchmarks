@@ -24,10 +24,13 @@ const DATA_PATH = Path.join(__dirname, '..', CONFIG.data_path.value);
 const TMP_DIR = Path.join(DATA_PATH, 'tmp');
 const TIMINGS_DIR = Path.join(DATA_PATH, 'timings');
 const NETLOG_DIR = Path.join(DATA_PATH, 'netlog');
+const METRICS_DIR = Path.join(DATA_PATH, 'metrics')
 
 fs.mkdirSync(TMP_DIR, { recursive: true });
 fs.mkdirSync(TIMINGS_DIR, { recursive: true });
 fs.mkdirSync(NETLOG_DIR, { recursive: true });
+fs.mkdirSync(METRICS_DIR, { recursive: true });
+
 
 const DOMAINS = CONFIG.domains;
 const SINGLE_SIZES = CONFIG.sizes.single;
@@ -199,6 +202,7 @@ const chromeArgs = (urls, log) => {
 };
 
 const runChrome = async (urlString, netlogDir, isH3, n, log) => {
+    const metrics = [];
     const timings = [];
 
     console.log(`${urlString}`);
@@ -291,6 +295,7 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
                     const time = res.time;
                     console.log(res);
                     console.log('netlog time:', time);
+                    metrics.push(res);
                     timings.push(time);
                     fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
 
@@ -313,24 +318,36 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
         }
     }
 
-    return timings;
+    return { timings, metrics };
 };
 
-const runBenchmark = async (urlString, timingsDir, netlogDir, isH3, log) => {
+const runBenchmark = async (urlString, timingsDir, netlogDir, metricsDir, isH3, log) => {
+    // Create timings and metrics dirs
     let timings = [];
-
     if (!fs.existsSync(timingsDir)) {
         fs.mkdirSync(timingsDir, { recursive: true });
     }
+    let metrics = [];
+    if (!fs.existsSync(metricsDir)) {
+        fs.mkdirSync(metricsDir, { recursive: true });
+    }
+
+    // Create netlog dir for either h2 or h3
     const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}_single`);
     if (!fs.existsSync(realNetlogDir)) {
         fs.mkdirSync(realNetlogDir, { recursive: true });
     }
 
-    // Read from file if exists
-    const file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    // Read timings and metrics file if they exist
+    const timings_file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     try {
-        timings = JSON.parse(fs.readFileSync(file, 'utf8'));
+        timings = JSON.parse(fs.readFileSync(timings_file, 'utf8'));
+    } catch (error) {
+        //
+    }
+    const metrics_file = Path.join(metricsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    try {
+        metrics = JSON.parse(fs.readFileSync(metrics_file, 'utf8'));
     } catch (error) {
         //
     }
@@ -343,10 +360,12 @@ const runBenchmark = async (urlString, timingsDir, netlogDir, isH3, log) => {
     const result = await runChrome(urlString, realNetlogDir, isH3, timings.length, log);
 
     // Concat result times to existing data
-    timings.push(...result);
+    timings.push(...result.timings);
+    metrics.push(...result.metrics);
 
     // Save data
-    fs.writeFileSync(file, JSON.stringify(timings));
+    fs.writeFileSync(timings_file, JSON.stringify(timings));
+    fs.writeFileSync(metrics_file, JSON.stringify(metrics));
 
     // Get median index of timings
     const medianIndex = argsort(timings)[Math.floor(timings.length / 2)];
@@ -386,13 +405,14 @@ const runBenchmark = async (urlString, timingsDir, netlogDir, isH3, log) => {
             const urlObj = ENDPOINTS[domain][size];
             const timingsDir = Path.join(TIMINGS_DIR, dir, domain, size);
             const netlogDir = Path.join(NETLOG_DIR, dir, domain, size);
+            const metricsDir = Path.join(METRICS_DIR, dir, domain, size);
 
             console.log(`${domain}/${size}`);
 
             for (const client of clients) {
                 const isH3 = client == 'chrome_h3'
                 console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
-                await runBenchmark(urlObj, timingsDir, netlogDir, isH3, log);
+                await runBenchmark(urlObj, timingsDir, netlogDir, metricsDir, isH3, log);
             }
         }
     }
