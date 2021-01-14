@@ -151,11 +151,11 @@ const getNetlogTime = (netlog) => {
             end = eventTime;
         }
     }
-    console.log('initRtt', initRtt);
+
     return {
         'time': end - start,
-        initCwndMss,
-        initCwndBytes
+        'init_cwnd_mss': initCwndMss,
+        'init_cwnd_bytes': initCwndBytes
     };
 };
 

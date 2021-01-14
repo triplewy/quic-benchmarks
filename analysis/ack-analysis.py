@@ -37,6 +37,13 @@ def analyze_pcap(filename: str) -> (dict, str):
     second_rtt = None
     init_cwnd = 0
 
+    if str(filename).count('delay-50') > 0:
+        delay = 50
+    elif str(filename).count('delay-100') > 0:
+        delay = 100
+    else:
+        delay = 0
+
     with open(filename) as f:
         data = json.load(f)
 
@@ -90,8 +97,8 @@ def analyze_pcap(filename: str) -> (dict, str):
                 bytes_seq = int(tcp['tcp.seq']) / 1024
                 bytes_len = int(tcp['tcp.len']) / 1024
 
-                rx_ts[time] = bytes_seq
-                rx_packets_ts.append((time, {'length': bytes_len}))
+                rx_ts[time + delay] = bytes_seq
+                rx_packets_ts.append((time + delay, {'length': bytes_len}))
 
                 if bytes_seq > prev_seq:
                     prev_seq = bytes_seq
@@ -356,7 +363,7 @@ def plot_ack(data, graph_title: str):
         # print(title, throughput[-1])
 
         if title.count('chrome_h2') > 0:
-            continue
+            # continue
             # color = RED.popleft()
             color = 'red'
             legend.append(mpatches.Patch(color='red',
@@ -374,7 +381,7 @@ def plot_ack(data, graph_title: str):
             # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
-                                         label='Proxygen H3 (10 ACK): {} pkts'.format(len(rx_packets))))
+                                         label='Proxygen H3: {} pkts'.format(len(rx_packets))))
         elif title.count('proxygen_ack_h3') > 0:
             # color = BLUE.popleft()
             color = '#A7DFE2'
@@ -432,7 +439,7 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    plt.xticks(np.array([300, 600, 900, 1200, 1500]))
+    # plt.xticks(np.array([300, 600, 900, 1200, 1500]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'lower right'
