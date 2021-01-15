@@ -17,8 +17,6 @@ from urllib.parse import urlparse
 from docker.types import LogConfig
 from glob import glob
 
-DOCKER_CLIENT = docker.from_env()
-
 DOCKER_CONFIG = {}
 with open(Path.joinpath(Path(__file__).parent.absolute(), 'docker.json'), mode='r') as f:
     DOCKER_CONFIG = json.load(f)
@@ -154,12 +152,12 @@ def benchmark(client: str, url: str, dirs: List[str], log: bool):
     # Get median of timings
     median_index = np.argsort(timings)[len(timings)//2]
 
-    # Remove qlogs of all runs except median
-    for f in os.listdir(dirpath):
-        filename_arr = f.split('.')
-        i = int(filename_arr[0].split('_')[-1])
-        if i != median_index:
-            os.remove(Path.joinpath(dirpath, f))
+    # # Remove qlogs or pcaps of all runs except median
+    # for f in os.listdir(dirpath):
+    #     filename_arr = f.split('.')
+    #     i = int(filename_arr[0].split('_')[-1])
+    #     if i != median_index:
+    #         os.remove(Path.joinpath(dirpath, f))
 
     # Delete sslkeylog if it exists
     sslkeylog = Path.joinpath(TMP_DIR, 'sslkeylog')
@@ -216,9 +214,9 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
     if client == 'curl_h2':
         if process is not None:
-            time.sleep(2)
+            time.sleep(1)
             process.kill()
-            time.sleep(2)
+            time.sleep(1)
             tshark_output = subprocess.run([
                 'tshark',
                 '-r',
@@ -269,6 +267,8 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
 
 
 def run_docker(client: str, url: str, dirpath: str, i: int) -> float:
+    DOCKER_CLIENT = docker.from_env()
+
     # Parse URL object
     url_obj = urlparse(url)
     url_host = url_obj.netloc

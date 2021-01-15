@@ -14,20 +14,49 @@ from collections import deque
 from pathlib import Path
 from glob import glob
 
-BLUE = deque(['#0000FF', '#0000B3', '#0081B3',
-              '#14293D', '#A7DFE2', '#8ED9CD'])
-RED = deque(['#FF0000', '#950000', '#FF005A',
-             '#A9385A', '#C95DB4', 'orange',
-             '#FF0000', '#950000', ])
-GREEN = deque(['#00FF00', '#008D00', '#005300',
-               '#00FF72', '#76FF00', '#24A547',
-               '#00FF00', '#008D00', ])
-ORANGE = deque(['#FF8100', '#FFA700', '#FF6D26'])
-YELLOW = deque(['#FFFF00', '#DCFF20', '#DCC05A'])
-PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
+
+def analyze_pcap(filename: str) -> (dict, str):
+    end_time = 0
+    losses = []
+
+    rx_seq = set()
+
+    with open(filename) as f:
+        data = json.load(f)
+
+        # Associate each ACK offset with a timestamp
+        for packet in data:
+            tcp = packet['_source']['layers']['tcp']
+            srcport = tcp['tcp.srcport']
+            time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
+
+            # receive packet
+            if srcport == '443':
+                end_time = max(end_time, time)
+
+                bytes_seq = int(tcp['tcp.seq'])
+                bytes_len = int(tcp['tcp.len'])
+
+                if bytes_len == 0:
+                    continue
+
+                # Since pcap captures all packets before the filter, it will capture 'lost' packets as well
+                # So a lost packet is when we receive the same seq multiple times
+                if bytes_seq in rx_seq:
+                    losses.append({'of': bytes_seq})
+                else:
+                    rx_seq.add(bytes_seq)
+
+    losses.sort(key=lambda x: x['of'])
+    return losses, end_time, len(rx_seq)
 
 
-def analyze_qlog(filename: str) -> (dict, str):
+def analyze_qlog(filename: str):
+    start_time = None
+    end_time = 0
+    losses = []
+    rx_packets = 0
+
     with open(filename) as f:
         data = json.load(f)
         traces = data['traces'][0]
@@ -37,15 +66,7 @@ def analyze_qlog(filename: str) -> (dict, str):
         else:
             time_units = 'ms'
 
-        start_time = None
-        end_time = 0
-
-        ack_ts = {}
-        pkts_received = {}
-        received_ts = {}
-
-        prev_pkt = {'pn': 0, 'dl': 0, 'of': 0}
-        losses = []
+        prev_pkt = {'pn': -1, 'of': -1}
 
         # Store all stream packets received by client
         for event in events:
@@ -72,15 +93,12 @@ def analyze_qlog(filename: str) -> (dict, str):
                 losses.append(
                     {'pn': event_data['largest_lost_packet_num'], 'dl': 0, 'of': 0})
 
-            elif event_type.lower() == 'packet_received':
-                if ts >= end_time + 50 and event_data['packet_type'] != '1RTT' and event_data['header']['packet_number'] != 0:
-                    print('loss detected', filename, event_data)
-                    losses.append(
-                        {'pn': event_data['header']['packet_number'], 'dl': 0, 'of': 0})
+            if event_type.lower() == 'packet_received':
 
-                # Associate packet num with data offset
                 if 'frames' not in event_data:
                     continue
+
+                rx_packets += 1
 
                 frames = event_data['frames']
                 for frame in frames:
@@ -90,65 +108,51 @@ def analyze_qlog(filename: str) -> (dict, str):
 
                         pkt_num = int(event_data['header']['packet_number'])
                         offset = int(frame['offset'])
-                        length = int(frame['length'])
-                        print(length)
-                        data_length = (offset + length) / 1024
 
-                        pkts_received[pkt_num] = data_length
-                        received_ts[ts] = data_length
-                        if prev_pkt['dl'] < data_length:
-                            prev_pkt = {'pn': pkt_num,
-                                        'dl': data_length, 'of': offset / 1024}
+                        # if current packet offset is greater than prev packet, there is no loss
+                        if prev_pkt['of'] < offset:
+                            prev_pkt = {'pn': pkt_num, 'of': offset}
+                        # here, current packet offset is less than or equal to prev packet
+                        # in that case, current packet number is greater than prev packet number,
+                        # there was loss at the offset defined in the current packet
                         elif prev_pkt['pn'] < pkt_num:
-                            # print(filename, 'loss detected',
-                            #       pkt_num, offset / 1024)
-                            losses.append(
-                                {'pn': pkt_num, 'dl': data_length, 'of': offset / 1024})
+                            losses.append({'pn': pkt_num, 'of': offset})
                         else:
                             print('out of order packet')
-            elif event_type.lower() == 'datagram_received':
-                continue
 
-            end_time = max(end_time, ts)
+                end_time = max(end_time, ts)
 
-    losses.sort(key=lambda x: x['dl'])
-    return losses, end_time
+    losses.sort(key=lambda x: x['of'])
+    return losses, end_time, rx_packets
 
 
 def plot(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.ylabel('TTLB', fontsize=18, labelpad=15)
+
+    if graph_title.count('tcp') > 0:
+        plt.ylabel('TTLB', fontsize=18, labelpad=15)
+
     plt.xlabel('Data offset of first lost packet',
                fontsize=18, labelpad=15)
-    # plt.title(graph_title)
 
-    print(
-        min([len(losses) for (losses, _) in data]),
-        max([len(losses) for (losses, _) in data]),
-    )
+    losses = [x[0] for x in data]
+    end_times = [x[1] for x in data]
+    rx_packets = [x[2] for x in data]
 
-    # x = np.array([np.mean(np.ediff1d([x['dl'] for x in losses]))
-    #   for (losses, _) in data])
-    # x = np.array([len(losses) for (losses, _) in data])
-    x = np.array([losses[0]['of'] for (losses, _) in data])
-    y = np.array([end_time for (_, end_time) in data])
-    t = [len(losses) for (losses, _) in data]
+    x = np.array([x[0]['of'] / 1024 for x in losses])
+    y = np.array([x for x in end_times])
+    t = [len(losses[i]) / rx_packets[i] * 100 for i in range(len(losses))]
 
-    plt.scatter(x, y, s=100, c=t, cmap=cm.cool, norm=colors.LogNorm()
-                # c=min(100, len(losses) ** 1.2),
-                # marker='o',
-                # linestyle='-',
-                # linewidth=1,
-                # markersize=8,
-                )
+    plt.scatter(x, y, s=200, c=t, cmap=cm.cool, norm=colors.LogNorm())
+    plt.clim(1, 10)
 
-    # m, b = np.polyfit(x, y, 1)
-    # plt.plot(x, m*x + b)
+    if graph_title.count('quic') > 0:
+        cb = plt.colorbar(ticks=[1, 2, 3, 4, 5, 6, 10])
+        cb.ax.set_yticklabels(['1%', '2%', '3%', '4%', '5%', '6%', '10%'])
+        cb.ax.tick_params(labelsize=16)
+        cb.set_label(label='Percentage of lost packets', size=18)
 
-    cb = plt.colorbar(ticks=[5, 10, 20, 30, 40, 50, 90, 180])
-    cb.ax.set_yticklabels(['5', '10', '20', '30', '40', '50', '90', '180'])
-    cb.ax.tick_params(labelsize=16)
-    cb.set_label(label='# of lost packets', size=18)
+        plt.yticks([])
 
     ax.tick_params(axis='both', which='major', labelsize=16)
     ax.tick_params(axis='both', which='minor', labelsize=16)
@@ -159,42 +163,48 @@ def plot(data, graph_title: str):
     formatter1 = StrMethodFormatter('{x:,g} kb')
     ax.xaxis.set_major_formatter(formatter1)
 
-    # plt.ylim(800, 2200)
-    # plt.xlim(0, 200)
-    # plt.yticks(np.array([1000, 1250, 1500, 1750, 2000]))
-    # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    # plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    plt.ylim(900, 1300)
+    plt.xticks(np.array([0, 100, 200, 300, 400]))
+
     fig.tight_layout()
-    plt.savefig(
-        '{}/Desktop/graphs/{}_loss_analysis'.format(Path.home(), graph_title), transparent=True)
-    # plt.legend(handles=legend)
+    if graph_title is not None:
+        plt.savefig(
+            '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()
     plt.close(fig=fig)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("qlogdir")
+    parser.add_argument("--qlogdir")
+    parser.add_argument("--pcapdir")
+    parser.add_argument("--title")
 
     args = parser.parse_args()
 
-    qlogdir = args.qlogdir
+    if args.qlogdir is not None:
+        data = []
+        qlogdir = args.qlogdir
+        files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
+        files.sort()
+        for qlog in files:
+            res = analyze_qlog(qlog)
+            data.append(res)
 
-    data = []
+        plot(
+            data, f'quic-{args.title}-loss_analysis' if args.title is not None else None)
 
-    files = glob('{}/**/*.qlog'.format(qlogdir), recursive=True)
-    files.sort()
-    for qlog in files:
+    if args.pcapdir is not None:
+        data = []
+        pcapdir = args.pcapdir
+        files = glob('{}/**/*.json'.format(pcapdir), recursive=True)
+        files.sort()
+        for pcap in files:
+            res = analyze_pcap(pcap)
+            data.append(res)
 
-        res = analyze_qlog(qlog)
-        # if len(res[0]) == 0 or res[1] > 2000:
-        #     continue
-
-        print(qlog, res[0][0]['dl'], res[1], '{} losses'.format(len(res[0])))
-
-        data.append(res)
-
-    plot(data, qlogdir.split('/')[-1])
+        plot(
+            data, f'tcp-{args.title}-loss_analysis' if args.title is not None else None)
 
 
 if __name__ == "__main__":

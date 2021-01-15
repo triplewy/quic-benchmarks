@@ -51,8 +51,6 @@ def analyze_pcap(filename: str) -> (dict, str):
         lost_packet = None
         lost_time = None
         num_lost = 0
-        tx_tls = None
-        rx_tls = None
         start_data_time = None
 
         fin = False
@@ -62,7 +60,6 @@ def analyze_pcap(filename: str) -> (dict, str):
         for packet in data:
             tcp = packet['_source']['layers']['tcp']
             srcport = tcp['tcp.srcport']
-            dstport = tcp['tcp.dstport']
             time = float(tcp['Timestamps']['tcp.time_relative']) * 1000
 
             if tcp['tcp.flags_tree']['tcp.flags.fin'] == '1':
