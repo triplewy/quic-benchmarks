@@ -108,6 +108,7 @@ def analyze_pcap(filename: str) -> (dict, str):
             else:
                 if fin:
                     continue
+
                 if tcp['tcp.flags_tree']['tcp.flags.syn'] == '1' and time > 500:
                     fin = True
                     continue
@@ -349,32 +350,32 @@ def plot_ack(data, graph_title: str):
             # continue
             # color = RED.popleft()
             color = 'red'
-            legend.append(mpatches.Patch(color='red',
+            legend.append(mpatches.Patch(color=color,
                                          label='Chrome H2'))
         elif title.count('curl_h2') > 0:
             color = 'red'
-            legend.append(mpatches.Patch(color='red',
+            legend.append(mpatches.Patch(color=color,
                                          label='Curl H2:         {} pkts'.format(len(rx_packets))))
         elif title.count('chrome_h3') > 0:
             # color = ORANGE.popleft()
-            color = 'orange'
-            legend.append(mpatches.Patch(color='orange',
-                                         label='Chrome H3:                  {} pkts'.format(len(rx_packets))))
+            color = 'blue'
+            legend.append(mpatches.Patch(color=color,
+                                         label='Chrome H3'))
         elif title.count('proxygen_h3') > 0:
             # color = BLUE.popleft()
             color = 'blue'
-            legend.append(mpatches.Patch(color='blue',
+            legend.append(mpatches.Patch(color=color,
                                          label='Proxygen H3'))
         elif title.count('proxygen_ack_h3') > 0:
             # color = BLUE.popleft()
             color = '#A7DFE2'
-            legend.append(mpatches.Patch(color='#A7DFE2',
+            legend.append(mpatches.Patch(color=color,
                                          label='Proxygen H3 (2 ACK):   {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
             # continue
             # color = GREEN.popleft()
             color = 'green'
-            legend.append(mpatches.Patch(color='green',
+            legend.append(mpatches.Patch(color=color,
                                          label='Ngtcp2 H3:    {} pkts'.format(len(rx_packets))))
         elif title.count('quiche') > 0:
             color = PURPLE.popleft()
@@ -414,7 +415,7 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    plt.xticks(np.array([0, 200, 400, 600, 800]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'upper left'
