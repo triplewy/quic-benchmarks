@@ -152,12 +152,12 @@ def benchmark(client: str, url: str, dirs: List[str], log: bool):
     # Get median of timings
     median_index = np.argsort(timings)[len(timings)//2]
 
-    # # Remove qlogs or pcaps of all runs except median
-    # for f in os.listdir(dirpath):
-    #     filename_arr = f.split('.')
-    #     i = int(filename_arr[0].split('_')[-1])
-    #     if i != median_index:
-    #         os.remove(Path.joinpath(dirpath, f))
+    # Remove qlogs or pcaps of all runs except median
+    for f in os.listdir(dirpath):
+        filename_arr = f.split('.')
+        i = int(filename_arr[0].split('_')[-1])
+        if i != median_index:
+            os.remove(Path.joinpath(dirpath, f))
 
     # Delete sslkeylog if it exists
     sslkeylog = Path.joinpath(TMP_DIR, 'sslkeylog')

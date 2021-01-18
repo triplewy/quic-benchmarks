@@ -37,15 +37,15 @@ NETWORK = [
     'loss-0dot1_delay-0_bw-10',
     'loss-1_delay-0_bw-10',
     'loss-10_delay-0_bw-10',
-    
+
     'loss-0dot1ingress_delay-0_bw-10',
     'loss-1ingress_delay-0_bw-10',
     'loss-10ingress_delay-0_bw-10',
-    
+
     'loss-0dot1ingress_delay-0_bw-10',
     'loss-1ingress_delay-0_bw-10',
     'loss-10ingress_delay-0_bw-10',
-    
+
     'loss-0_delay-50_bw-10',
     'loss-0_delay-100_bw-10',
 ]
@@ -64,14 +64,16 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
+            'loss-0_delay-0_bw-10',
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
-            'loss-10_delay-0_bw-10',
+            # 'loss-10_delay-0_bw-10',
         ],
         'labels': [
+            '0%',
             '0.1%',
             '1%',
-            '10%',
+            # '10%',
         ],
         'title': 'Loss'
     },
@@ -111,6 +113,32 @@ NETWORK_V2 = [
             '100ms',
         ],
         'title': 'Delay'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-10',
+            'loss-0dot1_delay-0_bw-10',
+            'loss-1_delay-0_bw-10',
+            # 'loss-10_delay-0_bw-10',
+        ],
+        'labels': [
+            '0%',
+            '0.1%',
+            '1%',
+            # '10%',
+        ],
+        'title': 'Loss_Multi'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-50_bw-10',
+            'loss-0_delay-100_bw-10',
+        ],
+        'labels': [
+            '50ms',
+            '100ms',
+        ],
+        'title': 'Delay_Multi'
     },
 ]
 
@@ -353,7 +381,7 @@ def h2_vs_h3(timings: object):
         data = []
         row_labels = []
 
-        if title.count('multiple') > 0:
+        if title.count('Multi') > 0:
             sizes = MULTI_SIZES
         else:
             sizes = SINGLE_SIZES
@@ -404,7 +432,7 @@ def h2_vs_h3(timings: object):
             row_labels.append(sub_row_labels)
 
         print(title)
-        fig, axs = plt.subplots(1, 3, figsize=(12, 4), gridspec_kw={
+        fig, axs = plt.subplots(1, 3, figsize=(12, len(dirnames) + 1), gridspec_kw={
             'wspace': 0, 'hspace': 0})
 
         for i, ax in enumerate(axs):

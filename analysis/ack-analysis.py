@@ -32,6 +32,7 @@ def analyze_pcap(filename: str) -> (dict, str):
     window_updates = {}
     max_stream_data = {}
     lost_packets = {}
+    ack_packets_ts = []
     rx_packets_ts = []
     initial_rtt = None
     second_rtt = None
@@ -113,6 +114,7 @@ def analyze_pcap(filename: str) -> (dict, str):
 
                 bytes_ack = int(tcp['tcp.ack']) / 1024
                 ack_ts[time] = bytes_ack
+                ack_packets_ts.append((time, bytes_ack))
                 window = int(tcp['tcp.window_size']) / 1024
                 window_updates[time] = window
                 max_stream_data[time] = bytes_ack + window
@@ -129,9 +131,9 @@ def analyze_pcap(filename: str) -> (dict, str):
                     lost_packet = None
                     prev_ack = bytes_ack
 
-    print(filename, initial_rtt, second_rtt, init_cwnd)
     return {
         'ack_ts': ack_ts,
+        'ack_packets_ts': ack_packets_ts,
         'rx_ts': rx_ts,
         'rx_packets_ts': rx_packets_ts
     }, filename
@@ -144,6 +146,7 @@ def analyze_qlog(filename: str) -> (dict, str):
     max_stream_data = {}
     lost_packets = {}
     rx_packets_ts = []
+    ack_packets_ts = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -245,9 +248,11 @@ def analyze_qlog(filename: str) -> (dict, str):
 
                 if local_max_ack is not None:
                     ack_ts[ts] = local_max_ack
+                    ack_packets_ts.append((ts, local_max_ack))
 
     return {
         'ack_ts': ack_ts,
+        'ack_packets_ts': ack_packets_ts,
         'rx_ts': rx_ts,
         'rx_packets_ts': rx_packets_ts,
         'max_stream_data': max_stream_data,
@@ -328,43 +333,24 @@ def plot_ack(data, graph_title: str):
 
     legend = []
 
-    for i, (obj, title) in enumerate(data):
-        print(title)
-        ack_ts = obj['ack_ts']
-        rx_ts = obj['rx_ts']
+    for _, (obj, title) in enumerate(data):
+        ack_packets_ts = obj['ack_packets_ts']
         rx_packets_ts = obj['rx_packets_ts']
 
-        max_length = max(rx_ts.values())
         rx_packets = []
         curr = 0
         for ts, params in rx_packets_ts:
             curr += params['length']
             rx_packets.append([ts, curr])
 
-        # throughput = []
-        # prevX, prevY, max_tput = None, None, 0
-        # for x, y in rx_packets:
-        #     if prevX is None:
-        #         prevX = x
-        #         prevY = y
-
-        #     if y - prevY < 1024:
-        #         continue
-        #     tput = (y - prevY) / (x - prevX) * 1000 / 1024
-        #     max_tput = max(max_tput, tput)
-        #     throughput.append([x, max_tput])
-
-        #     prevX = x
-        #     prevY = y
-
-        # print(title, throughput[-1])
+        print(title, rx_packets[-1])
 
         if title.count('chrome_h2') > 0:
             # continue
             # color = RED.popleft()
             color = 'red'
             legend.append(mpatches.Patch(color='red',
-                                         label='Chrome H2:'))
+                                         label='Chrome H2'))
         elif title.count('curl_h2') > 0:
             color = 'red'
             legend.append(mpatches.Patch(color='red',
@@ -378,7 +364,7 @@ def plot_ack(data, graph_title: str):
             # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color='blue',
-                                         label='Proxygen H3: {} pkts'.format(len(rx_packets))))
+                                         label='Proxygen H3'))
         elif title.count('proxygen_ack_h3') > 0:
             # color = BLUE.popleft()
             color = '#A7DFE2'
@@ -395,33 +381,25 @@ def plot_ack(data, graph_title: str):
         elif title.count('aioquic') > 0:
             color = YELLOW.popleft()
 
-        # ax.plot(
-        #     [x[0] for x in ack_ts.items()],
-        #     [x[1] for x in ack_ts.items()],
-        #     color=color,
-        #     marker='o',
-        #     linestyle='-',
-        #     linewidth=1,
-        #     markersize=4,
-        # )
-        # ax.plot(
-        #     [x[0] for x in throughput],
-        #     [x[1] for x in throughput],
-        #     color=color,
-        #     marker='o',
-        #     linestyle='-',
-        #     linewidth=1,
-        #     markersize=4,
-        # )
         ax.plot(
-            [x[0] for x in rx_packets],
-            [x[1] for x in rx_packets],
+            [x[0] for x in ack_packets_ts],
+            [x[1] for x in ack_packets_ts],
             color=color,
             marker='o',
             linestyle='-',
             linewidth=1,
             markersize=4,
         )
+
+        # ax.plot(
+        #     [x[0] for x in rx_packets],
+        #     [x[1] for x in rx_packets],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
 
     ax.tick_params(axis='both', which='major', labelsize=18)
     ax.tick_params(axis='both', which='minor', labelsize=18)
@@ -436,10 +414,10 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    # plt.xticks(np.array([300, 600, 900, 1200, 1500]))
+    plt.xticks(np.array([0, 300, 600, 900, 1200]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
-    plt.rcParams['legend.loc'] = 'lower right'
+    plt.rcParams['legend.loc'] = 'upper left'
     plt.legend(handles=legend)
     plt.savefig(
         '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
@@ -459,7 +437,6 @@ def main():
     title = args.title
 
     data = []
-    wnd_updates = []
 
     if args.netlogdir is not None:
         netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
