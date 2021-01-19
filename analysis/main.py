@@ -32,19 +32,10 @@ GRAPHS_PATH.mkdir(parents=True, exist_ok=True)
 
 NETWORK = [
     'loss-0_delay-0_bw-10',
-    'LTE',
 
     'loss-0dot1_delay-0_bw-10',
     'loss-1_delay-0_bw-10',
     'loss-10_delay-0_bw-10',
-
-    'loss-0dot1ingress_delay-0_bw-10',
-    'loss-1ingress_delay-0_bw-10',
-    'loss-10ingress_delay-0_bw-10',
-
-    'loss-0dot1ingress_delay-0_bw-10',
-    'loss-1ingress_delay-0_bw-10',
-    'loss-10ingress_delay-0_bw-10',
 
     'loss-0_delay-50_bw-10',
     'loss-0_delay-100_bw-10',
@@ -114,32 +105,32 @@ NETWORK_V2 = [
         ],
         'title': 'Delay'
     },
-    {
-        'dirnames': [
-            'loss-0_delay-0_bw-10',
-            'loss-0dot1_delay-0_bw-10',
-            'loss-1_delay-0_bw-10',
-            # 'loss-10_delay-0_bw-10',
-        ],
-        'labels': [
-            '0%',
-            '0.1%',
-            '1%',
-            # '10%',
-        ],
-        'title': 'Loss_Multi'
-    },
-    {
-        'dirnames': [
-            'loss-0_delay-50_bw-10',
-            'loss-0_delay-100_bw-10',
-        ],
-        'labels': [
-            '50ms',
-            '100ms',
-        ],
-        'title': 'Delay_Multi'
-    },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-0_bw-10',
+    #         'loss-0dot1_delay-0_bw-10',
+    #         'loss-1_delay-0_bw-10',
+    #         # 'loss-10_delay-0_bw-10',
+    #     ],
+    #     'labels': [
+    #         '0%',
+    #         '0.1%',
+    #         '1%',
+    #         # '10%',
+    #     ],
+    #     'title': 'Loss_Multi'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0_delay-50_bw-10',
+    #         'loss-0_delay-100_bw-10',
+    #     ],
+    #     'labels': [
+    #         '50ms',
+    #         '100ms',
+    #     ],
+    #     'title': 'Delay_Multi'
+    # },
 ]
 
 
@@ -157,43 +148,29 @@ def facebook_patch(timings: object, sizes):
 
         for size in sizes:
 
-            min_h3_mean = math.inf
+            min_h3_median = math.inf
             min_h3_client = None
 
-            min_h2_mean = math.inf
+            min_h2_median = math.inf
             min_h2_client = None
 
-            # get min_mean
+            # get min_median
             for client, times in timings[network][domain][size].items():
-                mean = np.mean(times)
-                std = np.std(times)
+                median = np.median(times)
 
                 # h3 client
                 if client.count('h3') > 0:
-                    min_h3_mean = min(min_h3_mean, mean)
-                    if min_h3_mean == mean:
+                    min_h3_median = min(min_h3_median, median)
+                    if min_h3_median == median:
                         min_h3_client = client
                 # h2 client
                 else:
-                    min_h2_mean = min(min_h2_mean, mean)
-                    if min_h2_mean == mean:
+                    min_h2_median = min(min_h2_median, median)
+                    if min_h2_median == median:
                         min_h2_client = client
 
-            # do t-test between min h2 and min h3 clients
-            ttest = stats.ttest_ind(
-                timings[network][domain][size][min_h2_client],
-                timings[network][domain][size][min_h3_client],
-                equal_var=False
-            )
-
-            print(network, size, min_h3_mean)
-            # accept null hypothesis
-            if ttest.pvalue >= 0.01:
-                data.append(0)
-            # reject null hypothesis
-            else:
-                diff = (min_h3_mean - min_h2_mean) / min_h2_mean * 100
-                data.append(diff)
+            diff = (min_h3_median - min_h2_median) / min_h2_median * 100
+            data.append(diff)
 
     fig, ax = plt.subplots()
     im, cbar = heatmap(
@@ -208,7 +185,7 @@ def facebook_patch(timings: object, sizes):
         show_cbar=False,
     )
     annotate_heatmap(
-        im, valfmt="{x:.1f}%", threshold=5, fontsize=18, fontweight=600)
+        im, valfmt="{x:.1f}%", threshold=5, fontsize=24, fontweight=600)
     fig.tight_layout()
 
     multiple = ''
@@ -216,7 +193,7 @@ def facebook_patch(timings: object, sizes):
         multiple = '_multiple'
 
     plt.savefig(
-        '{}/Desktop/graphs/facebook_patch{}'.format(Path.home(), multiple), transparent=True)
+        '{}/Desktop/graphs_revised/facebook_patch{}'.format(Path.home(), multiple), transparent=True)
 
     percent_diffs = []
 
@@ -228,7 +205,7 @@ def facebook_patch(timings: object, sizes):
         row_labels.append('{}/{}'.format(domain, size))
         row_data = []
 
-        min_mean = math.inf
+        min_median = math.inf
         min_client = None
 
         # get min_mean
@@ -236,38 +213,22 @@ def facebook_patch(timings: object, sizes):
             if client.count('h2') > 0:
                 continue
 
-            mean = np.mean(times)
+            median = np.median(times)
 
             # h3 client
-            min_mean = min(min_mean, mean)
-            if min_mean == mean:
+            min_median = min(min_median, median)
+            if min_median == median:
                 min_client = client
 
-        mean_diffs = 0
-
-        # perform t-test on other clients
         for client in CLIENTS:
             if client.count('h2') > 0:
                 continue
 
             times = timings[network][domain][size][client]
 
-            ttest = stats.ttest_ind(
-                timings[network][domain][size][min_client],
-                times,
-                equal_var=False
-            )
-
-            # accept null hypothesis
-            if ttest.pvalue >= 0.01:
-                row_data.append(0)
-            # reject null hypothesis
-            else:
-                mean = np.mean(times)
-                diff = (mean - min_mean) / min_mean * 100
-                print('facebook patch diff: {}', diff)
-                mean_diffs += diff
-                row_data.append(diff)
+            median = np.median(times)
+            diff = (median - min_median) / min_median * 100
+            row_data.append(diff)
 
         data.append(row_data)
 
@@ -286,7 +247,7 @@ def facebook_patch(timings: object, sizes):
     )
     fig.tight_layout()
     plt.savefig(
-        '{}/Desktop/graphs/H3_facebook_patch'.format(Path.home()), transparent=True)
+        '{}/Desktop/graphs_revised/H3_facebook_patch'.format(Path.home()), transparent=True)
 
 
 def client_consistency(timings: object):
@@ -632,7 +593,7 @@ def main():
 
         timings[dirname] = temp
 
-    # facebook_patch(timings, SIZES)
+    facebook_patch(timings, SINGLE_SIZES)
     # facebook_patch(timings, MULTI_SIZES)
     h2_vs_h3(timings)
     client_consistency(timings)
