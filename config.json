@@ -33,6 +33,10 @@
         ]
     },
     "clients": [
+        "curl_h2",
+        "chrome_h2",
+        "chrome_h3",
+        "proxygen_h3",
         "ngtcp2_h3"
     ]
 }

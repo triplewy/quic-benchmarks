@@ -54,13 +54,18 @@ const NETLOG_DIR = Path.join(DATA_PATH, 'netlog');
 const METRICS_DIR = Path.join(DATA_PATH, 'metrics');
 const WPROFX_DIR = Path.join(DATA_PATH, 'wprofx');
 const IMAGE_DIR = Path.join(DATA_PATH, 'images');
+const DIRS = {
+    'tmp': TMP_DIR,
+    'timings': TIMINGS_DIR,
+    'netlog': NETLOG_DIR,
+    'metrics': METRICS_DIR,
+    'wprofx': WPROFX_DIR,
+    'images': IMAGE_DIR
+}
 
-fs.mkdirSync(TMP_DIR, { recursive: true });
-fs.mkdirSync(TIMINGS_DIR, { recursive: true });
-fs.mkdirSync(NETLOG_DIR, { recursive: true });
-fs.mkdirSync(METRICS_DIR, { recursive: true });
-fs.mkdirSync(WPROFX_DIR, { recursive: true });
-fs.mkdirSync(IMAGE_DIR, { recursive: true });
+Object.values(DIRS).forEach((dir) => {
+    fs.mkdirSync(dir, { recursive: true });
+})
 
 const DOMAINS = CONFIG.domains;
 const SINGLE_SIZES = CONFIG.sizes.single;
@@ -352,31 +357,24 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
     return { timings, metrics };
 };
 
-const runBenchmark = async (urlString, timingsDir, netlogDir, metricsDir, isH3, log) => {
-    // Create timings and metrics dirs
+const runBenchmark = async (urlString, dirs, isH3, log) => {
     let timings = [];
-    if (!fs.existsSync(timingsDir)) {
-        fs.mkdirSync(timingsDir, { recursive: true });
-    }
     let metrics = [];
-    if (!fs.existsSync(metricsDir)) {
-        fs.mkdirSync(metricsDir, { recursive: true });
-    }
 
     // Create netlog dir for either h2 or h3
-    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}_single`);
+    const realNetlogDir = Path.join(dirs.netlog, `chrome_${isH3 ? 'h3' : 'h2'}_single`);
     if (!fs.existsSync(realNetlogDir)) {
         fs.mkdirSync(realNetlogDir, { recursive: true });
     }
 
     // Read timings and metrics file if they exist
-    const timings_file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    const timings_file = Path.join(dirs.timings, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     try {
         timings = JSON.parse(fs.readFileSync(timings_file, 'utf8'));
     } catch (error) {
         //
     }
-    const metrics_file = Path.join(metricsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    const metrics_file = Path.join(dirs.metrics, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     try {
         metrics = JSON.parse(fs.readFileSync(metrics_file, 'utf8'));
     } catch (error) {
@@ -533,6 +531,7 @@ const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => 
                     });
 
                     // fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
+
                     const realImageDir = Path.join(imageDir, `request_${i}`);
                     if (!fs.existsSync(realImageDir)) {
                         fs.mkdirSync(realImageDir, { recursive: true });
@@ -563,18 +562,18 @@ const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => 
         const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
         let netlog;
         try {
-            netlog = JSON.parse(netlog);
+            netlog = JSON.parse(netlogRaw);
         } catch (error) {
             // netlog did not flush completely
-            netlog = `${netlogRaw.substring(0, netlogRaw.length - 1)}]}`;
-        } finally {
-            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), netlog);
+            netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
         }
+
+        fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
     }
     return timings;
 };
 
-const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDir, isH3) => {
+const runBenchmarkWeb = async (urlObj, dirs, isH3) => {
     let timings = {
         plt: [],
     };
@@ -582,28 +581,21 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
         timings[cat] = [];
     });
 
-    // Create directories
-    if (!fs.existsSync(timingsDir)) {
-        fs.mkdirSync(timingsDir, { recursive: true });
-    }
-    const realNetlogDir = Path.join(netlogDir, `chrome_${isH3 ? 'h3' : 'h2'}_multi`);
-
+    const realNetlogDir = Path.join(dirs.netlog, `chrome_${isH3 ? 'h3' : 'h2'}_multi`);
     if (!fs.existsSync(realNetlogDir)) {
         fs.mkdirSync(realNetlogDir, { recursive: true });
     }
-    const realWprofxDir = Path.join(wprofxDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
-
+    const realWprofxDir = Path.join(dirs.wprofx, `chrome_${isH3 ? 'h3' : 'h2'}`);
     if (!fs.existsSync(realWprofxDir)) {
         fs.mkdirSync(realWprofxDir, { recursive: true });
     }
-    const realImageDir = Path.join(imageDir, `chrome_${isH3 ? 'h3' : 'h2'}`);
-
+    const realImageDir = Path.join(dirs.images, `chrome_${isH3 ? 'h3' : 'h2'}`);
     if (!fs.existsSync(realImageDir)) {
         fs.mkdirSync(realImageDir, { recursive: true });
     }
 
     // Read from timings file if exists
-    const file = Path.join(timingsDir, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
+    const file = Path.join(dirs.timings, `chrome_${isH3 ? 'h3' : 'h2'}.json`);
     try {
         timings = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch (error) {
@@ -628,8 +620,7 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
     fs.writeFileSync(file, JSON.stringify(timings));
 
     // Get median index of timings
-    const medianIndexes = new Set(['plt'].concat(LIGHTHOUSE_CATEGORIES)
-        .map((cat) => argsort(timings[cat])[Math.floor(timings[cat].length / 2)]));
+    const medianIndexes = new Set(Object.keys(timings).map((cat) => argsort(timings[cat])[Math.floor(timings[cat].length / 2)]));
 
     // Remove netlogs that are not median
     fs.readdirSync(realNetlogDir).forEach((f) => {
@@ -662,18 +653,18 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
     const parser = new argparse.ArgumentParser();
 
     parser.add_argument('--dir');
-    parser.add_argument('--single', { action: argparse.BooleanOptionalAction, help: 'is single object (i.e an image resource vs a web-page)', default: true });
+    parser.add_argument('--multi', { action: argparse.BooleanOptionalAction, help: 'is mutli object (i.e an image resource vs a web-page)', default: false });
     parser.add_argument('--log', { action: argparse.BooleanOptionalAction, help: 'Log netlog', default: false });
     const cliArgs = parser.parse_args();
 
     const {
         dir,
-        single,
+        multi,
         log
     } = cliArgs;
 
     const clients = CONFIG.clients.filter(client => client.includes("chrome"));
-    const sizes = single ? SINGLE_SIZES : MULTI_SIZES;
+    const sizes = multi ? MULTI_SIZES : SINGLE_SIZES;
 
     for (const domain of DOMAINS) {
         for (const size of sizes) {
@@ -682,22 +673,29 @@ const runBenchmarkWeb = async (urlObj, timingsDir, wprofxDir, netlogDir, imageDi
             }
 
             const urlObj = ENDPOINTS[domain][size];
-            const timingsDir = Path.join(TIMINGS_DIR, dir, domain, size);
-            const wprofxDir = Path.join(WPROFX_DIR, dir, domain, size);
-            const metricsDir = Path.join(METRICS_DIR, dir, domain, size);
-            const netlogDir = Path.join(NETLOG_DIR, dir, domain, size);
-            const imageDir = Path.join(IMAGE_DIR, dir, domain, size);
+
+            const dirs = {};
+            Object.entries(DIRS).forEach(([key, value]) => {
+                dirs[key] = Path.join(value, dir, domain, size);
+                // Only create metrics and timings directories here
+                if (key === 'timings' && !fs.existsSync(dirs[key])) {
+                    fs.mkdirSync(dirs[key], { recursive: true });
+                }
+                if (key === 'metrics' && !fs.existsSync(dirs[key])) {
+                    fs.mkdirSync(dirs[key], { recursive: true });
+                }
+            });
 
             console.log(`${domain}/${size}`);
 
             for (const client of clients) {
                 const isH3 = client == 'chrome_h3'
-                if (single) {
-                    console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
-                    await runBenchmark(urlObj, timingsDir, netlogDir, metricsDir, isH3, log);
-                } else {
+                if (multi) {
                     console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - multi object`);
-                    await runBenchmarkWeb(urlObj, timingsDir, wprofxDir, netlogDir, imageDir, isH3);
+                    await runBenchmarkWeb(urlObj, dirs, isH3);
+                } else {
+                    console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
+                    await runBenchmark(urlObj, dirs, isH3, log);
                 }
             }
         }
