@@ -10,6 +10,7 @@ import shutil
 import random
 import numpy as np
 import datetime
+import shutil
 
 from typing import List
 from pathlib import Path
@@ -381,6 +382,7 @@ def process_qlog(qlog: str) -> dict:
         else:
             time_units = 'ms'
 
+        fin = False
         start = None
         end = 0
         init_rtt = None
@@ -541,6 +543,9 @@ def main():
                 tmp_dir = Path.joinpath(dirname, dirpath, domain, size)
                 tmp_dir.mkdir(parents=True, exist_ok=True)
                 dirs[name] = tmp_dir
+
+            pcapdir = Path.joinpath(PCAP_DIR, dirpath, domain, size)
+            pcapdir.mkdir(parents=True, exist_ok=True)
 
             for client in clients:
                 url = ENDPOINTS[domain][size]

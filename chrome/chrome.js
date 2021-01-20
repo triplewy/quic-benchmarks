@@ -64,6 +64,7 @@ fs.mkdirSync(IMAGE_DIR, { recursive: true });
 
 const DOMAINS = CONFIG.domains;
 const SINGLE_SIZES = CONFIG.sizes.single;
+const MULTI_SIZES = CONFIG.sizes.multi;
 
 const CHROME_PROFILE = Path.join(TMP_DIR, 'chrome-profile');
 const TMP_NETLOG = Path.join(TMP_DIR, 'chrome.json');

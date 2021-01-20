@@ -37,6 +37,8 @@ def analyze_pcap(filename: str) -> (dict, str):
     initial_rtt = None
     second_rtt = None
     init_cwnd = 0
+    time_to_detection = {}
+    detections = []
 
     if str(filename).count('delay-50') > 0:
         delay = 50
@@ -55,7 +57,7 @@ def analyze_pcap(filename: str) -> (dict, str):
         start_data_time = None
 
         fin = False
-        prev_seq = -1
+        prev_seq = 0
 
         # Associate each ACK offset with a timestamp
         for packet in data:
@@ -85,6 +87,22 @@ def analyze_pcap(filename: str) -> (dict, str):
 
                     if time - start_data_time < min_rtt:
                         init_cwnd += 1
+
+                bytes_seq = int(tcp['tcp.seq'])
+                bytes_len = int(tcp['tcp.len'])
+                next_seq = int(tcp['tcp.nxtseq'])
+
+                if bytes_seq in time_to_detection \
+                        and bytes_seq > 1 \
+                        and prev_seq != bytes_seq:
+                    lost_packets.append(
+                        (time_to_detection[bytes_seq], bytes_seq))
+                    num_lost += 1
+                    detections.append(
+                        time - time_to_detection[bytes_seq])
+
+                time_to_detection[bytes_seq] = time
+                prev_seq = bytes_seq
 
                 if tcp['tcp.len'] == '0' or int(tcp['tcp.seq']) < 3000:
                     continue
@@ -136,7 +154,8 @@ def analyze_pcap(filename: str) -> (dict, str):
         'ack_ts': ack_ts,
         'ack_packets_ts': ack_packets_ts,
         'rx_ts': rx_ts,
-        'rx_packets_ts': rx_packets_ts
+        'rx_packets_ts': rx_packets_ts,
+        'lost_packets': lost_packets
     }, filename
 
 
@@ -145,7 +164,7 @@ def analyze_qlog(filename: str) -> (dict, str):
     pkts_received = {}
     rx_ts = {}
     max_stream_data = {}
-    lost_packets = {}
+    lost_packets = []
     rx_packets_ts = []
     ack_packets_ts = []
 
@@ -201,19 +220,23 @@ def analyze_qlog(filename: str) -> (dict, str):
                         offset = int(frame['offset'])
                         length = int(frame['length'])
 
+                        if offset in time_to_detection:
+                            detections.append(ts - time_to_detection[offset])
+
                         data_length = (offset + length) / 1024
 
                         pkts_received[pkt_num] = data_length
                         rx_ts[ts] = data_length
                         rx_packets_ts.append((ts, {'length': length / 1024}))
 
-                        if prev_pkt['dl'] < data_length:
-                            prev_pkt = {'pn': pkt_num, 'dl': data_length}
-                        elif prev_pkt['pn'] < pkt_num:
-                            lost_packets[ts] = data_length
+                        if prev_pkt['pn'] + 1 != pkt_num:
+                            lost_packets.append((ts, data_length))
                             loss_count += 1
-                        else:
-                            print('out of order packet')
+                            time_to_detection[int(
+                                prev_pkt['dl'] * 1024)] = ts
+
+                        prev_pkt['pn'] = pkt_num
+                        prev_pkt['dl'] = data_length
 
             if event_type.lower() == 'packet_sent':
                 # Get max ack sent
@@ -251,6 +274,7 @@ def analyze_qlog(filename: str) -> (dict, str):
                     ack_ts[ts] = local_max_ack
                     ack_packets_ts.append((ts, local_max_ack))
 
+    print(np.median(detections), filename)
     return {
         'ack_ts': ack_ts,
         'ack_packets_ts': ack_packets_ts,
@@ -265,6 +289,9 @@ def analyze_netlog(filename: str) -> (dict, str):
     ack_ts = {}
     rx_ts = {}
     rx_packets_ts = []
+    lost_packets = []
+    time_to_detection = {}
+    detections = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -280,6 +307,8 @@ def analyze_netlog(filename: str) -> (dict, str):
 
         start_time = None
         total_size = 0
+        prev_pn = 0
+        prev_pkt = {'pn': 0, 'dl': 0}
 
         for event in events:
             # source_type in string
@@ -312,17 +341,46 @@ def analyze_netlog(filename: str) -> (dict, str):
                 rx_ts[ts] = total_size / 1024
                 rx_packets_ts.append((ts, {'length': params['size'] / 1024}))
 
+            if event_type == 'QUIC_SESSION_UNAUTHENTICATED_PACKET_HEADER_RECEIVED':
+                if params['header_format'] != 'IETF_QUIC_SHORT_HEADER_PACKET':
+                    continue
+                pn = params['packet_number']
+
+                if prev_pn + 1 != pn:
+                    print(prev_pn, pn)
+
+                if pn > prev_pn:
+                    prev_pn = pn
+
             if event_type == 'QUIC_SESSION_STREAM_FRAME_RECEIVED':
                 if params['stream_id'] != 0:
                     continue
-                rx_ts[ts] = (params['offset'] + params['length']) / 1024
-                ack_ts[ts] = (params['offset'] + params['length']) / 1024
+
+                offset = params['offset']
+                length = params['length']
+                data_length = offset + length
+
+                if offset in time_to_detection:
+                    detections.append(ts - time_to_detection[offset])
+
+                if prev_pkt['dl'] != offset:
+                    print(prev_pkt['dl'], offset)
+                    lost_packets.append((ts, data_length))
+                    time_to_detection[prev_pkt['dl'] + 1] = ts
+
+                if data_length > prev_pkt['dl']:
+                    prev_pkt['dl'] = data_length
+
+                rx_ts[ts] = (offset + length) / 1024
+                ack_ts[ts] = (offset + length) / 1024
                 rx_packets_ts.append((ts, {'length': params['length'] / 1024}))
 
+    print(np.median(detections), filename)
     return {
         'ack_ts': ack_ts,
         'rx_ts': rx_ts,
-        'rx_packets_ts': rx_packets_ts
+        'rx_packets_ts': rx_packets_ts,
+        'lost_packets': lost_packets
     }, filename
 
 
@@ -330,13 +388,13 @@ def plot_ack(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.ylabel('Total KB Received', fontsize=18, labelpad=10)
     plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
-    # plt.ylabel('CDF of Total Data Rxed', fontsize=18, labelpad=10)
 
     legend = []
 
     for _, (obj, title) in enumerate(data):
         ack_packets_ts = obj['ack_packets_ts']
         rx_packets_ts = obj['rx_packets_ts']
+        lost_packets = obj['lost_packets']
 
         rx_packets = []
         curr = 0
@@ -353,6 +411,7 @@ def plot_ack(data, graph_title: str):
             legend.append(mpatches.Patch(color=color,
                                          label='Chrome H2'))
         elif title.count('curl_h2') > 0:
+            # continue
             color = 'red'
             legend.append(mpatches.Patch(color=color,
                                          label='Curl H2:         {} pkts'.format(len(rx_packets))))
@@ -362,25 +421,19 @@ def plot_ack(data, graph_title: str):
             legend.append(mpatches.Patch(color=color,
                                          label='Chrome H3'))
         elif title.count('proxygen_h3') > 0:
-            # color = BLUE.popleft()
             color = 'blue'
             legend.append(mpatches.Patch(color=color,
                                          label='Proxygen H3'))
         elif title.count('proxygen_ack_h3') > 0:
-            # color = BLUE.popleft()
+            # continue
             color = '#A7DFE2'
             legend.append(mpatches.Patch(color=color,
                                          label='Proxygen H3 (2 ACK):   {} pkts'.format(len(rx_packets))))
         elif title.count('ngtcp2') > 0:
             # continue
-            # color = GREEN.popleft()
             color = 'green'
             legend.append(mpatches.Patch(color=color,
                                          label='Ngtcp2 H3:    {} pkts'.format(len(rx_packets))))
-        elif title.count('quiche') > 0:
-            color = PURPLE.popleft()
-        elif title.count('aioquic') > 0:
-            color = YELLOW.popleft()
 
         ax.plot(
             [x[0] for x in ack_packets_ts],
@@ -420,8 +473,9 @@ def plot_ack(data, graph_title: str):
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'upper left'
     plt.legend(handles=legend)
-    plt.savefig(
-        '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
+    if graph_title is not None:
+        plt.savefig(
+            '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
     plt.show()
     plt.close(fig=fig)
 
@@ -438,12 +492,6 @@ def main():
     title = args.title
 
     data = []
-
-    if args.netlogdir is not None:
-        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
-        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
-        for netlog in files:
-            data.append(analyze_netlog(netlog))
 
     if args.qlogdir is not None:
         qlogdir = Path.joinpath(Path.cwd(), args.qlogdir)
@@ -462,6 +510,12 @@ def main():
             #     continue
 
             data.append(analyze_pcap(pcap))
+
+    if args.netlogdir is not None:
+        netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
+        files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
+        for netlog in files:
+            data.append(analyze_netlog(netlog))
 
     plot_ack(data, title)
 

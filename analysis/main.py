@@ -66,7 +66,7 @@ NETWORK_V2 = [
             '1%',
             # '10%',
         ],
-        'title': 'Loss'
+        'title': 'varying_loss'
     },
     {
         'dirnames': [
@@ -597,6 +597,7 @@ def main():
     # facebook_patch(timings, MULTI_SIZES)
     h2_vs_h3(timings)
     client_consistency(timings)
+    # client_consistency_proxygen(timings)
 
 
 if __name__ == "__main__":
