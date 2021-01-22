@@ -543,19 +543,17 @@ const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => 
 
                     break;
                 } catch (error) {
-                    console.log('Retrying...');
-                    console.error(error);
-                    if (j === RETRIES - 1) {
-                        console.error('Exceeded retries');
-                        throw error;
-                    }
+                    throw error;
                 } finally {
                     await browser.close();
                 }
-
-                break;
             } catch (error) {
+                console.log('Retrying...');
                 console.error(error);
+                if (j === RETRIES - 1) {
+                    console.error('Exceeded retries');
+                    throw error;
+                }
             }
         }
 

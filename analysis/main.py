@@ -42,57 +42,29 @@ NETWORK = [
 ]
 
 NETWORK_V2 = [
-    {
-        'dirnames': [
-            'LTE',
-            'loss-0_delay-0_bw-10',
-        ],
-        'labels': [
-            'LTE',
-            '10mbps',
-        ],
-        'title': 'varying_bandwidth'
-    },
+    # {
+    #     'dirnames': [
+    #         'LTE',
+    #         'loss-0_delay-0_bw-10',
+    #     ],
+    #     'labels': [
+    #         'LTE',
+    #         '10mbps',
+    #     ],
+    #     'title': 'varying_bandwidth'
+    # },
     {
         'dirnames': [
             'loss-0_delay-0_bw-10',
             'loss-0dot1_delay-0_bw-10',
             'loss-1_delay-0_bw-10',
-            # 'loss-10_delay-0_bw-10',
         ],
         'labels': [
             '0%',
             '0.1%',
             '1%',
-            # '10%',
         ],
-        'title': 'varying_loss'
-    },
-    {
-        'dirnames': [
-            'loss-0dot1ingress_delay-0_bw-10',
-            'loss-1ingress_delay-0_bw-10',
-            'loss-10ingress_delay-0_bw-10',
-        ],
-        'labels': [
-            '0.1%',
-            '1%',
-            '10%',
-        ],
-        'title': 'Ingress Loss'
-    },
-    {
-        'dirnames': [
-            'loss-0dot1egress_delay-0_bw-10',
-            'loss-1egress_delay-0_bw-10',
-            'loss-10egress_delay-0_bw-10',
-        ],
-        'labels': [
-            '0.1%',
-            '1%',
-            '10%',
-        ],
-        'title': 'Egress Loss'
+        'title': 'Loss'
     },
     {
         'dirnames': [
@@ -105,21 +77,30 @@ NETWORK_V2 = [
         ],
         'title': 'Delay'
     },
-    # {
-    #     'dirnames': [
-    #         'loss-0_delay-0_bw-10',
-    #         'loss-0dot1_delay-0_bw-10',
-    #         'loss-1_delay-0_bw-10',
-    #         # 'loss-10_delay-0_bw-10',
-    #     ],
-    #     'labels': [
-    #         '0%',
-    #         '0.1%',
-    #         '1%',
-    #         # '10%',
-    #     ],
-    #     'title': 'Loss_Multi'
-    # },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-10_multi',
+            'loss-0dot1_delay-0_bw-10_multi',
+            'loss-1_delay-0_bw-10_multi',
+        ],
+        'labels': [
+            '0%',
+            '0.1%',
+            '1%',
+        ],
+        'title': 'Loss_Multi'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-50_bw-10_multi',
+            'loss-0_delay-100_bw-10_multi',
+        ],
+        'labels': [
+            '50ms',
+            '100ms',
+        ],
+        'title': 'Delay_Multi'
+    },
     # {
     #     'dirnames': [
     #         'loss-0_delay-50_bw-10',
@@ -130,6 +111,32 @@ NETWORK_V2 = [
     #         '100ms',
     #     ],
     #     'title': 'Delay_Multi'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0dot1ingress_delay-0_bw-10',
+    #         'loss-1ingress_delay-0_bw-10',
+    #         'loss-10ingress_delay-0_bw-10',
+    #     ],
+    #     'labels': [
+    #         '0.1%',
+    #         '1%',
+    #         '10%',
+    #     ],
+    #     'title': 'Ingress Loss'
+    # },
+    # {
+    #     'dirnames': [
+    #         'loss-0dot1egress_delay-0_bw-10',
+    #         'loss-1egress_delay-0_bw-10',
+    #         'loss-10egress_delay-0_bw-10',
+    #     ],
+    #     'labels': [
+    #         '0.1%',
+    #         '1%',
+    #         '10%',
+    #     ],
+    #     'title': 'Egress Loss'
     # },
 ]
 
@@ -368,7 +375,8 @@ def h2_vs_h3(timings: object):
                         for client, times in timings[dirname][domain][size].items():
 
                             if size in MULTI_SIZES:
-                                median = np.median(times['speed-index'])
+                                median = np.median(
+                                    times['speed-index']) if 'speed-index' in times else 1
                             else:
                                 median = np.median(times)
 
@@ -593,7 +601,7 @@ def main():
 
         timings[dirname] = temp
 
-    facebook_patch(timings, SINGLE_SIZES)
+    # facebook_patch(timings, SINGLE_SIZES)
     # facebook_patch(timings, MULTI_SIZES)
     h2_vs_h3(timings)
     client_consistency(timings)

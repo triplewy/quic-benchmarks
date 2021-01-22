@@ -288,10 +288,12 @@ def analyze_qlog(filename: str) -> (dict, str):
 def analyze_netlog(filename: str) -> (dict, str):
     ack_ts = {}
     rx_ts = {}
+    ack_packets_ts = []
     rx_packets_ts = []
     lost_packets = []
     time_to_detection = {}
     detections = []
+    packets = {}
 
     with open(filename) as f:
         data = json.load(f)
@@ -360,6 +362,8 @@ def analyze_netlog(filename: str) -> (dict, str):
                 length = params['length']
                 data_length = offset + length
 
+                packets[prev_pn] = data_length / 1024
+
                 if offset in time_to_detection:
                     detections.append(ts - time_to_detection[offset])
 
@@ -375,10 +379,14 @@ def analyze_netlog(filename: str) -> (dict, str):
                 ack_ts[ts] = (offset + length) / 1024
                 rx_packets_ts.append((ts, {'length': params['length'] / 1024}))
 
+            print(event_type)
+            # if event_type == 'QUIC_SESSION':
+
     print(np.median(detections), filename)
     return {
         'ack_ts': ack_ts,
         'rx_ts': rx_ts,
+        'ack_packets_ts': ack_packets_ts,
         'rx_packets_ts': rx_packets_ts,
         'lost_packets': lost_packets
     }, filename
