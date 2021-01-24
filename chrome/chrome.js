@@ -409,21 +409,16 @@ const runBenchmark = async (urlString, dirs, isH3, log) => {
     });
 };
 
-const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => {
+const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDir, isH3, log) => {
     const { url: urlString, size } = urlObj;
 
     const domains = [urlString];
 
-    const timings = {
-        plt: [],
-    };
-    LIGHTHOUSE_CATEGORIES.forEach((cat) => {
-        timings[cat] = [];
-    });
+    const prevLength = timings['speed-index'].length;
 
     console.log(`${urlString}`);
 
-    for (let i = n; i < ITERATIONS; i += 1) {
+    for (let i = prevLength; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
 
         const wprofx = new Analyze();
@@ -432,7 +427,7 @@ const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => 
             try {
                 // Restart browser for each iteration to make things fair...
                 deleteFolderRecursive(CHROME_PROFILE);
-                const args = chromeArgs(isH3 ? domains : null);
+                const args = chromeArgs(isH3 ? domains : null, log);
                 const browser = await puppeteer.launch({
                     headless: true,
                     defaultViewport: null,
@@ -555,23 +550,27 @@ const runChromeWeb = async (urlObj, netlogDir, wprofxDir, imageDir, isH3, n) => 
                     throw error;
                 }
             }
+
+            const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
+            let netlog;
+            try {
+                netlog = JSON.parse(netlogRaw);
+            } catch (error) {
+                // netlog did not flush completely
+                netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
+            }
+
+            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
         }
 
-        const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
-        let netlog;
-        try {
-            netlog = JSON.parse(netlogRaw);
-        } catch (error) {
-            // netlog did not flush completely
-            netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
-        }
-
-        fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
+        // Save timings data
+        fs.writeFileSync(file, JSON.stringify(timings));
     }
+
     return timings;
 };
 
-const runBenchmarkWeb = async (urlObj, dirs, isH3) => {
+const runBenchmarkWeb = async (urlObj, dirs, isH3, log) => {
     let timings = {
         plt: [],
     };
@@ -600,48 +599,35 @@ const runBenchmarkWeb = async (urlObj, dirs, isH3) => {
         //
     }
 
-    if (timings['speed-index'].length >= ITERATIONS) {
-        return;
-    }
-
-    const prevLength = timings['speed-index'].length;
-
     // Run benchmark
-    const result = await runChromeWeb(urlObj, realNetlogDir, realWprofxDir, realImageDir, isH3, prevLength);
-
-    // Concat result times to existing data
-    Object.keys(timings).forEach((key) => {
-        timings[key].push(...result[key]);
-    });
-
-    // Save data
-    fs.writeFileSync(file, JSON.stringify(timings));
+    const result = await runChromeWeb(urlObj, timings, file, realNetlogDir, realWprofxDir, realImageDir, isH3, log);
 
     // Get median index of timings
-    const medianIndexes = new Set(Object.keys(timings).map((cat) => argsort(timings[cat])[Math.floor(timings[cat].length / 2)]));
+    const siMedianIndex = argsort(timings['speed-index'])[Math.floor(timings['speed-index'].length / 2)];
+    const pltMedianIndex = argsort(timings['plt'])[Math.floor(timings['plt'].length / 2)];
 
-    // Remove netlogs that are not median
+    // Remove netlogs that are not plt or speed-index median
     fs.readdirSync(realNetlogDir).forEach((f) => {
         const fArr = f.split('.');
         const i = parseInt(fArr[0].split('_')[1], 10);
-        if (!medianIndexes.has(i)) {
+        if (!(i === siMedianIndex || i === pltMedianIndex)) {
             fs.unlinkSync(Path.join(realNetlogDir, f));
         }
     });
 
-    // Remove traces that are not median
+    // Remove traces that are not plt or speed-index median
     fs.readdirSync(realWprofxDir).forEach((f) => {
         const fArr = f.split('.');
         const i = parseInt(fArr[0].split('_')[1], 10);
-        if (!medianIndexes.has(i)) {
+        if (!(i === siMedianIndex || i === pltMedianIndex)) {
             fs.unlinkSync(Path.join(realWprofxDir, f));
         }
     });
 
-    // Remove image directories that are not median
+    // Remove image directories that are not speed index median
     fs.readdirSync(realImageDir).forEach((d) => {
         const i = parseInt(d.split('_')[1], 10);
-        if (!medianIndexes.has(i)) {
+        if (i !== siMedianIndex) {
             deleteFolderRecursive(Path.join(realImageDir, d));
         }
     });
@@ -690,7 +676,7 @@ const runBenchmarkWeb = async (urlObj, dirs, isH3) => {
                 const isH3 = client == 'chrome_h3'
                 if (multi) {
                     console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - multi object`);
-                    await runBenchmarkWeb(urlObj, dirs, isH3);
+                    await runBenchmarkWeb(urlObj, dirs, isH3, log);
                 } else {
                     console.log(`Chrome: ${isH3 ? 'H3' : 'H2'} - single object`);
                     await runBenchmark(urlObj, dirs, isH3, log);

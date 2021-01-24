@@ -101,6 +101,30 @@ NETWORK_V2 = [
         ],
         'title': 'Delay_Multi'
     },
+    {
+        'dirnames': [
+            'revised_loss-0_delay-0_bw-10',
+            'revised_loss-0dot1_delay-0_bw-10',
+            'revised_loss-1_delay-0_bw-10',
+        ],
+        'labels': [
+            '0%',
+            '0.1%',
+            '1%',
+        ],
+        'title': 'Loss_Multi_Revised'
+    },
+    {
+        'dirnames': [
+            'revised_loss-0_delay-50_bw-10',
+            'revised_loss-0_delay-100_bw-10',
+        ],
+        'labels': [
+            '50ms',
+            '100ms',
+        ],
+        'title': 'Delay_Multi_Revised'
+    },
     # {
     #     'dirnames': [
     #         'loss-0_delay-50_bw-10',
@@ -295,24 +319,9 @@ def client_consistency(timings: object):
                         continue
 
                     times = timings[dirname][domain][size][client]
-
-                    ttest = stats.ttest_ind(
-                        timings[dirname][domain][size][min_client],
-                        times,
-                        equal_var=False
-                    )
-
-                    pvalue = ttest.pvalue
-                    pvalue = 0
-
-                    # accept null hypothesis
-                    if pvalue >= 0.01:
-                        row_data.append(0)
-                    # reject null hypothesis
-                    else:
-                        median = np.median(times)
-                        diff = (median - min_median) / min_median * 100
-                        row_data.append(diff)
+                    median = np.median(times)
+                    diff = (median - min_median) / min_median * 100
+                    row_data.append(diff)
 
                 data.append(row_data)
 

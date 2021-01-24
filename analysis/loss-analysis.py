@@ -132,7 +132,7 @@ def plot(data, graph_title: str):
     if graph_title.count('tcp') > 0:
         plt.ylabel('TTLB', fontsize=18, labelpad=15)
 
-    plt.xlabel('Data offset of first lost packet',
+    plt.xlabel('Data offset of first retransmitted packet',
                fontsize=18, labelpad=15)
 
     losses = [x[0] for x in data]
@@ -150,7 +150,7 @@ def plot(data, graph_title: str):
         cb = plt.colorbar(ticks=[1, 2, 3, 4, 5, 6, 10])
         cb.ax.set_yticklabels(['1%', '2%', '3%', '4%', '5%', '6%', '10%'])
         cb.ax.tick_params(labelsize=16)
-        cb.set_label(label='Percentage of lost packets', size=18)
+        cb.set_label(label='Percentage of retransmitted packets', size=18)
 
         plt.yticks([])
 
@@ -163,7 +163,7 @@ def plot(data, graph_title: str):
     formatter1 = StrMethodFormatter('{x:,g} kb')
     ax.xaxis.set_major_formatter(formatter1)
 
-    plt.ylim(900, 1300)
+    plt.ylim(900, 2000)
     plt.xticks(np.array([0, 100, 200, 300, 400]))
 
     fig.tight_layout()

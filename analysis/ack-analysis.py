@@ -167,6 +167,8 @@ def analyze_qlog(filename: str) -> (dict, str):
     lost_packets = []
     rx_packets_ts = []
     ack_packets_ts = []
+    time_to_detection = {}
+    detections = []
 
     with open(filename) as f:
         data = json.load(f)
@@ -244,7 +246,9 @@ def analyze_qlog(filename: str) -> (dict, str):
                     continue
 
                 local_max_ack = None
+                packet_type = event_data['packet_type']
                 frames = event_data['frames']
+
                 for frame in frames:
                     if frame['frame_type'] == 'max_stream_data':
                         if 'maximum' in frame:
@@ -270,11 +274,12 @@ def analyze_qlog(filename: str) -> (dict, str):
                             local_max_ack = max(
                                 local_max_ack, pkts_received[i])
 
+                if packet_type != '1RTT':
+                    ack_packets_ts.append((ts, 0))
                 if local_max_ack is not None:
                     ack_ts[ts] = local_max_ack
                     ack_packets_ts.append((ts, local_max_ack))
 
-    print(np.median(detections), filename)
     return {
         'ack_ts': ack_ts,
         'ack_packets_ts': ack_packets_ts,
@@ -394,7 +399,7 @@ def analyze_netlog(filename: str) -> (dict, str):
 
 def plot_ack(data, graph_title: str):
     fig, ax = plt.subplots(figsize=(8, 6))
-    plt.ylabel('Total KB Received', fontsize=18, labelpad=10)
+    plt.ylabel('Total KB ACKed', fontsize=18, labelpad=10)
     plt.xlabel('Time (ms)', fontsize=18, labelpad=10)
 
     legend = []
@@ -523,6 +528,8 @@ def main():
         netlogdir = Path.joinpath(Path.cwd(), args.netlogdir)
         files = glob('{}/**/*.json'.format(netlogdir), recursive=True)
         for netlog in files:
+            if netlog.count('h3') == 0:
+                continue
             data.append(analyze_netlog(netlog))
 
     plot_ack(data, title)
