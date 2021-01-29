@@ -42,17 +42,6 @@ NETWORK = [
 ]
 
 NETWORK_V2 = [
-    # {
-    #     'dirnames': [
-    #         'LTE',
-    #         'loss-0_delay-0_bw-10',
-    #     ],
-    #     'labels': [
-    #         'LTE',
-    #         '10mbps',
-    #     ],
-    #     'title': 'varying_bandwidth'
-    # },
     {
         'dirnames': [
             'loss-0_delay-0_bw-10',
@@ -79,9 +68,9 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
-            'loss-0_delay-0_bw-10_multi',
-            'loss-0dot1_delay-0_bw-10_multi',
-            'loss-1_delay-0_bw-10_multi',
+            'loss-0_delay-0_bw-10_multi_800x600',
+            'loss-0dot1_delay-0_bw-10_multi_800x600',
+            'loss-1_delay-0_bw-10_multi_800x600',
         ],
         'labels': [
             '0%',
@@ -92,14 +81,38 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
-            'loss-0_delay-50_bw-10_multi',
-            'loss-0_delay-100_bw-10_multi',
+            'loss-0_delay-50_bw-10_multi_800x600',
+            'loss-0_delay-100_bw-10_multi_800x600',
         ],
         'labels': [
             '50ms',
             '100ms',
         ],
         'title': 'Delay_Multi'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-0_bw-10_multi_800x600',
+            'loss-0dot1_delay-0_bw-10_multi_800x600',
+            'loss-1_delay-0_bw-10_multi_800x600',
+        ],
+        'labels': [
+            '0%',
+            '0.1%',
+            '1%',
+        ],
+        'title': 'Loss_Multi_PLT'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-50_bw-10_multi_800x600',
+            'loss-0_delay-100_bw-10_multi_800x600',
+        ],
+        'labels': [
+            '50ms',
+            '100ms',
+        ],
+        'title': 'Delay_Multi_PLT'
     },
     {
         'dirnames': [
@@ -363,6 +376,11 @@ def h2_vs_h3(timings: object):
         else:
             sizes = SINGLE_SIZES
 
+        if title.count('PLT') > 0:
+            PLT = True
+        else:
+            PLT = False
+
         for domain in DOMAINS:
 
             sub_data = []
@@ -382,10 +400,20 @@ def h2_vs_h3(timings: object):
 
                     if dirname in timings:
                         for client, times in timings[dirname][domain][size].items():
+                            # k2, p = stats.normaltest(times)
+                            # alpha = 0.05
+                            # # print("p = {:g}".format(p))
+                            # if p < alpha:
+                            #     pass
+                            #     # print("The null hypothesis can be rejected")
+                            # else:
+                            #     pass
+                            #     # print("The null hypothesis cannot be rejected")
 
                             if size in MULTI_SIZES:
+                                metric = 'plt' if PLT else 'speed-index'
                                 median = np.median(
-                                    times['speed-index']) if 'speed-index' in times else 1
+                                    times[metric]) if metric in times else 1
                             else:
                                 median = np.median(times)
 
@@ -435,7 +463,7 @@ def h2_vs_h3(timings: object):
 
         fig.tight_layout()
         plt.savefig(Path.joinpath(
-            GRAPHS_PATH, 'H2vsH3_{}'.format(title)), transparent=True)
+            GRAPHS_PATH, f'H2vsH3_{title}'), transparent=True)
         plt.close()
 
 

@@ -19,28 +19,30 @@ from glob import glob
 ANALYSIS_DIR = Path.joinpath(
     Path(os.path.dirname(os.path.abspath(__file__))),
     '..',
-    'analysis_data'
+    'data',
+    'wprofx'
 )
 
 HAR_DIR = Path.joinpath(
     Path(os.path.dirname(os.path.abspath(__file__))),
     '..',
-    'har'
+    'data',
+    'timings'
 )
 
 NETWORK = [
-    'revised_loss-0_delay-0_bw-10',
-    'revised_loss-0dot1_delay-0_bw-10',
-    'revised_loss-1_delay-0_bw-10',
-    'revised_loss-0_delay-50_bw-10',
-    'revised_loss-0_delay-100_bw-10'
+    'loss-0_delay-0_bw-10_multi_800x600',
+    'loss-0dot1_delay-0_bw-10_multi_800x600',
+    'loss-1_delay-0_bw-10_multi_800x600',
+    'loss-0_delay-50_bw-10_multi_800x600',
+    'loss-0_delay-100_bw-10_multi_800x600'
 ]
 
 
 def facebook_0dot1():
     domain = 'facebook'
     size = 'large'
-    network = 'revised_loss-0dot1_delay-0_bw-10'
+    network = 'loss-0dot1_delay-0_bw-10_multi_800x600'
 
     data = {'LCP': {}}
 
@@ -68,7 +70,7 @@ def facebook_0dot1():
 
         # get respective trace file
         analysis_path = Path.joinpath(
-            ANALYSIS_DIR, network, domain, size, chrome, f'trace-{siIndex}.json')
+            ANALYSIS_DIR, network, domain, size, chrome, f'wprofx_{siIndex}.json')
 
         with open(analysis_path) as f:
             out = json.load(f)
@@ -181,7 +183,7 @@ def facebook():
 
             # get respective trace file
             analysis_path = Path.joinpath(
-                ANALYSIS_DIR, network, domain, size, chrome, f'trace-{siIndex}.json')
+                ANALYSIS_DIR, network, domain, size, chrome, f'wprofx_{siIndex}.json')
 
             with open(analysis_path) as f:
                 out = json.load(f)
@@ -344,7 +346,7 @@ def cloudflare():
             siIndex = np.argsort(si)[len(si)//2]
 
             analysis_path = Path.joinpath(
-                ANALYSIS_DIR, network, domain, size, chrome, f'trace-{siIndex}.json')
+                ANALYSIS_DIR, network, domain, size, chrome, f'wprofx_{siIndex}.json')
 
             startTime = None
             endTime = None
@@ -564,7 +566,7 @@ def dict_union(d1: dict, d2: dict):
 
 
 def main():
-    # cloudflare()
+    cloudflare()
     facebook_0dot1()
 
     parser = argparse.ArgumentParser()
@@ -592,7 +594,7 @@ def main():
             har['largest-contentful-paint'][siIndex],
         ))
 
-        with open(Path.joinpath(analysis_dir, chrome, f'trace-{siIndex}.json')) as f:
+        with open(Path.joinpath(analysis_dir, chrome, f'wprofx_{siIndex}.json')) as f:
             out = json.load(f)
 
             print('fcp: {}, fmp: {}'.format(

@@ -201,7 +201,7 @@ const chromeArgs = (urls, log) => {
         '--headless',
         '--disable-gpu',
         '--disable-dev-shm-usage',
-        '--window-size=1920,1080',
+        // '--window-size=1920,1080',
         `--user-data-dir=${CHROME_PROFILE}`,
         '--disk-cache-dir=/dev/null',
         '--disk-cache-size=1',
@@ -324,7 +324,7 @@ const runChrome = async (urlString, netlogDir, isH3, n, log) => {
                         netlog = JSON.parse(netlogRaw);
                     } catch (error) {
                         // netlog did not flush completely
-                        netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
+                        netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 2)}]}`);
                     }
 
                     const res = getNetlogTime(netlog);
@@ -421,9 +421,10 @@ const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDi
     for (let i = prevLength; i < ITERATIONS; i += 1) {
         console.log(`Iteration: ${i}`);
 
-        const wprofx = new Analyze();
-
         for (let j = 0; j < RETRIES; j += 1) {
+
+            const wprofx = new Analyze();
+
             try {
                 // Restart browser for each iteration to make things fair...
                 deleteFolderRecursive(CHROME_PROFILE);
@@ -503,8 +504,6 @@ const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDi
                     const end = entries[entries.length - 1]._requestTime * 1000 + entries[entries.length - 1].time;
                     const time = end - start;
 
-                    console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${time} `);
-
                     try {
                         const trace = await wprofx.analyzeTrace(artifacts.traces.defaultPass.traceEvents);
                         trace.size = payloadMb;
@@ -519,11 +518,14 @@ const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDi
                         fs.writeFileSync(Path.join(wprofxDir, `wprofx_${i}.json`), JSON.stringify(trace));
                     } catch (error) {
                         console.error(error);
+                        throw error;
                     }
 
                     LIGHTHOUSE_CATEGORIES.forEach((cat) => {
                         timings[cat].push(audits[cat].numericValue);
                     });
+
+                    console.log(`Total: ${entries.length}, h2: ${numH2}, h3: ${numH3}, time: ${audits['speed-index'].numericValue} `);
 
                     // fs.writeFileSync(`/tmp/lighthouse/${isH3 ? 'H3' : 'H2'}-report-${i}.html`, report);
 
@@ -535,13 +537,29 @@ const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDi
                         const base64Data = item.data.replace(/^data:image\/jpeg;base64,/, '');
                         fs.writeFileSync(Path.join(realImageDir, `image_${k}.jpeg`), base64Data, 'base64');
                     });
-
-                    break;
                 } catch (error) {
                     throw error;
                 } finally {
                     await browser.close();
                 }
+
+                const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
+                let netlog;
+                try {
+                    netlog = JSON.parse(netlogRaw);
+                } catch (error) {
+                    // netlog did not flush completely
+                    try {
+                        netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 2)}]}`);
+                    } catch (error) {
+                        console.log(netlogRaw.substring(netlogRaw.length - 10, netlogRaw.length));
+                        throw error;
+                    }
+                }
+
+                fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
+
+                break;
             } catch (error) {
                 console.log('Retrying...');
                 console.error(error);
@@ -550,17 +568,6 @@ const runChromeWeb = async (urlObj, timings, file, netlogDir, wprofxDir, imageDi
                     throw error;
                 }
             }
-
-            const netlogRaw = fs.readFileSync(TMP_NETLOG, { encoding: 'utf-8' });
-            let netlog;
-            try {
-                netlog = JSON.parse(netlogRaw);
-            } catch (error) {
-                // netlog did not flush completely
-                netlog = JSON.parse(`${netlogRaw.substring(0, netlogRaw.length - 1)}]}`);
-            }
-
-            fs.writeFileSync(Path.join(netlogDir, `netlog_${i}.json`), JSON.stringify(netlog));
         }
 
         // Save timings data

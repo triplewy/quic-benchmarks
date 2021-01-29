@@ -48,7 +48,8 @@ def analyze_pcap(filename: str) -> (dict, str):
                     rx_seq.add(bytes_seq)
 
     losses.sort(key=lambda x: x['of'])
-    return losses, end_time, len(rx_seq)
+    print(losses, len(losses) / len(rx_seq) * 100, filename)
+    return losses, end_time,
 
 
 def analyze_qlog(filename: str):
