@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
+import random
 
 from matplotlib.ticker import StrMethodFormatter
 from glob import glob
@@ -12,11 +13,8 @@ from pathlib import Path
 from collections import defaultdict, deque
 from scipy import stats
 
-
-OMIT_HOSTS = ['survey.g.doubleclick.net',
-              'googleads.g.doubleclick.net', 'www.google.com', 'adservice.google.com',
-              'stats.g.doubleclick.net', 'www.google-analytics.com', 'www.googleadservices.com',
-              'www.googletagmanager.com', 'bid.g.doubleclick.net', 'cx.atdmt.com']
+COLORS = deque(['blue', 'green', 'gray', 'orange', 'purple', 'lime', 'pink', 'teal', '#441dfd', '#0b1667',
+                '#f908f4', '#8a3f1b', '#fcd2bc', '#b5972b', '#c5ffae', '#ec6f99', '#8cac9a', '#ad5ad8', '#313d8a', '#6a700d'])
 
 
 def get_referrer_stream(referrer: str, streams: dict):
@@ -57,12 +55,6 @@ def get_host_path(headers) -> str:
 
 def analyze_netlog(filename):
     connections = {}
-    # streams = defaultdict(list)
-    max_time = 0
-    max_host = None
-    max_request = None
-    tcp_sessions = set()
-    tcp_connect_time = 0
 
     try:
         with open(filename) as f:
@@ -76,8 +68,6 @@ def analyze_netlog(filename):
                             v in constants['logSourceType'].items()}
             phases = {v: k for k,
                       v in constants['logEventPhase'].items()}
-
-            h2_push_responses = 0
 
             start_time = None
             total_size = 0
@@ -105,9 +95,12 @@ def analyze_netlog(filename):
                         start_time = event_time
 
                     connections[source_id] = {
-                        'host': params['host'], 'start_time': event_time - start_time,
-                        'first_request_time': math.inf, 'first_receive_time': math.inf,
-                        'total_time': 0, 'streams': defaultdict(list)}
+                        'host': params['host'],
+                        'start_time': event_time - start_time,
+                        'total_time': 0,
+                        'streams': defaultdict(list),
+                        'frame': 0
+                    }
 
                 if event_type == 'TCP_CONNECT' and phase == 'PHASE_BEGIN':
                     if start_time is None:
@@ -117,479 +110,193 @@ def analyze_netlog(filename):
 
                 if event_type == 'HTTP2_SESSION':
                     connections[source_id] = {
-                        'host': params['host'].split(':')[0], 'start_time': tcp_connect_time,
-                        'first_request_time': math.inf, 'first_receive_time': math.inf,
-                        'total_time': 0, 'streams': defaultdict(list)}
+                        'host': params['host'].split(':')[0],
+                        'start_time': tcp_connect_time,
+                        'total_time': 0,
+                        'streams': defaultdict(list),
+                        'frame': 0
+                    }
 
                 if event_type == 'HTTP2_SESSION_SEND_HEADERS' or event_type == 'HTTP3_HEADERS_SENT':
-                    tcp_sessions.add(source_id)
                     headers = params['headers']
                     host, path = get_host_path(headers)
                     host_path = host + path
                     short_path = '...{}'.format(
                         path[-20:]) if len(path) >= 20 else path
                     referrer = get_referrer(headers)
-                    # if referrer is not None:
-                    #     referrer_id = get_referrer_stream(referrer, streams)
-                    # else:
-                    #     referrer_id = None
-
-                    connections[source_id]['first_request_time'] = min(
-                        connections[source_id]['first_request_time'], event_time - start_time)
 
                     connections[source_id]['total_time'] = max(
                         connections[source_id]['total_time'], event_time - start_time)
 
                     connections[source_id]['streams'][params['stream_id']].append({
-                        'path': host + short_path, 'full_path': host_path,
-                        'data': [event_time - start_time]})
-
-                if event_type == 'HTTP2_SESSION_RECV_PUSH_PROMISE':
-                    h2_push_responses += 1
+                        'path': host + short_path,
+                        'full_path': host_path,
+                        'start_time': event_time - start_time,
+                        'data': []
+                    })
 
                 if event_type == 'HTTP2_SESSION_RECV_DATA' or event_type == 'HTTP3_DATA_FRAME_RECEIVED':
-                    if event_type == 'QUIC_SESSION_STREAM_FRAME_RECEIVED':
-                        if params['stream_id'] % 2 != 0:
-                            continue
-
-                    connections[source_id]['streams'][params['stream_id']][-1]['data'].append(
-                        event_time - start_time)
-
                     if event_type == 'HTTP2_SESSION_RECV_DATA':
-                        total_size += params['size'] / 1024
+                        size = params['size']
                     else:
-                        total_size += params['payload_length'] / 1024
+                        size = params['payload_length']
 
-                    full_path = connections[source_id]['streams'][params['stream_id']
-                                                                  ][-1]['full_path']
+                    connections[source_id]['streams'][params['stream_id']][-1]['data'].append({
+                        'time': event_time - start_time,
+                        'frame': connections[source_id]['frame'],
+                        'size': size,
+                        'path': connections[source_id]['streams'][params['stream_id']][-1]['full_path']
+                    })
 
-                    if connections[source_id]['host'] not in OMIT_HOSTS:
-                        if event_time - start_time > max_time:
-                            max_time = event_time - start_time
-                            max_host = connections[source_id]['host']
-                            max_request = connections[source_id]['streams'][params['stream_id']
-                                                                            ][-1]['full_path']
-
-                    connections[source_id]['total_time'] = max(
-                        connections[source_id]['total_time'], event_time - start_time)
-
-                    connections[source_id]['first_receive_time'] = min(
-                        connections[source_id]['first_receive_time'], event_time - start_time
-                    )
-
-                # if event_type == 'HTTP3_HEADERS_DECODED' or event_type == 'HTTP2_SESSION_RECV_HEADERS':
-                #     headers = params['headers']
-                #     for header in headers:
-                #         if header.count('301') > 0:
-                #             streams[params['stream_id']][-1]['301'] = True
+                    connections[source_id]['frame'] += 1
 
     except Exception as e:
         print(filename, 'error', e)
         return None
 
-    # print(total_size)
-
-    print(max_time, max_host, max_request)
-    # if filename.count('h2') > 0:
-    #     final_tcp_sessions = []
-
-    #     for source_id in tcp_sessions:
-    #         final_tcp_sessions.append(connections[source_id])
-
-    #     connections = final_tcp_sessions
-    # else:
-    #     connections = list(connections.values())
-
-    return list(sorted(connections.values(), key=lambda x: x['start_time'])), max_time, filename.count('h2') == 0
+    return list(sorted(connections.values(), key=lambda x: x['start_time']))
 
 
-def plot(h2_data, h3_data, graph_title):
-    GREEN = deque(['#00FF00', '#008D00', '#005300', '#76FF00', '#24A547',
-                   '#00FF00', '#008D00', '#005300', '#76FF00', '#24A547', ])
+def plot(conns, graph_title):
 
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(10, 2.3))
 
-    stream_order = []
-    for streams_list in h3_data[0].values():
-        for stream in streams_list:
-            if '301' in stream:
-                continue
-            stream_order.append(stream)
-
-    stream_order.sort(key=lambda x: x['data'][0], reverse=True)
-    stream_order = [x['path'] for x in stream_order]
-
-    for data in [h2_data, h3_data]:
-        streams, connections, isH3 = data
-
-        # all_streams = []
-        # for streams_list in streams.values():
-        #     all_streams += streams_list
-        # all_streams.sort(key=lambda x: x['data'][0], reverse=True)
-
-        all_streams = {}
-        for streams_list in streams.values():
-            for stream in streams_list:
-                all_streams[stream['path']] = stream
-
-        y_tick_labels = [None] * (len(stream_order) + 1)
-        max_time = 0
-
-        for i, stream_name in enumerate(stream_order):
-            i = i + 1
-
-            stream = all_streams[stream_name]
-
-            if len(stream['data']) == 1 or '301' in stream:
-                continue
-
-            if isH3:
-                send_color = '#8ACEEA'
-                recv_color = 'blue'
-                diff = 0.11
-            else:
-                send_color = '#DA90D5'
-                recv_color = 'red'
-                diff = -0.11
-
-            plt.plot(stream['data'][:1], [i + diff],
-                     color=recv_color, marker='o', markersize=5, linestyle='-', linewidth=0)
-            plt.plot(stream['data'][:2], [i + diff, i + diff],
-                     color=recv_color, marker='o', markersize=0, linestyle='-', linewidth=1)
-            plt.plot(stream['data'][1:], [i + diff for _ in range(len(stream['data'][1:]))], color=recv_color, marker='|',
-                     markersize=4, linestyle='-', linewidth=4)
-
-            y_tick_labels[i] = stream['path']
-
-            max_time = max(max_time, max(stream['data']))
-
-        if isH3:
-            color = 'blue'
-        else:
-            color = 'red'
-
-        ax.axvline(max_time, color=color)
-        plt.text(max_time + 1, len(y_tick_labels) - 3, '{} ms'.format(max_time),
-                 rotation=-90, color=color, size=14)
-
-        ax.tick_params(axis='y', which='major', labelsize=10)
-        ax.tick_params(axis='y', which='minor', labelsize=10)
-
-        ax.tick_params(axis='x', which='major', labelsize=18)
-        ax.tick_params(axis='x', which='minor', labelsize=18)
-
-    # formatter0 = StrMethodFormatter('{x:,g} kb')
-    # ax.yaxis.set_major_formatter(formatter0)
-
-    formatter1 = StrMethodFormatter('{x:,g} ms')
-    ax.xaxis.set_major_formatter(formatter1)
-
-    plt.yticks(np.array([i for i in range(len(y_tick_labels))]))
-    ax.set_yticklabels(y_tick_labels)
-    # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    plt.xticks(np.array([200, 400, 600, 800]))
-    # plt.xlim(0, 1250)
-    red_circle = mlines.Line2D([], [], color='red', marker='o', linestyle='None',
-                               markersize=8, label='H2 Request Sent')
-    red_line = mlines.Line2D([], [], color='red', marker='|', linestyle='None',
-                             markersize=8, label='H2 Data Received')
-    blue_circle = mlines.Line2D([], [], color='blue', marker='o', linestyle='None',
-                                markersize=8, label='H3 Request Sent')
-    blue_line = mlines.Line2D([], [], color='blue', marker='|', linestyle='None',
-                              markersize=8, label='QUIC Stream Frame Received')
-
-    legend = [
-        red_circle,
-        # red_line,
-        mpatches.Patch(color='red', label='H2 Data Received'),
-        blue_circle,
-        # blue_line,
-        mpatches.Patch(color='blue', label='H3 Data Received'),
-    ]
-
-    fig.tight_layout()
-    plt.legend(handles=legend)
-    plt.savefig(
-        '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
-    plt.show()
-    plt.close(fig=fig)
-
-
-def plot_v2(conns: object, title: str):
-    conns.sort(key=lambda x: x['start_time'], reverse=True)
-
-    real_conns = []
+    ax.set_xlabel('Total Size', fontsize=18, labelpad=10)
 
     for conn in conns:
-        if conn['host'] not in OMIT_HOSTS:
-            real_conns.append(conn)
+        if conn['host'] != 'blog.cloudflare.com':
+            continue
 
-    conns = real_conns
+        streams = conn['streams']
 
-    start_time = conns[-1]['start_time']
+        min_frame = math.inf
+        all_frames = []
+        all_streams = []
+        for streams_list in streams.values():
+            for stream in streams_list:
+                if len(stream['data']) == 1 or '301' in stream:
+                    continue
+                if stream['full_path'].count('png') == 0 \
+                        and stream['full_path'].count('gif') == 0 \
+                        and stream['full_path'].count('jpeg') == 0:
+                    continue
 
-    captions = list(map(lambda x: x['host'], conns))
-    captions.insert(0, '')
+                all_streams.append(stream)
+                all_frames += stream['data']
 
-    fig, ax = plt.subplots(figsize=(16, 2))
-    plt.yticks(np.arange(len(conns) + 1), captions)
-    plt.ylim(0, len(conns) + 1)
+                min_frame = min(min_frame, min(
+                    [x['frame'] for x in stream['data']]))
 
-    plt.xlabel('Time (ms)')
-    # plt.legend(handles=[
-    #     mpatches.Patch(color='green', label='connect', alpha=0.4),
-    #     mpatches.Patch(color='purple', label='wait', alpha=0.2),
-    #     mlines.Line2D([], [], color='gray', marker='o', linestyle='None',
-    #                   markersize=8, label='Request Begin/End')
-    #     # mpatches.Patch(color='yellow', label='wait'),
-    #     # mpatches.Patch(color='magenta', label='receive')
-    # ])
+        all_streams.sort(key=lambda x: x['start_time'])
+        all_frames.sort(key=lambda x: x['frame'])
 
-    max_image = (0, None)
-    image_count = 0
+        min_req_data_time = math.inf
+        max_req_data_time = -math.inf
+        max_req_data_frame_no = -math.inf
+        max_req_data_frame_size = 0
 
-    for i, entry in enumerate(conns):
-        if i == len(conns) - 1:
-            for streams in entry['streams'].values():
-                for stream in streams:
-                    if stream['full_path'] == 'careers.google.com/jobs/dist/js/main.en_US.min.1fb6bc645a33df65e5dc.js':
-                        print(stream['data'][0], stream['data'][-1],
-                              stream['data'][-1] - stream['data'][0])
-            # print(entry['streams'])
+        start_time = None
+        end_time = None
 
-        start = entry['start_time']
-        end = entry['total_time']
+        total_size = 0
 
-        # connect, send, wait, receive, = itemgetter(
-        #     'connect', 'send', 'wait', 'receive')(entry['timings'])
+        colors = {}
 
-        y = i + 1
-        xstart = (start - start_time)
-        xstop = (end - start_time)
+        for frame in all_frames:
+            size = frame['size']
+            full_path = frame['path']
 
-        # Total time
-        plt.hlines(y, xstart, xstop, 'purple', lw=6, alpha=0.2)
-
-        # Connect time: green
-        plt.hlines(
-            y, xstart, entry['first_request_time'], 'g', lw=6, alpha=0.4)
-
-        # # Send time: cyan
-        # plt.hlines(y, xstart, xstart + send, 'c', lw=4)
-        # xstart += send
-
-        # # Wait time: yellow
-        # plt.hlines(y, entry['first_request_time'],
-        #            entry['first_receive_time'], 'y', lw=6)
-
-        # # Receive time: magenta
-        # plt.hlines(y, xstart, xstart + receive, 'm', lw=4)
-        # xstart += receive
-
-        colors = [
-            'tab:blue',
-            'tab:orange',
-            'tab:green',
-            'tab:red',
-            'tab:purple',
-            'tab:pink',
-            'tab:cyan',
-            'tab:olive',
-            'tab:brown',
-        ]
-        i = 0
-
-        for streams in entry['streams'].values():
-            for stream in streams:
-                fp = stream['full_path']
-                if fp.count('.png') + fp.count('.svg') + fp.count('.gif') + fp.count('.woff') + fp.count('.jpg') > 0:
-                    image_count += 1
-                    color = 'tab:cyan'
-
-                    if stream['data'][-1] > max_image[0]:
-                        max_image = (stream['data'][-1], fp)
-                elif fp.count('.js') > 0:
-                    color = 'tab:orange'
-                elif fp.count('.css') > 0:
-                    color = 'tab:pink'
+            if full_path.count('image8-3.png') > 0:
+                color = 'red'
+            else:
+                if full_path in colors:
+                    color = colors[full_path]
                 else:
-                    # print(fp)
-                    color = 'tab:brown'
+                    color = COLORS.popleft()
+                    colors[full_path] = color
 
-                plt.plot(
-                    [stream['data'][0], stream['data'][-1]],
-                    [y, y],
-                    marker='o',
-                    markersize=8,
-                    linewidth=2,
-                    color=color
-                )
-                i += 1
+            plt.scatter([total_size / 1024], [0.3],
+                        color=color, marker='|', s=200, linewidth=4 if graph_title.count('h3') > 0 else 3)
 
-    # print('image_count', image_count)
-    # print('max_image', max_image)
-    # plt.xlim(0, 2400)
+            total_size += size
 
-    plt.tight_layout()
+        for stream in all_streams:
+            req_data = stream['data']
+            req_data_times = [x['time'] for x in req_data]
+            req_data_frame_nos = [x['frame'] - min_frame for x in req_data]
+
+            min_req_data_time = min(min_req_data_time, min(req_data_times))
+            max_req_data_time = max(max_req_data_time, max(req_data_times))
+            max_req_data_frame_no = max(
+                max_req_data_frame_no, max(req_data_frame_nos))
+
+            # color = "#%06x" % random.randint(0, 0xFFFFFF)
+
+            if stream['full_path'].count('image8-3.png') > 0:
+                start_time = stream['start_time']
+                end_time = max(req_data_times)
+                color = 'red'
+            else:
+                color = COLORS.popleft()
+
+            # plt.scatter([req_start_time], [1], marker='o', s=100,
+            #             facecolors='none', edgecolors=color, linewidth=3)
+            # plt.scatter(req_data_times, [1] * len(req_data),
+            #             color=color, marker='|', s=100, linewidth=5)
+            # plt.scatter(req_data_frame_nos, [0.3] * len(req_data),
+            #             color=color, marker='|', s=200, linewidth=4 if graph_title.count('h3') > 0 else 1.8)
+
+    print('Resources:', len(all_streams))
+    ax.tick_params(axis='x', which='major', labelsize=18)
+    ax.tick_params(axis='x', which='minor', labelsize=18)
+
+    # Hide the right and top spines
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    # # Only show ticks on the bottom spines
+    ax.xaxis.set_ticks_position('bottom')
+
+    plt.xlim(0, total_size / 1024)
+    plt.ylim(0, 1)
+    plt.yticks([])
+    ax.set_yticklabels([])
+
+    legend = [
+        mpatches.Patch(
+            color='red', label='Main image')
+    ]
+
+    formatter0 = StrMethodFormatter('{x:,g} KB')
+    ax.xaxis.set_major_formatter(formatter0)
+
+    plt.title('H3' if graph_title.count('h3') >
+              0 else 'H2', fontsize=18, fontweight='bold', y=0.63)
+    fig.tight_layout()
+    plt.rcParams["legend.fontsize"] = 14
+    plt.legend(handles=legend)
     plt.savefig(
-        '{}/Desktop/graphs/facebook_multi_medium_{}'.format(Path.home(), title), transparent=True)
-    # plt.show()
+        '{}/Desktop/graphs_revised/{}'.format(Path.home(), graph_title), transparent=True)
+    plt.show()
     plt.close(fig=fig)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("dir")
+    parser.add_argument("--netlog")
+    parser.add_argument("--title")
 
     args = parser.parse_args()
 
-    dirname = Path(args.dir)
+    netlog = Path(args.netlog)
+    title = args.title
 
-    h2_data = []
-    h3_data = []
+    conns = analyze_netlog(str(netlog))
 
-    h2_final_connections = []
-    h3_final_connections = []
-
-    h2_connect = []
-    h3_connect = []
-
-    h2_facebook = {}
-    h3_facebook = {}
-
-    facebook_urls = [
-        'www.facebook.com/business/marketing-partners',
-        'static.xx.fbcdn.net/rsrc.php/v3/ye/r/Pf68jbJ2zkw.js?_nc_x=Ij3Wp8lg5Kz',
-        'static.xx.fbcdn.net/rsrc.php/v3/ys/r/YgH8JlvpFFf.js?_nc_x=Ij3Wp8lg5Kz',
-        'static.xx.fbcdn.net/rsrc.php/v3i7r74/y4/l/en_US/B2pdwCl4NfK.js?_nc_x=Ij3Wp8lg5Kz',
-        'connect.facebook.net/en_US/fbevents.js',
-        'connect.facebook.net/signals/config/486822841454810?v=2.9.27&r=stable'
-    ]
-
-    for url in facebook_urls:
-        h2_facebook[url] = {'start': [], 'duration': []}
-        h3_facebook[url] = {'start': [], 'duration': []}
-
-    files = glob('{}/**/*.json'.format(dirname), recursive=True)
-    files.sort()
-    for i, netlog in enumerate(files):
-
-        res = analyze_netlog(netlog)
-        if res is None or res[1] == 0:
-            continue
-
-        conns = res[0]
-        conns.sort(key=lambda x: x['start_time'])
-
-        start = math.inf
-        end = 0
-        conn = conns[0]
-        connect = conn['first_request_time'] - conn['start_time']
-
-        if netlog.count('h2') > 0:
-            h2_connect.append(connect)
-        else:
-            h3_connect.append(connect)
-
-        if netlog.count('h2') > 0:
-            h2_data.append(res)
-            h2_final_connections.append(res[1])
-        else:
-            h3_data.append(res)
-            h3_final_connections.append(res[1])
-
-        for conn in conns:
-            for streams in conn['streams'].values():
-                for stream in streams:
-                    if stream['full_path'] in facebook_urls:
-                        if netlog.count('h2') > 0:
-                            facebook_obj = h2_facebook[stream['full_path']]
-                        else:
-                            facebook_obj = h3_facebook[stream['full_path']]
-
-                        facebook_obj['start'].append(stream['data'][0])
-                        facebook_obj['duration'].append(stream['data'][-1])
-
-        plot_v2(res[0], 'h2' if netlog.count('h2') else 'h3')
-
-    h2 = h2_connect
-    h3 = h3_connect
-
-    print('connect')
-    ttest = stats.ttest_ind(
-        h2,
-        h3,
-        equal_var=False
-    )
-
-    if ttest.pvalue >= 0.01:
-        print('No diff')
-
-    print('mean', np.mean(h2),
-          np.mean(h3))
-    print('std', np.std(h2),
-          np.std(h3))
-    print('median', np.median(h2),
-          np.median(h3))
-    print()
-
-    for url in facebook_urls:
-        for thing in ['start', 'duration']:
-            h2 = h2_facebook[url][thing]
-            h3 = h3_facebook[url][thing]
-
-            ttest = stats.ttest_ind(
-                h2,
-                h3,
-                equal_var=False
-            )
-
-            print(url, thing)
-            if ttest.pvalue >= 0.01:
-                print('No diff')
-
-            h2.sort()
-            h3.sort()
-
-            print('mean', np.mean(h2),
-                  np.mean(h3))
-            print('std', np.std(h2),
-                  np.std(h3))
-            print('p50', np.median(h2),
-                  np.median(h3))
-            print('p75', h2[int(len(h2) * 0.75)],
-                  h3[int(len(h3) * 0.75)])
-            print('p90', h2[int(len(h2) * 0.9)],
-                  h3[int(len(h3) * 0.9)])
-            print()
-
-    h2_final_connections.sort()
-    h3_final_connections.sort()
-
-    print('mean', np.mean(h2_final_connections), np.mean(h3_final_connections))
-    print('std', np.std(h2_final_connections), np.std(h3_final_connections))
-    print('p50', np.median(h2_final_connections),
-          np.median(h3_final_connections))
-    print('p75', h2_final_connections[int(len(h2_final_connections) * 0.75)],
-          h3_final_connections[int(len(h3_final_connections) * 0.75)])
-    print('p90', h2_final_connections[int(len(h2_final_connections) * 0.90)],
-          h3_final_connections[int(len(h3_final_connections) * 0.90)])
-
-    ttest = stats.ttest_ind(
-        h2_final_connections,
-        h3_final_connections,
-        equal_var=False
-    )
-
-    diff = (np.mean(h2_final_connections) -
-            np.mean(h3_final_connections)) / np.mean(h2_final_connections) * 100
-
-    # accept null hypothesis
-    if ttest.pvalue >= 0.01:
-        print('No diff', diff)
-    else:
-        print('diff', diff)
+    plot(conns, f'{title}_{"h3" if str(netlog).count("h3") > 0 else "h2"}')
 
 
 if __name__ == "__main__":
     main()
+#

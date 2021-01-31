@@ -22,68 +22,6 @@ ISO_8601_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 G = nx.Graph()
 
 
-def get_start_cdf(entries: list):
-    entries.sort(key=lambda x: x['_requestTime'])
-    start = float(entries[0]['_requestTime'])
-
-    x = [(float(entry['_requestTime']) - start) * 1000 for entry in entries]
-    y = [(i + 1) * 100 / len(entries) for i in range(len(entries))]
-
-    return x, y, entries[0]['response']['httpVersion']
-
-
-def get_end_cdf(entries: list):
-    entries.sort(key=lambda x: x['_requestTime'])
-    start = float(entries[0]['_requestTime']) * 1000
-
-    entries.sort(key=lambda x: float(
-        x['_requestTime']) * 1000 + float(x['time']))
-
-    x = [float(entry['_requestTime']) * 1000 + float(entry['time']) -
-         start for entry in entries]
-    y = [(i + 1) * 100 / len(entries) for i in range(len(entries))]
-
-    return x, y, entries[0]['response']['httpVersion']
-
-
-def plot_cdf(cdfs: list):
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    for (x, y, name) in cdfs:
-        if name == 'h3-29':
-            color = 'blue'
-        else:
-            color = 'red'
-
-        plt.plot(
-            x,
-            y,
-            color=color,
-            linestyle='-',
-            linewidth=1,
-            markersize=0,
-        )
-
-    ax.tick_params(axis='both', which='major', labelsize=18)
-    ax.tick_params(axis='both', which='minor', labelsize=18)
-
-    formatter0 = StrMethodFormatter('{x:,g}%')
-    ax.yaxis.set_major_formatter(formatter0)
-
-    formatter1 = StrMethodFormatter('{x:,g} ms')
-    ax.xaxis.set_major_formatter(formatter1)
-
-    # plt.yticks(np.array([0, 250, 500, 750, 1000]))
-    # plt.xticks(np.array([1000, 3000, 5000, 7000]))
-    # plt.xticks(np.array([0, 500, 1000, 1500, 2000, 2500, 3000]))
-    fig.tight_layout()
-    # plt.savefig(
-    #     '{}/Desktop/graphs/{}'.format(Path.home(), graph_title), transparent=True)
-    # plt.legend(handles=legend)
-    plt.show()
-    plt.close(fig=fig)
-
-
 def plot(entries: object):
     entries.sort(key=lambda x: x['_requestTime'] * 1000)
 
@@ -140,16 +78,22 @@ def plot(entries: object):
     plt.close(fig=fig)
 
 
+def analyze_wprofx(filename):
+    with open(filename) as f:
+        out = json.load(f)
+        plt = out['loadEventEnd']
+        har = out['entries']
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("dir")
+    parser.add_argument('--wprofx')
 
     args = parser.parse_args()
 
-    hardir = Path(args.dir)
+    wprofx = Path(args.wprofx)
 
-    start_cdfs = []
-    end_cdfs = []
+    res = analyze_wprofx(wprofx)
 
     for name in ['chrome_h3.json']:
         reverse_deps = {}
@@ -161,25 +105,6 @@ def main():
 
         with open(filename) as f:
             data = json.load(f)
-            # for entries in data:
-            #     print(len(entries))
-            # start_cdfs.append(get_start_cdf(entries))
-            # end_cdfs.append(get_end_cdf(entries))
-
-            # start_time = datetime.strptime(
-            #     entries[0]['startedDateTime'], ISO_8601_FORMAT)
-
-            # end_time = datetime.strptime(
-            #     entries[-1]['startedDateTime'], ISO_8601_FORMAT)
-            # end_time += timedelta(milliseconds=entries[-1]['time'])
-
-            # total_time = end_time - start_time
-            # print(colored("Filename: {}, Total time: {} ms".format(filename,
-            #                                                        total_time / timedelta(milliseconds=1)), "green"))
-
-            # plot(entries)
-
-            # break
 
             har = data[0]
 
@@ -272,5 +197,5 @@ def main():
             # plt.show()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
