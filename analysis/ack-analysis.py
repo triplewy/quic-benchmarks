@@ -8,7 +8,7 @@ import os
 import math
 
 from matplotlib.ticker import StrMethodFormatter
-from collections import deque
+from collections import deque, OrderedDict
 from pathlib import Path
 from glob import glob
 
@@ -26,12 +26,32 @@ YELLOW = deque(['#FFFF00', '#DCFF20', '#DCC05A'])
 PURPLE = deque(['#6A00CD', '#A100CD', '#7653DE'])
 
 
+def make_unique(key, dct):
+    counter = 0
+    unique_key = key
+
+    while unique_key in dct:
+        counter += 1
+        unique_key = '{}_{}'.format(key, counter)
+    return unique_key
+
+
+def parse_object_pairs(pairs):
+    dct = OrderedDict()
+    for key, value in pairs:
+        if key in dct:
+            key = make_unique(key, dct)
+        dct[key] = value
+
+    return dct
+
+
 def analyze_pcap(filename: str) -> (dict, str):
     ack_ts = {}
     rx_ts = {}
     window_updates = {}
     max_stream_data = {}
-    lost_packets = {}
+    lost_packets = []
     ack_packets_ts = []
     rx_packets_ts = []
     initial_rtt = None
@@ -48,7 +68,9 @@ def analyze_pcap(filename: str) -> (dict, str):
         delay = 0
 
     with open(filename) as f:
-        data = json.load(f)
+        decoder = json.JSONDecoder(object_pairs_hook=parse_object_pairs)
+
+        data = decoder.decode(f.read())
 
         prev_ack = 0
         lost_packet = None
@@ -120,7 +142,7 @@ def analyze_pcap(filename: str) -> (dict, str):
                     prev_seq = bytes_seq
                 else:
                     num_lost += 1
-                    lost_packets[time] = bytes_seq
+                    # lost_packets[time] = bytes_seq
 
             # send packet
             else:
@@ -132,7 +154,27 @@ def analyze_pcap(filename: str) -> (dict, str):
                     continue
 
                 bytes_ack = int(tcp['tcp.ack']) / 1024
+
+                sack = tcp.get('tcp.options_tree', {}).get(
+                    'tcp.options.sack_tree', {})
+
+                if 'tcp.options.sack_le' in sack and 'tcp.options.sack_re' in sack:
+                    if int(sack['tcp.options.sack.count']) > 1:
+                        le = 0
+                        re = 0
+                        for k, v in sack.items():
+                            if k.count('tcp.options.sack_le') > 0:
+                                le = int(v)
+                            if k.count('tcp.options.sack_re') > 0:
+                                re = int(v)
+                                bytes_ack += (re - le) / 1024
+
+                    else:
+                        bytes_ack += (int(sack['tcp.options.sack_re']) -
+                                      int(sack['tcp.options.sack_le'])) / 1024
+
                 ack_ts[time] = bytes_ack
+
                 ack_packets_ts.append((time, bytes_ack))
                 window = int(tcp['tcp.window_size']) / 1024
                 window_updates[time] = window

@@ -157,14 +157,13 @@ def analyze_netlog(filename):
     return list(sorted(connections.values(), key=lambda x: x['start_time']))
 
 
-def plot(conns, graph_title):
-
-    fig, ax = plt.subplots(figsize=(10, 2.3))
+def plot(conns, graph_title, **kwargs):
+    fig, ax = plt.subplots(figsize=(10, 4))
 
     ax.set_xlabel('Total Size', fontsize=18, labelpad=10)
 
     for conn in conns:
-        if conn['host'] != 'blog.cloudflare.com':
+        if 'host' in kwargs and kwargs['host'] is not None and conn['host'] != kwargs['host']:
             continue
 
         streams = conn['streams']
@@ -174,12 +173,12 @@ def plot(conns, graph_title):
         all_streams = []
         for streams_list in streams.values():
             for stream in streams_list:
-                if len(stream['data']) == 1 or '301' in stream:
+                if len(stream['data']) <= 1 or '301' in stream:
                     continue
-                if stream['full_path'].count('png') == 0 \
-                        and stream['full_path'].count('gif') == 0 \
-                        and stream['full_path'].count('jpeg') == 0:
-                    continue
+                # if stream['full_path'].count('png') == 0 \
+                #         and stream['full_path'].count('gif') == 0 \
+                #         and stream['full_path'].count('jpeg') == 0:
+                #     continue
 
                 all_streams.append(stream)
                 all_frames += stream['data']
@@ -189,6 +188,8 @@ def plot(conns, graph_title):
 
         all_streams.sort(key=lambda x: x['start_time'])
         all_frames.sort(key=lambda x: x['frame'])
+
+        print(len(all_streams))
 
         min_req_data_time = math.inf
         max_req_data_time = -math.inf
@@ -202,25 +203,27 @@ def plot(conns, graph_title):
 
         colors = {}
 
-        for frame in all_frames:
-            size = frame['size']
-            full_path = frame['path']
+        # for frame in all_frames:
+        #     size = frame['size']
+        #     full_path = frame['path']
 
-            if full_path.count('image8-3.png') > 0:
-                color = 'red'
-            else:
-                if full_path in colors:
-                    color = colors[full_path]
-                else:
-                    color = COLORS.popleft()
-                    colors[full_path] = color
+        #     if full_path.count('image8-3.png') > 0:
+        #         color = 'red'
+        #     else:
+        #         if full_path in colors:
+        #             color = colors[full_path]
+        #         else:
+        #             color = "#%06x" % random.randint(0, 0xFFFFFF)
+        #             # color = COLORS.popleft()
+        #             colors[full_path] = color
 
-            plt.scatter([total_size / 1024], [0.3],
-                        color=color, marker='|', s=200, linewidth=4 if graph_title.count('h3') > 0 else 3)
+        #     plt.scatter([total_size / 1024], [0.3],
+        #                 color=color, marker='|', s=200, linewidth=4 if graph_title.count('h3') > 0 else 3)
 
-            total_size += size
+        #     total_size += size
 
         for stream in all_streams:
+            req_path = stream['full_path']
             req_data = stream['data']
             req_data_times = [x['time'] for x in req_data]
             req_data_frame_nos = [x['frame'] - min_frame for x in req_data]
@@ -232,17 +235,31 @@ def plot(conns, graph_title):
 
             # color = "#%06x" % random.randint(0, 0xFFFFFF)
 
-            if stream['full_path'].count('image8-3.png') > 0:
+            if req_path.count('image8-3.png') > 0:
                 start_time = stream['start_time']
                 end_time = max(req_data_times)
                 color = 'red'
             else:
-                color = COLORS.popleft()
+                if req_path in colors:
+                    color = colors[req_path]
+                else:
+                    color = "#%06x" % random.randint(0, 0xFFFFFF)
+                    # color = COLORS.popleft()
+                    colors[req_path] = color
 
-            # plt.scatter([req_start_time], [1], marker='o', s=100,
-            #             facecolors='none', edgecolors=color, linewidth=3)
-            # plt.scatter(req_data_times, [1] * len(req_data),
-            #             color=color, marker='|', s=100, linewidth=5)
+            if min(req_data_frame_nos) == 0:
+                y = 4
+            elif req_path.count('.css') > 0:
+                y = 3
+            elif req_path.count('.js') > 0:
+                y = 1
+            else:
+                y = 2
+
+            plt.scatter([stream['start_time']], [y], marker='o', s=100,
+                        facecolors='none', edgecolors=color, linewidth=3)
+            plt.scatter(req_data_times, [y] * len(req_data),
+                        color=color, marker='|', s=100, linewidth=5)
             # plt.scatter(req_data_frame_nos, [0.3] * len(req_data),
             #             color=color, marker='|', s=200, linewidth=4 if graph_title.count('h3') > 0 else 1.8)
 
@@ -258,10 +275,11 @@ def plot(conns, graph_title):
     # # Only show ticks on the bottom spines
     ax.xaxis.set_ticks_position('bottom')
 
-    plt.xlim(0, total_size / 1024)
-    plt.ylim(0, 1)
+    plt.xlim(0, 3000)
+    plt.ylim(0, 6)
     plt.yticks([])
     ax.set_yticklabels([])
+    ax.vlines(1853.219, 0, 4)
 
     legend = [
         mpatches.Patch(
@@ -285,16 +303,19 @@ def plot(conns, graph_title):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--netlog")
+    parser.add_argument("--host")
     parser.add_argument("--title")
 
     args = parser.parse_args()
 
     netlog = Path(args.netlog)
+    host = args.host
     title = args.title
 
     conns = analyze_netlog(str(netlog))
 
-    plot(conns, f'{title}_{"h3" if str(netlog).count("h3") > 0 else "h2"}')
+    plot(
+        conns, f'{title}_{"h3" if str(netlog).count("h3") > 0 else "h2"}', host=host)
 
 
 if __name__ == "__main__":

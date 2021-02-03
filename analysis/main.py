@@ -116,6 +116,30 @@ NETWORK_V2 = [
     },
     {
         'dirnames': [
+            'loss-0_delay-0_bw-10_multi_800x600',
+            'loss-0dot1_delay-0_bw-10_multi_800x600',
+            'loss-1_delay-0_bw-10_multi_800x600',
+        ],
+        'labels': [
+            '0%',
+            '0.1%',
+            '1%',
+        ],
+        'title': 'Loss_Multi_Interactive'
+    },
+    {
+        'dirnames': [
+            'loss-0_delay-50_bw-10_multi_800x600',
+            'loss-0_delay-100_bw-10_multi_800x600',
+        ],
+        'labels': [
+            '50ms',
+            '100ms',
+        ],
+        'title': 'Delay_Multi_Interactive'
+    },
+    {
+        'dirnames': [
             'revised_loss-0_delay-0_bw-10',
             'revised_loss-0dot1_delay-0_bw-10',
             'revised_loss-1_delay-0_bw-10',
@@ -377,9 +401,11 @@ def h2_vs_h3(timings: object):
             sizes = SINGLE_SIZES
 
         if title.count('PLT') > 0:
-            PLT = True
+            metric = 'plt'
+        elif title.count('Interactive') > 0:
+            metric = 'interactive'
         else:
-            PLT = False
+            metric = 'speed-index'
 
         for domain in DOMAINS:
 
@@ -411,9 +437,8 @@ def h2_vs_h3(timings: object):
                             #     # print("The null hypothesis cannot be rejected")
 
                             if size in MULTI_SIZES:
-                                metric = 'plt' if PLT else 'speed-index'
                                 median = np.median(
-                                    times[metric]) if metric in times else 1
+                                    list(filter(None, times[metric]))) if metric in times else 1
                             else:
                                 median = np.median(times)
 

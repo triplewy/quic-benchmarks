@@ -19,6 +19,7 @@ def analyze_pcap(filename: str) -> (dict, str):
     end_time = 0
     losses = []
 
+    rx_packets = 0
     rx_seq = set()
 
     with open(filename) as f:
@@ -32,6 +33,8 @@ def analyze_pcap(filename: str) -> (dict, str):
 
             # receive packet
             if srcport == '443':
+                rx_packets += 1
+
                 end_time = max(end_time, time)
 
                 bytes_seq = int(tcp['tcp.seq'])
@@ -48,8 +51,7 @@ def analyze_pcap(filename: str) -> (dict, str):
                     rx_seq.add(bytes_seq)
 
     losses.sort(key=lambda x: x['of'])
-    print(losses, len(losses) / len(rx_seq) * 100, filename)
-    return losses, end_time,
+    return losses, end_time, rx_packets
 
 
 def analyze_qlog(filename: str):
@@ -164,7 +166,7 @@ def plot(data, graph_title: str):
     formatter1 = StrMethodFormatter('{x:,g} kb')
     ax.xaxis.set_major_formatter(formatter1)
 
-    plt.ylim(900, 2000)
+    plt.ylim(800, 1800)
     plt.xticks(np.array([0, 100, 200, 300, 400]))
 
     fig.tight_layout()
@@ -202,7 +204,8 @@ def main():
         files.sort()
         for pcap in files:
             res = analyze_pcap(pcap)
-            data.append(res)
+            if len(res[0]) > 0:
+                data.append(res)
 
         plot(
             data, f'tcp-{args.title}-loss_analysis' if args.title is not None else None)
