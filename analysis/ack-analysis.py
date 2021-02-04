@@ -155,23 +155,23 @@ def analyze_pcap(filename: str) -> (dict, str):
 
                 bytes_ack = int(tcp['tcp.ack']) / 1024
 
-                sack = tcp.get('tcp.options_tree', {}).get(
-                    'tcp.options.sack_tree', {})
+                # sack = tcp.get('tcp.options_tree', {}).get(
+                #     'tcp.options.sack_tree', {})
 
-                if 'tcp.options.sack_le' in sack and 'tcp.options.sack_re' in sack:
-                    if int(sack['tcp.options.sack.count']) > 1:
-                        le = 0
-                        re = 0
-                        for k, v in sack.items():
-                            if k.count('tcp.options.sack_le') > 0:
-                                le = int(v)
-                            if k.count('tcp.options.sack_re') > 0:
-                                re = int(v)
-                                bytes_ack += (re - le) / 1024
+                # if 'tcp.options.sack_le' in sack and 'tcp.options.sack_re' in sack:
+                #     if int(sack['tcp.options.sack.count']) > 1:
+                #         le = 0
+                #         re = 0
+                #         for k, v in sack.items():
+                #             if k.count('tcp.options.sack_le') > 0:
+                #                 le = int(v)
+                #             if k.count('tcp.options.sack_re') > 0:
+                #                 re = int(v)
+                #                 bytes_ack += (re - le) / 1024
 
-                    else:
-                        bytes_ack += (int(sack['tcp.options.sack_re']) -
-                                      int(sack['tcp.options.sack_le'])) / 1024
+                #     else:
+                #         bytes_ack += (int(sack['tcp.options.sack_re']) -
+                #                       int(sack['tcp.options.sack_le'])) / 1024
 
                 ack_ts[time] = bytes_ack
 

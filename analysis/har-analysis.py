@@ -196,7 +196,6 @@ def main():
     resources_dict = {}
 
     for res in [h2_res[0], h3_res[0]]:
-        print(len(res))
         for entry in res:
             url = entry['request']['url']
             start_time = entry['_requestTime']
@@ -209,16 +208,29 @@ def main():
                 resources_dict[url] = {
                     'h2': {'start_time': start_time, 'end_time': start_time + elapsed_time}}
 
+    print(h2_res[2], h3_res[2])
+
+    total = 0
+    h3_fast = 0
+
     for k, v in resources_dict.items():
-        if 'h2' not in h2 or 'h3' not in h3:
+        if 'h2' not in v or 'h3' not in v:
             continue
 
         h2 = v['h2']
         h3 = v['h3']
 
-        if h3['end_time'] < h2['end_time']:
-            print(k)
+        # ignore if end time ends after plt
+        if h2['end_time'] > h2_res[2] or h3['end_time'] > h3_res[2]:
+            continue
 
+        if h3['end_time'] < h2['end_time']:
+            print(k, h2['end_time'], h3['end_time'])
+            h3_fast += 1
+
+        total += 1
+
+    print(f'{h3_fast} / {total}: {h3_fast / total * 100}')
     plot(h2_res, h3_res)
 
     # for name in ['chrome_h3.json']:
