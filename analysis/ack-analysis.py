@@ -46,6 +46,19 @@ def parse_object_pairs(pairs):
     return dct
 
 
+def merge(intervals):
+    intervals.sort()
+
+    result = []
+    for start, end in intervals:
+        if not result or start > result[-1][1]:
+            result.append([start, end])
+        elif end > result[-1][1]:
+            result[-1][1] = end
+
+    return result
+
+
 def analyze_pcap(filename: str) -> (dict, str):
     ack_ts = {}
     rx_ts = {}
@@ -72,11 +85,12 @@ def analyze_pcap(filename: str) -> (dict, str):
 
         data = decoder.decode(f.read())
 
-        prev_ack = 0
+        prev_ack = (0, None)
         lost_packet = None
         lost_time = None
         num_lost = 0
         start_data_time = None
+        sack_segs = []
 
         fin = False
         prev_seq = 0
@@ -155,23 +169,35 @@ def analyze_pcap(filename: str) -> (dict, str):
 
                 bytes_ack = int(tcp['tcp.ack']) / 1024
 
-                # sack = tcp.get('tcp.options_tree', {}).get(
-                #     'tcp.options.sack_tree', {})
+                sack = tcp.get('tcp.options_tree', {}).get(
+                    'tcp.options.sack_tree', {})
 
-                # if 'tcp.options.sack_le' in sack and 'tcp.options.sack_re' in sack:
-                #     if int(sack['tcp.options.sack.count']) > 1:
-                #         le = 0
-                #         re = 0
-                #         for k, v in sack.items():
-                #             if k.count('tcp.options.sack_le') > 0:
-                #                 le = int(v)
-                #             if k.count('tcp.options.sack_re') > 0:
-                #                 re = int(v)
-                #                 bytes_ack += (re - le) / 1024
+                if 'tcp.options.sack_le' in sack and 'tcp.options.sack_re' in sack:
+                    le = 0
+                    re = 0
+                    for k, v in sack.items():
+                        if k in {'tcp.option_kind', 'tcp.option_len', 'tcp.options.sack.count'}:
+                            continue
 
-                #     else:
-                #         bytes_ack += (int(sack['tcp.options.sack_re']) -
-                #                       int(sack['tcp.options.sack_le'])) / 1024
+                        if k.count('tcp.options.sack_le') > 0:
+                            le = int(v)
+                        elif k.count('tcp.options.sack_re') > 0:
+                            re = int(v)
+                            sack_segs.append([le, re])
+
+                    sack_segs = merge(sack_segs)
+
+                    added_segs = []
+                    bytes_ack_prev = bytes_ack * 1024
+                    for left, right in sack_segs:
+                        if right <= bytes_ack_prev:
+                            continue
+                        if bytes_ack_prev < left:
+                            added_segs.append([left / 1024, right / 1024])
+                            bytes_ack += (right - left) / 1024
+                        elif bytes_ack_prev < right:
+                            added_segs.append([bytes_ack / 1024, right / 1024])
+                            bytes_ack += (right - bytes_ack) / 1024
 
                 ack_ts[time] = bytes_ack
 
@@ -179,18 +205,7 @@ def analyze_pcap(filename: str) -> (dict, str):
                 window = int(tcp['tcp.window_size']) / 1024
                 window_updates[time] = window
                 max_stream_data[time] = bytes_ack + window
-
-                if bytes_ack == prev_ack and bytes_ack > 1:
-                    if lost_packet is None:
-                        lost_packet = (bytes_ack, window)
-                        lost_time = time
-                else:
-                    if lost_time and time - lost_time > 5:
-                        pass
-
-                    lost_time = None
-                    lost_packet = None
-                    prev_ack = bytes_ack
+                prev_ack = (bytes_ack, sack, time)
 
     return {
         'ack_ts': ack_ts,
@@ -523,7 +538,8 @@ def plot_ack(data, graph_title: str):
     # plt.xticks(np.array([0, 2000, 4000, 6000]))
     # plt.xticks(np.array([1000, 3000, 5000, 7000]))
     # plt.xticks(np.array([0, 800, 1600, 2400, 3200]))
-    plt.xticks(np.array([0, 200, 400, 600, 800]))
+    plt.xticks(np.array([0, 300, 600, 900, 1200]))
+    # plt.xticks(np.array([0, 250, 500, 750, 1000]))
     fig.tight_layout()
     plt.rcParams["legend.fontsize"] = 14
     plt.rcParams['legend.loc'] = 'upper left'

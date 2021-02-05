@@ -198,9 +198,9 @@ def run_subprocess(client: str, url: str, dirpath: str, i: int, log: bool) -> di
     if client.count('h2') > 0 and log:
         # tcpdump does not include network emulation stuff so info is not useful
         # Commenting below for now
-        ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
-        process = record_pcap(url_host)
-        # pass
+        # ENV['SSLKEYLOGFILE'] = Path.joinpath(TMP_DIR, 'sslkeylog')
+        # process = record_pcap(url_host)
+        pass
 
     start = datetime.datetime.now()
     output = subprocess.run(

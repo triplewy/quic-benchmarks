@@ -203,119 +203,198 @@ NETWORK_V2 = [
 
 
 def facebook_patch(timings: object, sizes):
-    domain = 'facebook'
-    before = 'loss-0_delay-100_bw-10'
-    after = 'loss-0_delay-101_bw-10'
+    for obj in [
+            {
+                'dirnames': ['loss-0_delay-50_bw-10', 'loss-0_delay-100_bw-10'],
+                'labels': ['50ms', '100ms'],
+                'title': 'Facebook_Patch_Before'
+            },
+            {
+                'dirnames': ['loss-0_delay-51_bw-10', 'loss-0_delay-101_bw-10'],
+                'labels': ['50ms', '100ms'],
+                'title': 'Facebook_Patch_After'
+            }
+    ]:
+        dirnames = obj['dirnames']
+        col_labels = obj['labels']
+        title = obj['title']
 
-    h2_vs_h3_data = [[], []]
-    h2_vs_h3_row_labels = ['before', 'after']
-    h2_vs_h3_col_labels = sizes
+        data = []
+        row_labels = []
 
-    for i, network in enumerate([before, after]):
-        data = h2_vs_h3_data[i]
+        for domain in ['facebook']:
 
-        for size in sizes:
+            for i, size in enumerate(sizes):
+                row_labels.append('{}/{}'.format(domain, size))
+                row_data = []
 
-            min_h3_median = math.inf
-            min_h3_client = None
+                for dirname in dirnames:
 
-            min_h2_median = math.inf
-            min_h2_client = None
+                    min_h3_median = math.inf
+                    min_h3_client = None
 
-            # get min_median
-            for client, times in timings[network][domain][size].items():
-                median = np.median(times)
+                    min_h2_median = math.inf
+                    min_h2_client = None
 
-                # h3 client
-                if client.count('h3') > 0:
-                    min_h3_median = min(min_h3_median, median)
-                    if min_h3_median == median:
-                        min_h3_client = client
-                # h2 client
-                else:
-                    min_h2_median = min(min_h2_median, median)
-                    if min_h2_median == median:
-                        min_h2_client = client
+                    if dirname in timings:
+                        for client, times in timings[dirname][domain][size].items():
 
-            diff = (min_h3_median - min_h2_median) / min_h2_median * 100
-            data.append(diff)
+                            median = np.median(times)
 
-    fig, ax = plt.subplots()
-    im, cbar = heatmap(
-        np.array(h2_vs_h3_data),
-        h2_vs_h3_row_labels,
-        h2_vs_h3_col_labels,
-        ax=ax,
-        cmap="bwr",
-        # cbarlabel="% Growth in PLT from H2 to H3",
-        vmin=-20,
-        vmax=20,
-        show_cbar=False,
-    )
-    annotate_heatmap(
-        im, valfmt="{x:.1f}%", threshold=5, fontsize=24, fontweight=600)
-    fig.tight_layout()
+                            # h3 client
+                            if client.count('h3') > 0:
+                                min_h3_median = min(min_h3_median, median)
+                                if min_h3_median == median:
+                                    min_h3_client = client
+                            # h2 client
+                            else:
+                                min_h2_median = min(min_h2_median, median)
+                                if min_h2_median == median:
+                                    min_h2_client = client
 
-    multiple = ''
-    if sizes == MULTI_SIZES:
-        multiple = '_multiple'
+                    diff = (min_h3_median - min_h2_median) / \
+                        min_h2_median * 100
+                    row_data.append(diff)
 
-    plt.savefig(
-        '{}/Desktop/graphs_revised/facebook_patch{}'.format(Path.home(), multiple), transparent=True)
+                data.append(row_data)
 
-    percent_diffs = []
+        print(title)
+        fig, ax = plt.subplots(figsize=(12, len(dirnames) + 1))
 
-    data = []
-    row_labels = []
-    col_labels = [x.split('_')[0] for x in CLIENTS if x.count('h3') > 0]
+        print(data)
+        im, cbar = heatmap(
+            np.transpose(data),
+            col_labels,
+            row_labels,
+            ax=ax,
+            cmap="bwr",
+            # cbarlabel="Percent difference",
+            vmin=-25,
+            vmax=25,
+            rotation=20,
+            # show_cbar=True if i == len(axs) - 1 else False,
+        )
+        annotate_heatmap(
+            im, valfmt="{x:.1f}%", threshold=5, fontsize=16, fontweight=600)
 
-    for i, size in enumerate(SINGLE_SIZES):
-        row_labels.append('{}/{}'.format(domain, size))
-        row_data = []
+        fig.tight_layout()
+        plt.savefig(Path.joinpath(
+            GRAPHS_PATH, f'H2vsH3_{title}'), transparent=True)
+        plt.close()
 
-        min_median = math.inf
-        min_client = None
+    # domain = 'facebook'
+    # before = 'loss-0_delay-100_bw-10'
+    # after = 'loss-0_delay-101_bw-10'
 
-        # get min_mean
-        for client, times in timings[network][domain][size].items():
-            if client.count('h2') > 0:
-                continue
+    # h2_vs_h3_data = [[], []]
+    # h2_vs_h3_row_labels = ['before', 'after']
+    # h2_vs_h3_col_labels = sizes
 
-            median = np.median(times)
+    # for i, network in enumerate([before, after]):
+    #     data = h2_vs_h3_data[i]
 
-            # h3 client
-            min_median = min(min_median, median)
-            if min_median == median:
-                min_client = client
+    #     for size in sizes:
 
-        for client in CLIENTS:
-            if client.count('h2') > 0:
-                continue
+    #         min_h3_median = math.inf
+    #         min_h3_client = None
 
-            times = timings[network][domain][size][client]
+    #         min_h2_median = math.inf
+    #         min_h2_client = None
 
-            median = np.median(times)
-            diff = (median - min_median) / min_median * 100
-            row_data.append(diff)
+    #         # get min_median
+    #         for client, times in timings[network][domain][size].items():
+    #             median = np.median(times)
 
-        data.append(row_data)
+    #             # h3 client
+    #             if client.count('h3') > 0:
+    #                 min_h3_median = min(min_h3_median, median)
+    #                 if min_h3_median == median:
+    #                     min_h3_client = client
+    #             # h2 client
+    #             else:
+    #                 min_h2_median = min(min_h2_median, median)
+    #                 if min_h2_median == median:
+    #                     min_h2_client = client
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    im, cbar = heatmap(
-        np.transpose(data),
-        col_labels,
-        row_labels,
-        ax=ax,
-        cmap="Reds",
-        # cbarlabel="Percent difference",
-        vmin=0,
-        vmax=30,
-        rotation=20,
-        show_cbar=True,
-    )
-    fig.tight_layout()
-    plt.savefig(
-        '{}/Desktop/graphs_revised/H3_facebook_patch'.format(Path.home()), transparent=True)
+    #         diff = (min_h3_median - min_h2_median) / min_h2_median * 100
+    #         data.append(diff)
+
+    # fig, ax = plt.subplots()
+    # im, cbar = heatmap(
+    #     np.array(h2_vs_h3_data),
+    #     h2_vs_h3_row_labels,
+    #     h2_vs_h3_col_labels,
+    #     ax=ax,
+    #     cmap="bwr",
+    #     # cbarlabel="% Growth in PLT from H2 to H3",
+    #     vmin=-20,
+    #     vmax=20,
+    #     show_cbar=False,
+    # )
+    # annotate_heatmap(
+    #     im, valfmt="{x:.1f}%", threshold=5, fontsize=24, fontweight=600)
+    # fig.tight_layout()
+
+    # multiple = ''
+    # if sizes == MULTI_SIZES:
+    #     multiple = '_multiple'
+
+    # plt.savefig(
+    #     '{}/Desktop/graphs_revised/facebook_patch{}'.format(Path.home(), multiple), transparent=True)
+
+    # percent_diffs = []
+
+    # data = []
+    # row_labels = []
+    # col_labels = [x.split('_')[0] for x in CLIENTS if x.count('h3') > 0]
+
+    # for i, size in enumerate(SINGLE_SIZES):
+    #     row_labels.append('{}/{}'.format(domain, size))
+    #     row_data = []
+
+    #     min_median = math.inf
+    #     min_client = None
+
+    #     # get min_mean
+    #     for client, times in timings[network][domain][size].items():
+    #         if client.count('h2') > 0:
+    #             continue
+
+    #         median = np.median(times)
+
+    #         # h3 client
+    #         min_median = min(min_median, median)
+    #         if min_median == median:
+    #             min_client = client
+
+    #     for client in CLIENTS:
+    #         if client.count('h2') > 0:
+    #             continue
+
+    #         times = timings[network][domain][size][client]
+
+    #         median = np.median(times)
+    #         diff = (median - min_median) / min_median * 100
+    #         row_data.append(diff)
+
+    #     data.append(row_data)
+
+    # fig, ax = plt.subplots(figsize=(10, 5))
+    # im, cbar = heatmap(
+    #     np.transpose(data),
+    #     col_labels,
+    #     row_labels,
+    #     ax=ax,
+    #     cmap="Reds",
+    #     # cbarlabel="Percent difference",
+    #     vmin=0,
+    #     vmax=30,
+    #     rotation=20,
+    #     show_cbar=True,
+    # )
+    # fig.tight_layout()
+    # plt.savefig(
+    #     '{}/Desktop/graphs_revised/H3_facebook_patch'.format(Path.home()), transparent=True)
 
 
 def client_consistency(timings: object):
@@ -663,10 +742,10 @@ def main():
 
         timings[dirname] = temp
 
-    # facebook_patch(timings, SINGLE_SIZES)
+    facebook_patch(timings, SINGLE_SIZES)
     # facebook_patch(timings, MULTI_SIZES)
-    h2_vs_h3(timings)
-    client_consistency(timings)
+    # h2_vs_h3(timings)
+    # client_consistency(timings)
     # client_consistency_proxygen(timings)
 
 
