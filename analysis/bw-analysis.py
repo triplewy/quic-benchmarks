@@ -11,17 +11,6 @@ from collections import deque
 from pathlib import Path
 from glob import glob
 
-BLUE = deque(['blue', '#7CDCED', '#0000FF', '#0000B3', '#0081B3',
-              '#14293D', '#A7DFE2', '#8ED9CD'])
-RED = deque(['red', '#FF0000', '#950000', '#FF005A',
-             '#A9385A', '#C95DB4', 'orange'])
-GREEN = deque(['green', '#00FF00', '#008D00', '#005300',
-               '#00FF72', '#76FF00', '#24A547'])
-ORANGE = deque(['#FF8100', '#FFA700', '#FF6D26'])
-YELLOW = deque(['#FFFF00', '#DCFF20', '#DCC05A'])
-
-COLORS = deque(['#0000FF', '#FF0000', '#00FF00', '#FF8100', ])
-
 LINE = 10
 
 
@@ -125,9 +114,9 @@ def analyze_qlog(filename):
 
 
 def plot_ack(data, title):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    # plt.ylabel('Server estimated bandwidth', fontsize=18, labelpad=15)
-    plt.ylabel('Data sent', fontsize=18, labelpad=15)
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+    plt.ylabel('Server estimated bandwidth', fontsize=18, labelpad=15)
+    # plt.ylabel('Data sent', fontsize=18, labelpad=15)
     plt.xlabel('Time elapsed', fontsize=18, labelpad=15)
     # plt.title(graph_title)
 
@@ -143,32 +132,21 @@ def plot_ack(data, title):
         cwnd_updates = obj['cwnd_updates']
         bytes_in_flight = obj['bytes_in_flight']
 
-        if name.count('chrome_h3') > 0:
-            color = RED.popleft()
+        if name.count('chrome') > 0:
+            color = 'red'
             name = 'Chrome H3'
-        elif name.count('proxygen_h3') > 0:
-            color = BLUE.popleft()
+        elif name.count('proxygen') > 0:
+            color = 'blue'
             name = 'Proxygen H3'
-            continue
         else:
-            color = GREEN.popleft()
+            color = 'green'
             name = 'Ngtcp2 H3'
 
         legend.append(mpatches.Patch(color=color, label=name))
 
-        # plt.plot(
-        #     [x[0] for x in bw_ts.items()],
-        #     [x[1] / 1024 for x in bw_ts.items()],
-        #     color=color,
-        #     marker='o',
-        #     linestyle='-',
-        #     linewidth=1,
-        #     markersize=4,
-        # )
-
         plt.plot(
-            [x[0] for x in data_sent],
-            [x[1] / 1024 for x in data_sent],
+            [x[0] for x in bw_ts.items()],
+            [x[1] / 1024 for x in bw_ts.items()],
             color=color,
             marker='o',
             linestyle='-',
@@ -176,15 +154,25 @@ def plot_ack(data, title):
             markersize=4,
         )
 
-        plt.plot(
-            [x[0] for x in cwnd_updates],
-            [x[1] / 1024 for x in cwnd_updates],
-            color='red',
-            marker='o',
-            linestyle='-',
-            linewidth=1,
-            markersize=4,
-        )
+        # plt.plot(
+        #     [x[0] for x in data_sent],
+        #     [x[1] / 1024 for x in data_sent],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
+
+        # plt.plot(
+        #     [x[0] for x in cwnd_updates],
+        #     [x[1] / 1024 for x in cwnd_updates],
+        #     color=color,
+        #     marker='o',
+        #     linestyle='-',
+        #     linewidth=1,
+        #     markersize=4,
+        # )
 
         # plt.plot(
         #     [x[0] for x in bytes_in_flight],
@@ -208,9 +196,7 @@ def plot_ack(data, title):
 
     # plt.yticks(np.array([0, 250, 500, 750, 1000]))
     # plt.xticks(np.array([0, 500, 1000, 1500, 2000]))
-    # plt.xlim(0, 6000)
-    # plt.ylim(0, 100)
-    plt.legend(handles=legend, prop={'size': 12})
+    plt.legend(handles=legend, prop={'size': 14})
     fig.tight_layout()
     plt.savefig(
         '{}/Desktop/graphs/{}'.format(Path.home(), title), transparent=True)
@@ -232,8 +218,10 @@ def main():
     files.sort()
 
     for qlog in files:
-        if qlog != 'local/LTE/server/ngtcp2_h3/ngtcp2_h3_1.qlog' and qlog != 'local/LTE/server/proxygen_h3/proxygen_h3_2.qlog':
+        if qlog.count('server') == 0:
             continue
+        # if qlog != 'local/LTE/server/ngtcp2_h3/ngtcp2_h3_1.qlog' and qlog != 'local/LTE/server/proxygen_h3/proxygen_h3_2.qlog':
+        #     continue
 
         res = analyze_qlog(qlog)
         if res is not None:

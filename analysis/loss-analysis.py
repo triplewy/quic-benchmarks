@@ -166,7 +166,8 @@ def plot(data, graph_title: str):
     formatter1 = StrMethodFormatter('{x:,g} kb')
     ax.xaxis.set_major_formatter(formatter1)
 
-    plt.ylim(800, 1800)
+    plt.ylim(800, 3000)
+    plt.xlim(-20, 400)
     plt.xticks(np.array([0, 100, 200, 300, 400]))
 
     fig.tight_layout()

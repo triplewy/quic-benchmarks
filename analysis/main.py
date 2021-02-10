@@ -259,7 +259,7 @@ def facebook_patch(timings: object, sizes):
                 data.append(row_data)
 
         print(title)
-        fig, ax = plt.subplots(figsize=(12, len(dirnames) + 1))
+        fig, ax = plt.subplots(figsize=(4, len(dirnames) + 1))
 
         print(data)
         im, cbar = heatmap(
