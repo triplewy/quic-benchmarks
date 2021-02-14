@@ -13,13 +13,16 @@
     },
     "iterations": {
         "description": "Number of iterations to run for each (network condition, endpoint, client) tuple",
-        "value": 1
+        "value": 40
     },
-    "domains": [
-        "google",
-        "facebook",
-        "cloudflare"
-    ],
+    "domains": {
+        "description": "Domains to benchmark which are found in `endpoints.json`",
+        "value": [
+            "google",
+            "facebook",
+            "cloudflare"
+        ]
+    },
     "sizes": {
         "single": [
             "100KB",

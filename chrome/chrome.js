@@ -67,7 +67,7 @@ Object.values(DIRS).forEach((dir) => {
     fs.mkdirSync(dir, { recursive: true });
 })
 
-const DOMAINS = CONFIG.domains;
+const DOMAINS = CONFIG.domains.value;
 const SINGLE_SIZES = CONFIG.sizes.single;
 const MULTI_SIZES = CONFIG.sizes.multi;
 

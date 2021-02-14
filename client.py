@@ -58,7 +58,7 @@ TMP_QLOG.mkdir(parents=True, exist_ok=True)
 TMP_PCAP = Path.joinpath(TMP_DIR, 'pcap')
 TMP_PCAP.mkdir(parents=True, exist_ok=True)
 
-DOMAINS = CONFIG['domains']
+DOMAINS = CONFIG['domains']['value']
 SIZES = CONFIG['sizes']['single']
 ENV = os.environ.copy()
 

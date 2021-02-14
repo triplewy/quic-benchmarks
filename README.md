@@ -25,33 +25,24 @@ In order to use these clients, you can build them locally or use Docker images, 
 ### Building Locally
 
 1. Download and build Proxygen, Ngtcp2, and cURL clients. You do not need to build Chrome.
-2. Once you have these clients installed, modify `config.json` with their respective paths. You will notice in `config.json` that the paths are currently from my machine.
+2. Once you have these clients installed, modify `local.json` with their respective paths. You will notice in `local.json` that the paths are currently from my machine.
 3. For Chrome, we use Puppeteer which automatically downloads Chrome in node_modules. So you will need Node.js to run `npm install` in the `./chrome` directory.
 4. Now that you have all clients setup, you will need Python 3 to run our benchmarking script.
 5. Run `pip3 install -r requirements.txt` to download Python depedencies for our benchmarking script.
 
-### Docker
+### Docker (In Progress)
+
+1. You will need Python 3 to run our benchmarking script, which automatically downloads the necessary Docker images. These Docker images are described in `docker.json` 
+2. Run `pip3 install -r requirements.txt` to download Python depedencies for our benchmarking script.
+3. In `config.json`, modify the value of the `local` key to be `false`.
+
 
 ## Usage
 
 ```
- ./benchmark.sh [url] -d [results dir] -n [iterations] [-s]
+ ./run_benchmark.sh [dir]
 
- [url]            - URL to benchmark
- -d [results dir] - Directory path to store results
- -n [iterations]  - Number of iterations to run
- [-s]             - Toggle signifying whether benchmarked URL is a 
-                    single-object web resource or full web-page 
+ [dir] - Directory path to store results
 ```
 
-By default, the amount of benchmark iterations is 10. 
-
-## Network Environments
-
-10 MB bandwidth: `sudo tc qdisc add dev eth0 root tbf rate 10mbps`
-
-100 ms delay: `sudo tc qdisc add dev eth0 root netem delay 100ms`
-
-Burst loss: `sudo tc qdisc change dev eth0 root netem loss 0.3% 25%`
-
-Clean up: `sudo tc qdisc del dev eth0 root`
+Our benchmarking configuration is found in `config.json`. Each key in our config has a description which describes its purpose.
