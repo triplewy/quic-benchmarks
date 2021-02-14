@@ -14,21 +14,6 @@
         "--path={path}",
         "--v=0"
     ],
-    "proxygen_ack_h3": [
-        "/Users/alexyu/proxygen-clone/proxygen/_build/proxygen/httpserver/hq_ack",
-        "--log_response=false",
-        "--mode=client",
-        "--stream_flow_control=6291456",
-        "--conn_flow_control=15728640",
-        "--use_draft=true",
-        "--draft-version=29",
-        "--logdir=''",
-        "--qlogger_path={qlog_dir}",
-        "--host={host}",
-        "--port={port}",
-        "--path={path}",
-        "--v=0"
-    ],
     "ngtcp2_h3": [
         "/Users/alexyu/ngtcp2/examples/client",
         "--quiet",

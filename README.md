@@ -1,54 +1,36 @@
 # QUIC Benchmarks
 
-This repository is a set of tools to benchmark, compare, and analyze QUIC and TCP performance of production endpoints. So far, we have used this tool on endpoints from **Google**, **Facebook**, and **Cloudflare** which are detailed in `endpoints.json`. Below are some sample results between QUIC and TCP:
+This repository is a set of tools to benchmark, compare, and analyze QUIC and TCP performance of production endpoints. So far, we have used this tool on endpoints from **Google**, **Facebook**, and **Cloudflare** which are detailed in `endpoints.json`.
 
-### QUIC vs TCP
+The general workflow for our benchmark comprises of the below steps:
 
-*Various heatmaps showcasing QUIC versus TCP performance for single-object web resources. Red represents worse H3 performance as it indicates an increase in TTLB from H2 and H3 and vice versa. The number in each cell shows the exact percent difference in TTLB from H2 to H3.*
+1. Use various QUIC and TCP clients to send requests to production endpoints
+2. Gather logs and metrics from these requests in various formats
+3. Create visualizations from these metrics and logs 
 
-#### Extra Loss
+## Clients
 
-Google | Facebook | Cloudflare
-:-: | :-: | :-:
-![google_extra_loss](./static/Google_Extra_Loss.png) | ![facebook_extra_loss](./static/Facebook_Extra_Loss.png) | ![cloudflare_extra_loss](./static/Cloudflare_Extra_Loss.png)
+- QUIC (HTTP/3)
+  - Google Chrome
+  - Facebook Proxygen
+  - Ngtcp2
+- TCP (HTTP/2)
+  - Google Chrome
+  - cURL
 
-#### Extra Delay
+In order to use these clients, you can build them locally or use Docker images, which we automatically download with our tool.
 
-Google | Facebook | Cloudflare
-:-: | :-: | :-:
-![google_extra_delay](./static/Google_Extra_Delay.png) | ![facebook_extra_delay](./static/Facebook_Extra_Delay.png) | ![cloudflare_extra_delay](./static/Cloudflare_Extra_Delay.png)
+## Setup
 
-Some significant findings from these graphs are: 
-- QUIC performs **better** than TCP for 100kb payloads
-- QUIC performs **worse** than TCP against Cloudflare endpoints during high loss rates
-- QUIC performs **worse** than TCP against Facebook endpoints during high latency
-- QUIC performs **better** than TCP against Google endpoints during high latency
+### Building Locally
 
-### QUIC Client Comparison
+1. Download and build Proxygen, Ngtcp2, and cURL clients. You do not need to build Chrome.
+2. Once you have these clients installed, modify `config.json` with their respective paths. You will notice in `config.json` that the paths are currently from my machine.
+3. For Chrome, we use Puppeteer which automatically downloads Chrome in node_modules. So you will need Node.js to run `npm install` in the `./chrome` directory.
+4. Now that you have all clients setup, you will need Python 3 to run our benchmarking script.
+5. Run `pip3 install -r requirements.txt` to download Python depedencies for our benchmarking script.
 
-*Various heatmaps comparing QUIC performance across different clients. The tick marks on the colorbar represent percent differences in mean TTLB from the best performing H3 client. As such, 0% is the best value a client can achieve and the darker the color, the worse the performance.*
-
-1% Extra Loss | 100ms Extra Delay
-:-: | :-:
-![h3_extra_loss](./static/H3_1_Loss.png) | ![h3_extra_loss](./static/H3_100_Delay.png)
-
-Some significant findings from these graphs are: 
-- Ngtcp2 performs **signficiantly better** than other QUIC clients against Facebook endpoints during high latency
-- Chrome performs **worse** than other QUIC clients for 100kb payloads
-- Generally, QUIC clients have **equivalent** performance for most network and payload combinations
-
-### ACK Analysis
-
-*Red represents Chrome H2 and blue represents Chrome H3. Each dot in the graph represents an ACK packet/frame sent from the client.*
-
-Google 1% loss 1mb | Cloudflare 1% loss 1mb | Google 100ms delay 100kb | Facebook 100ms delay 100kb
-:-: | :-: | :-: | :-:
-![google_loss_1](./static/google_loss-1.png) | ![cloudflare_loss_1](./static/cloudflare_loss-1.png) | ![google_delay_100](./static/google_delay-100.png) | ![facebook_delay_100](./static/facebook_delay-100.png)
-
-Some significant findings from these graphs are: 
-- For Cloudflare endpoints during high loss, QUIC's throughput is less than TCP's but becomes equivalent later on
-- For Facebook endpoints during high latency, QUIC traffic is sent in bursts whereas it is smooth for TCP
-
+### Docker
 
 ## Usage
 
@@ -63,10 +45,6 @@ Some significant findings from these graphs are:
 ```
 
 By default, the amount of benchmark iterations is 10. 
-
-## Setup
-
-You should have Docker and Python 3 installed. With those, you can then simply run `./benchmark.sh`
 
 ## Network Environments
 

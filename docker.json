@@ -9,6 +9,7 @@
             "--conn_flow_control=15728640",
             "--use_draft=true",
             "--draft-version=29",
+            "--logdir=''",
             "--qlogger_path=/logs",
             "--host={host}",
             "--port={port}",

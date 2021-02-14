@@ -13,7 +13,7 @@
     },
     "iterations": {
         "description": "Number of iterations to run for each (network condition, endpoint, client) tuple",
-        "value": 40
+        "value": 1
     },
     "domains": [
         "google",
